@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.26  2005-02-03 11:32:11  vfrolov
- * Fixed MSVC compile warnings
+ * Revision 1.27  2005-02-10 10:35:18  vfrolov
+ * Fixed AT prefix searching
+ *
+ * Revision 1.27  2005/02/10 10:35:18  vfrolov
+ * Fixed AT prefix searching
  *
  * Revision 1.26  2005/02/03 11:32:11  vfrolov
  * Fixed MSVC compile warnings
@@ -936,16 +939,39 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, BOOL &o
 
 void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 {
-  if (!(cmd.Left(2) *= "AT")) {
-    myPTRACE(1, "--> " << cmd.GetLength() << " bytes of binary");
-    return;
+
+  PINDEX i;
+
+  for (i = 0 ;  ; i++) {
+    i = cmd.FindOneOf("Aa", i);
+
+    if (i == P_MAX_INDEX) {
+      myPTRACE(1, "--> " << cmd.GetLength() << " bytes of binary");
+      return;
+    }
+
+    PString at = cmd.Mid(i, 2);
+
+    if (at == "AT" || at == "at")
+      break;
   }
 
-  myPTRACE(1, "--> " << cmd);
+  if (i) {
+    PBYTEArray bin((const BYTE *)(const char *)cmd, i);
 
-  PString ucmd = cmd.ToUpper();
-  const char * pCmd = ucmd;
-  pCmd += 2;
+    myPTRACE(1, "--> " << PRTHEX(bin));
+  }
+
+  const char *pCmd;
+
+  pCmd = ((const char *)cmd) + i;
+
+  myPTRACE(1, "--> " << pCmd);
+
+  pCmd += 2;  // skip AT
+
+  PString ucmd = PString(pCmd).ToUpper();
+  pCmd = ucmd;
 
   BOOL err = FALSE;
   BOOL ok = TRUE;
