@@ -1,16 +1,16 @@
 /*
- * $Id: ReadMe.txt,v 1.2 2002-01-01 23:11:49 craigs Exp $
+ * $Id: ReadMe.txt,v 1.3 2002-01-09 16:01:03 rogerh Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: ReadMe.txt,v $
- * Revision 1.2  2002-01-01 23:11:49  craigs
- * New version from Vyacheslav Frolov
- * Removed references to unneeded OpenH323 patches
- * Removed reference to -k and -m options in usage
- * Change to use -route option
+ * Revision 1.3  2002-01-09 16:01:03  rogerh
+ * Executable is called t38modem
+ *
+ * Revision 1.3  2002/01/09 16:01:03  rogerh
+ * Executable is called t38modem
  *
  * Revision 1.2  2002/01/01 23:11:49  craigs
  * New version from Vyacheslav Frolov
@@ -34,7 +34,7 @@ $ make both
 2.1. Starting
 -------------
 
-$ ./obj_linux_x86_d/pmodem -n -o trace.log -f -p ttyx0,ttyx1 --route 0@127.0.0.1 --route all@172.16.33.21
+$ ./obj_linux_x86_d/t38modem -n -o trace.log -f -p ttyx0,ttyx1 --route 0@127.0.0.1 --route all@172.16.33.21
 
 Creates two modems /dev/ttyx0 and /dev/ttyx1
 If dialed number begins with '0' then it will be routed to local host ('0' will be discarded).

@@ -626,7 +626,7 @@ BOOL AudioRead::Read(void * buffer, PINDEX amount)
     return FALSE;
 
   if (!triggered && conn.ForceT38Mode() && conn.HadAnsweredCall()) {
-    conn.RequestModeChange();
+    conn.RequestModeChangeT38();
     triggered = TRUE;
   }
 
