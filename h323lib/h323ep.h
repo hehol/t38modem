@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,19 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.5  2002-02-12 11:25:29  vfrolov
- * Removed obsoleted code
+ * Revision 1.6  2002-03-01 09:45:11  vfrolov
+ * Added Copyright header
+ * Added sending "established" command on connection established
+ * Implemented mode change on receiving "requestmode" command
+ * Added setting lastReadCount
+ * Added some other changes
+ *
+ * Revision 1.6  2002/03/01 09:45:11  vfrolov
+ * Added Copyright header
+ * Added sending "established" command on connection established
+ * Implemented mode change on receiving "requestmode" command
+ * Added setting lastReadCount
+ * Added some other changes
  *
  * Revision 1.5  2002/02/12 11:25:29  vfrolov
  * Removed obsoleted code
@@ -70,11 +83,9 @@ class MyH323EndPoint : public H323EndPoint
 
     // overrides from H323EndPoint
     virtual H323Connection * CreateConnection(unsigned callReference);
-    BOOL OnIncomingCall(H323Connection &, const H323SignalPDU &, H323SignalPDU &);
 
     // new functions
     BOOL Initialise(PConfigArgs & args);
-    void OnConnectionEstablished(H323Connection &, const PString &);
 
     BOOL ForceT38Mode() const { return forceT38Mode; }
     PseudoModem * PMAlloc() const;
@@ -105,6 +116,7 @@ class MyH323Connection : public H323Connection
 
     // overrides from H323Connection
     AnswerCallResponse OnAnswerCall(const PString &, const H323SignalPDU &, H323SignalPDU &);
+    void OnEstablished();
     BOOL OnStartLogicalChannel(H323Channel & channel);
     void OnClosedLogicalChannel(const H323Channel & channel);
 
@@ -117,7 +129,6 @@ class MyH323Connection : public H323Connection
     
     PseudoModem *pmodem;
     OpalT38Protocol *t38handler;
-    PMutex T38Mutex;
     
     PMutex  connMutex;
 
@@ -157,8 +168,6 @@ class AudioRead : public PChannel
     BOOL closed;
     AudioDelay delay;
     PMutex Mutex;
-
-    BOOL triggered;
 };
 
 class AudioWrite : public PChannel
@@ -167,7 +176,6 @@ class AudioWrite : public PChannel
 
   public:
     AudioWrite(MyH323Connection & conn);
-
     BOOL Write(const void * buf, PINDEX len);
     BOOL Close();
 

@@ -3,6 +3,8 @@
  *
  * T38Modem simulator - main program
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,19 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.13  2002-02-12 11:25:23  vfrolov
- * Removed obsoleted code
+ * Revision 1.14  2002-03-01 09:45:03  vfrolov
+ * Added Copyright header
+ * Added sending "established" command on connection established
+ * Implemented mode change on receiving "requestmode" command
+ * Added setting lastReadCount
+ * Added some other changes
+ *
+ * Revision 1.14  2002/03/01 09:45:03  vfrolov
+ * Added Copyright header
+ * Added sending "established" command on connection established
+ * Implemented mode change on receiving "requestmode" command
+ * Added setting lastReadCount
+ * Added some other changes
  *
  * Revision 1.13  2002/02/12 11:25:23  vfrolov
  * Removed obsoleted code
@@ -214,10 +227,12 @@ MyH323EndPoint::MyH323EndPoint()
 
 void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
 {
-  myPTRACE(1, "MyH323EndPoint::OnMyCallback " << from.GetClass() << " " << extra);
   if (from.IsDescendant(PStringToString::Class()) ) {
     PStringToString &request = (PStringToString &)from;
     PString command = request("command");
+
+    myPTRACE(1, "MyH323EndPoint::OnMyCallback command=" << command << " extra=" << extra);
+
     PString modemToken = request("modemtoken");
     PString response = "reject";
   
@@ -290,6 +305,28 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
         _conn->Unlock();
         response = "confirm";
       }
+    } else if( command == "requestmode" ) {
+      PString callToken = request("calltoken");
+      H323Connection * _conn = FindConnectionWithLock(callToken);
+      if( _conn != NULL ) {
+        PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
+        MyH323Connection *conn = (MyH323Connection *)_conn;
+        if (conn->ForceT38Mode() && conn->HadAnsweredCall()) {
+          if (request("mode") == "fax") {
+            if (conn->RequestModeChangeT38()) {
+              PTRACE(2, "MyH323EndPoint::OnMyCallback RequestMode T38 - OK");
+              response = "confirm";
+            } else {
+              PTRACE(2, "MyH323EndPoint::OnMyCallback RequestMode T38 - fail");
+            }
+          } else {
+            PTRACE(2, "MyH323EndPoint::OnMyCallback unknown mode");
+          }
+        } else {
+          response = "confirm";
+        }
+        _conn->Unlock();
+      }
     } else if( command == "clearcall" ) {
       PString callToken = request("calltoken");
       if( ClearCall(callToken) ) {
@@ -299,23 +336,9 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
     request.SetAt("response", response);
     
     myPTRACE(1, "MyH323EndPoint::OnMyCallback request={\n" << request << "}");
+  } else {
+    myPTRACE(1, "MyH323EndPoint::OnMyCallback unknown class " << from.GetClass() << " extra=" << extra);
   }
-}
-
-BOOL MyH323EndPoint::OnIncomingCall(H323Connection & /*_conn*/,
-                                    const H323SignalPDU & setupPDU,
-                                    H323SignalPDU &)
-{
-  PTRACE(1, "MyH323EndPoint::OnIncomingCall");
-  /*{
-    PStringStream s;
-    s << "DumpStatistics {\n";
-    PMemoryHeap::DumpStatistics(s);
-    s << " }\n";
-    PTRACE(1, "MyH323EndPoint::OnIncomingCall " << s);
-  } // */
-
-  return TRUE;
 }
 
 H323Connection * MyH323EndPoint::CreateConnection(unsigned callReference)
@@ -401,19 +424,6 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
   return TRUE;
 }
 
-void MyH323EndPoint::OnConnectionEstablished(H323Connection & /*connection*/,
-                                                const PString & /*token*/)
-{
-  PTRACE(2, "MyH323EndPoint::OnConnectionEstablished");
-
-  /* it's does not work here :(
-  
-  if( ForceT38Mode() && connection.HadAnsweredCall() ) {
-    connection.RequestModeChangeT38();
-  }
-  */
-}
-
 ///////////////////////////////////////////////////////////////
 
 MyH323Connection::MyH323Connection(MyH323EndPoint & _ep, unsigned callReference)
@@ -453,8 +463,21 @@ MyH323Connection::~MyH323Connection()
     delete audioRead;
 }
 
+void MyH323Connection::OnEstablished()
+{
+  PAssert(pmodem != NULL, "pmodem is NULL");
+  PStringToString request;
+  request.SetAt("command", "established");
+  request.SetAt("calltoken", GetCallToken());
+  if( !pmodem->Request(request) ) {
+    myPTRACE(1, "MyH323Connection::OnEstablished error request={\n" << request << "}");
+  }
+}
+
 BOOL MyH323Connection::Attach(PseudoModem *_pmodem)
 {
+  PWaitAndSignal mutex(connMutex);
+
   if( pmodem != NULL )
     return FALSE;
   pmodem = _pmodem;
@@ -467,7 +490,7 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler() const
 
   PAssert(pmodem != NULL, "pmodem is NULL");
 
-  PWaitAndSignal mutexWait(T38Mutex);
+  PWaitAndSignal mutex(connMutex);
   /*
    * we can't have more then one t38handler per connection
    * at the same time and we should delete it on connection clean
@@ -500,10 +523,16 @@ H323Connection::AnswerCallResponse
     PTRACE(1, "To: " << number);
 }
 
-  pmodem = ep.PMAlloc();
+  PseudoModem *_pmodem = ep.PMAlloc();
 
-  if(pmodem == NULL) {
+  if (_pmodem == NULL) {
     myPTRACE(1, "... denied (all modems busy)");
+    return AnswerCallDenied;
+  }
+  
+  if (!Attach(_pmodem)) {
+    myPTRACE(1, "... denied (internal error)");
+    ep.PMFree(pmodem);
     return AnswerCallDenied;
   }
   
@@ -535,13 +564,9 @@ H323Connection::AnswerCallResponse
   PString response = request("response");
 
   if( response == "confirm" ) {
-    PString answer = request("answer");
-    if( answer == "pending" ) {
-      myPTRACE(1, "... Ok (AnswerCallPending)");
-      return AnswerCallPending;
-    }
-    myPTRACE(1, "... Ok (AnswerCallNow)");
-    return AnswerCallNow;
+    AnswerCallResponse resp = AnswerCallPending;
+    myPTRACE(1, "... Ok " << resp);
+    return resp;
   }
 
   myPTRACE(1, "... denied (no confirm)");
@@ -617,36 +642,27 @@ BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize 
 AudioRead::AudioRead(MyH323Connection & _conn)
   : conn(_conn), closed(FALSE)
 {
-  triggered = FALSE;
 }
 
 BOOL AudioRead::Read(void * buffer, PINDEX amount)
 {
   PWaitAndSignal mutex(Mutex);
 
-  // if the channel is closed, then return error
   if (closed)
     return FALSE;
-
-  if (!triggered && conn.ForceT38Mode() && conn.HadAnsweredCall()) {
-    if( !conn.RequestModeChangeT38() ) {
-      PTRACE(2, "AudioRead::Read RequestMode T38 - fail");
-    } else {
-      PTRACE(2, "AudioRead::Read RequestMode T38 - OK");
-    }
-    triggered = TRUE;
-  }
 
   memset(buffer, 0, amount);
 
   delay.Delay(amount/16);
 
+  lastReadCount = amount;
   return TRUE;
 }
 
 BOOL AudioRead::Close()
 {
   PWaitAndSignal mutex(Mutex);
+  
   closed = TRUE;
   return TRUE;
 }
@@ -658,23 +674,23 @@ AudioWrite::AudioWrite(MyH323Connection & _conn)
 {
 }
 
+BOOL AudioWrite::Write(const void * /*buffer*/, PINDEX len)
+{
+  PWaitAndSignal mutex(Mutex);
+
+  if (closed)
+    return FALSE;
+
+  delay.Delay(len/16);
+
+  return TRUE;
+}
+
 BOOL AudioWrite::Close()
 {
   PWaitAndSignal mutex(Mutex);
 
   closed = TRUE;
-  return TRUE;
-}
-
-BOOL AudioWrite::Write(const void * buf, PINDEX len)
-{
-  // Wait for the mutex, and Signal it at the end of this function
-  PWaitAndSignal mutex(Mutex);
-
-  if (closed)
-    return FALSE;
-    
-  delay.Delay(len/16);
   return TRUE;
 }
 
