@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2003 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.14  2003-04-07 06:52:46  vfrolov
- * Fixed --save option
+ * Revision 1.15  2003-12-19 15:25:27  vfrolov
+ * Removed class AudioDelay (utilized PAdaptiveDelay)
+ * Renamed pmodemQ to pmodem_pool
+ * Fixed modem loss on no route
+ *
+ * Revision 1.15  2003/12/19 15:25:27  vfrolov
+ * Removed class AudioDelay (utilized PAdaptiveDelay)
+ * Renamed pmodemQ to pmodem_pool
+ * Fixed modem loss on no route
  *
  * Revision 1.14  2003/04/07 06:52:46  vfrolov
  * Fixed --save option
@@ -74,6 +81,7 @@
 
 #include <h323.h>
 #include <lid.h>
+#include <ptclib/delaychan.h>
 #include "pmutils.h"
 #include "t30tone.h"
 
@@ -113,7 +121,7 @@ class MyH323EndPoint : public H323EndPoint
     void SetOptions(MyH323Connection &conn, OpalT38Protocol *t38handler) const;
 
   protected:
-    PseudoModemQ *pmodemQ;
+    PseudoModemQ *pmodem_pool;
     PStringArray routes;
     WORD connectPort;
 
@@ -159,22 +167,6 @@ class MyH323Connection : public H323Connection
 
 ///////////////////////////////////////////////////////////////
 
-class AudioDelay : public PObject
-{ 
-  PCLASSINFO(AudioDelay, PObject);
-  
-  public:
-    AudioDelay();
-    BOOL Delay(int time);
-    void Restart();
-    int  GetError();
- 
-  protected:
-    PTime  previousTime;
-    BOOL   firstTime;
-    int    error;
-};
-
 class AudioRead : public PChannel
 {
   PCLASSINFO(AudioRead, PChannel);
@@ -188,7 +180,7 @@ class AudioRead : public PChannel
     MyH323Connection & conn;
     T30Tone t30Tone;
     BOOL closed;
-    AudioDelay delay;
+    PAdaptiveDelay delay;
     PMutex Mutex;
 };
 
@@ -204,7 +196,7 @@ class AudioWrite : public PChannel
   protected:
     MyH323Connection & conn;
     BOOL closed;
-    AudioDelay delay;
+    PAdaptiveDelay delay;
     PMutex Mutex;
 };
 

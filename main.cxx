@@ -24,8 +24,15 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.32  2003-12-04 11:23:51  vfrolov
- * Added "h323:" prefix to remoteParty
+ * Revision 1.33  2003-12-19 15:25:06  vfrolov
+ * Removed class AudioDelay (utilized PAdaptiveDelay)
+ * Renamed pmodemQ to pmodem_pool
+ * Fixed modem loss on no route
+ *
+ * Revision 1.33  2003/12/19 15:25:06  vfrolov
+ * Removed class AudioDelay (utilized PAdaptiveDelay)
+ * Renamed pmodemQ to pmodem_pool
+ * Fixed modem loss on no route
  *
  * Revision 1.32  2003/12/04 11:23:51  vfrolov
  * Added "h323:" prefix to remoteParty
@@ -312,7 +319,7 @@ BOOL T38Modem::Initialise()
 
 MyH323EndPoint::MyH323EndPoint()
 {
-  pmodemQ = new PseudoModemQ();
+  pmodem_pool = new PseudoModemQ();
   //autoStartTransmitFax = TRUE;
 
   in_redundancy = -1;
@@ -333,8 +340,8 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
     PString response = "reject";
   
     if (command == "dial" ) {
-      PseudoModem *modem = pmodemQ->Dequeue(modemToken);
-      if (modem != NULL ) {
+      PseudoModem *modem = pmodem_pool->Dequeue(modemToken);
+      if (modem != NULL) {
         PString num = request("number");
         PString remote;
 
@@ -377,22 +384,22 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
           request.SetAt("calltoken", callToken);
           H323Connection * _conn = FindConnectionWithLock(callToken);
 
-          if (_conn == NULL ) 
-            pmodemQ->Enqueue(modem);
-          else {
+          if (_conn != NULL) {
             cout << "O/G connection to " << num;
             if (!LocalPartyName.IsEmpty())
               cout << " from " << LocalPartyName;
             cout << endl;
             PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
             MyH323Connection *conn = (MyH323Connection *)_conn;
-            if( conn->Attach(modem) )
+            if (conn->Attach(modem)) {
               response = "confirm";
-            else
-              pmodemQ->Enqueue(modem);
+              modem = NULL;
+            }
             _conn->Unlock();
           }
         }
+        if (modem != NULL)
+          pmodem_pool->Enqueue(modem);
       }
     } else if( command == "answer" ) {
       PString callToken = request("calltoken");
@@ -442,13 +449,13 @@ H323Connection * MyH323EndPoint::CreateConnection(unsigned callReference, void *
 
 PseudoModem * MyH323EndPoint::PMAlloc(const PString &number) const
 {
-  return pmodemQ->DequeueWithRoute(number);
+  return pmodem_pool->DequeueWithRoute(number);
 }
 
 void MyH323EndPoint::PMFree(PseudoModem *pmodem) const
 {
-  if( pmodem != NULL )
-    pmodemQ->Enqueue(pmodem);
+  if (pmodem != NULL)
+    pmodem_pool->Enqueue(pmodem);
 }
 
 void MyH323EndPoint::SetOptions(MyH323Connection &/*conn*/, OpalT38Protocol *t38handler) const
@@ -507,7 +514,7 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
         tty = atty[0];
       }
 
-      if (!pmodemQ->CreateModem(tty, r, PCREATE_NOTIFIER(OnMyCallback)))
+      if (!pmodem_pool->CreateModem(tty, r, PCREATE_NOTIFIER(OnMyCallback)))
         cout << "Can't create modem for " << tty << endl;
     }
   }
@@ -650,13 +657,13 @@ H323Connection::AnswerCallResponse
     myPTRACE(1, "... denied (all modems busy)");
     return AnswerCallDenied;
   }
-  
+
   if (!Attach(_pmodem)) {
     myPTRACE(1, "... denied (internal error)");
-    ep.PMFree(pmodem);
+    ep.PMFree(_pmodem);
     return AnswerCallDenied;
   }
-  
+
   PString old = PThread::Current()->GetThreadName();
   RenameCurrentThread(pmodem->ptyName() + "(c)");
   PTRACE(2, "MyH323Connection::AnswerCallResponse old ThreadName=" << old);
@@ -722,10 +729,7 @@ void MyH323Connection::OnClosedLogicalChannel(const H323Channel & channel)
 BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize */, H323AudioCodec & codec)
 {
   //codec.SetSilenceDetectionMode(H323AudioCodec::NoSilenceDetection);
-  
-  PStringStream codecName;
-  codecName << codec;
-  
+
   PTRACE(2, "MyH323Connection::OpenAudioChannel " << codec);
 
   PWaitAndSignal mutex(connMutex);
@@ -803,44 +807,5 @@ BOOL AudioWrite::Close()
   closed = TRUE;
   return TRUE;
 }
-
-///////////////////////////////////////////////////////////////
-
-AudioDelay::AudioDelay()
-{
-  firstTime = TRUE;
-  error = 0;
-}
-
-void AudioDelay::Restart()
-{
-  firstTime = TRUE;
-}
-
-BOOL AudioDelay::Delay(int frameTime)
-{
-  if (firstTime) {
-    firstTime = FALSE;
-    previousTime = PTime();
-    return TRUE;
-  }
-
-  error += frameTime;
-
-  PTime now;
-  PTimeInterval delay = now - previousTime;
-  error -= (int)delay.GetMilliSeconds();
-  previousTime = now;
-
-  if (error > 0)
-#ifdef P_LINUX
-    usleep(error * 1000);
-#else
-    PThread::Sleep(error);
-#endif
-
-  return error <= -frameTime;
-}
-
 // End of File ///////////////////////////////////////////////////////////////
 
