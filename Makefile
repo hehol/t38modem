@@ -22,8 +22,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.7  2002-04-30 11:05:17  vfrolov
-# Implemented T.30 Calling Tone (CNG) generation
+# Revision 1.8  2002-08-05 10:10:29  robertj
+# Normalised Makefile usage of openh323u.mak include file, fixing odd messages.
+#
+# Revision 1.8  2002/08/05 10:10:29  robertj
+# Normalised Makefile usage of openh323u.mak include file, fixing odd messages.
 #
 # Revision 1.7  2002/04/30 11:05:17  vfrolov
 # Implemented T.30 Calling Tone (CNG) generation
@@ -46,26 +49,11 @@
 PROG		= t38modem
 SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pty.cxx pmodemi.cxx pmodeme.cxx t38engine.cxx main.cxx g7231_fake.cxx t30tone.cxx
 
-ifndef PWLIBDIR
-PWLIBDIR=$(HOME)/pwlib
-endif
-
-include $(PWLIBDIR)/make/ptlib.mak
-
 ifndef OPENH323DIR
 OPENH323DIR=$(HOME)/openh323
 endif
 
 include $(OPENH323DIR)/openh323u.mak
-
-ifdef NOTRACE
-STDCCFLAGS += -DPASN_NOPRINTON -DPASN_LEANANDMEAN
-else
-STDCCFLAGS += -DPTRACING
-endif
-
-# ???
-STDCCFLAGS += -Wall
 
 #
 # If defined COUT_TRACE then enable duplicate the
