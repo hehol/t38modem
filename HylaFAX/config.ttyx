@@ -9,7 +9,6 @@ ModemType:		Class1		# use class 1 interface
 ModemFlowControl:	rtscts		# default
 
 ModemRevQueryCmd:	AT+FREV?
-Class1FrameOverhead:	2		# does not include FCS
 
 #
 # AT#CID=10 enables ANI/DNIS reporting between the 
