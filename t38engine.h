@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2003 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,9 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.16  2003-12-04 16:10:05  vfrolov
- * Implemented FCS generation
- * Implemented ECM support
+ * Revision 1.17  2004-03-01 17:10:39  vfrolov
+ * Fixed duplicated mutexes
+ * Added volatile to T38Mode
+ *
+ * Revision 1.17  2004/03/01 17:10:39  vfrolov
+ * Fixed duplicated mutexes
+ * Added volatile to T38Mode
  *
  * Revision 1.16  2003/12/04 16:10:05  vfrolov
  * Implemented FCS generation
@@ -236,6 +240,7 @@ class T38Engine : public OpalT38Protocol
     
     BOOL IsT38Mode() const { return T38Mode; }
     void ModemCallbackWithUnlock(INT extra);
+    void _ResetModemState();
 
     int stateOut;
     int delayRestOut;
@@ -261,11 +266,11 @@ class T38Engine : public OpalT38Protocol
 
     ModStream *modStreamIn;
     ModStream *modStreamInSaved;
-    
+
     volatile int stateModem;
     PNotifier modemCallback;
-    BOOL T38Mode;
-    
+    volatile BOOL T38Mode;
+
     PMutex Mutex;
     PMutex MutexOut;
     PMutex MutexIn;

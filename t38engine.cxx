@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2003 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,9 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.27  2003-12-04 16:09:58  vfrolov
- * Implemented FCS generation
- * Implemented ECM support
+ * Revision 1.28  2004-03-01 17:10:32  vfrolov
+ * Fixed duplicated mutexes
+ * Added volatile to T38Mode
+ *
+ * Revision 1.28  2004/03/01 17:10:32  vfrolov
+ * Fixed duplicated mutexes
+ * Added volatile to T38Mode
  *
  * Revision 1.27  2003/12/04 16:09:58  vfrolov
  * Implemented FCS generation
@@ -441,7 +445,7 @@ BOOL T38Engine::Attach(const PNotifier &callback)
     return FALSE;
   }
   modemCallback = callback;
-  ResetModemState();
+  _ResetModemState();
   return TRUE;
 }
 
@@ -452,8 +456,10 @@ void T38Engine::Detach(const PNotifier &callback)
   PWaitAndSignal mutexWait(Mutex);
   if( modemCallback == callback ) {
     modemCallback = NULL;
-    ResetModemState();
-    SetT38Mode(FALSE);
+    _ResetModemState();
+    T38Mode = FALSE;
+    myPTRACE(1, name << " T38Engine::Detach T38Mode=FALSE");
+    SignalOutDataReady();
   } else {
     myPTRACE(1, name << " T38Engine::Detach modemCallback != callback");
   }
@@ -793,6 +799,10 @@ void T38Engine::ResetModemState() {
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
 
+  _ResetModemState();
+}
+
+void T38Engine::_ResetModemState() {
   if (modStreamIn && modStreamIn->DeleteFirstBuf())
     PTRACE(1, name << " T38Engine::ResetModemState modStreamIn->DeleteFirstBuf(), clean");
 
