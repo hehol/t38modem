@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: fcs.cxx,v $
- * Revision 1.1  2003-12-04 13:29:00  vfrolov
- * Initial revision
+ * Revision 1.2  2004-02-17 13:22:50  vfrolov
+ * Fixed MSVC compile errors
+ *
+ * Revision 1.2  2004/02/17 13:22:50  vfrolov
+ * Fixed MSVC compile errors
  *
  * Revision 1.1  2003/12/04 13:29:00  vfrolov
  * Initial revision
@@ -40,10 +43,12 @@
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-void FCS::build(const void *pBuf, PINDEX count)
+void FCS::build(const void *_pBuf, PINDEX count)
 {
+  const BYTE *pBuf = (const BYTE *)_pBuf;
+
   for (PINDEX i = 0 ; i < count ; i++) {
-    BYTE c = *(((BYTE *)pBuf)++);
+    BYTE c = *(pBuf++);
     for (BYTE m = 0x80 ; m ; m >>= 1) {
 	fcs <<= 1;
         if (c & m)

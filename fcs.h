@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: fcs.h,v $
- * Revision 1.1  2003-12-04 13:38:26  vfrolov
- * Initial revision
+ * Revision 1.2  2004-02-17 13:22:58  vfrolov
+ * Fixed MSVC compile errors
+ *
+ * Revision 1.2  2004/02/17 13:22:58  vfrolov
+ * Fixed MSVC compile errors
  *
  * Revision 1.1  2003/12/04 13:38:26  vfrolov
  * Initial revision
@@ -45,7 +48,7 @@ class FCS
     FCS() : fcs(0xFFFF) {}
 
     void build(const void *pBuf, PINDEX count);
-    operator WORD() const { return ~fcs; }
+    operator WORD() const { return WORD(~fcs); }
 
   protected:
 

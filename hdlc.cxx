@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: hdlc.cxx,v $
- * Revision 1.1  2003-12-04 13:38:33  vfrolov
- * Initial revision
+ * Revision 1.2  2004-02-17 13:23:07  vfrolov
+ * Fixed MSVC compile errors
+ *
+ * Revision 1.2  2004/02/17 13:23:07  vfrolov
+ * Fixed MSVC compile errors
  *
  * Revision 1.1  2003/12/04 13:38:33  vfrolov
  * Initial revision
@@ -41,12 +44,13 @@
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-void HDLC::pack(const void *pBuf, PINDEX count, BOOL flag)
+void HDLC::pack(const void *_pBuf, PINDEX count, BOOL flag)
 {
   WORD w = (WORD)rawByte << 8;
+  const BYTE *pBuf = (const BYTE *)_pBuf;
 
   for (PINDEX i = 0 ; i < count ; i++) {
-    w |= *(((BYTE *)pBuf)++) & 0xFF;
+    w |= *(pBuf++) & 0xFF;
     for (PINDEX j = 0 ; j < 8 ; j++) {
       w <<= 1;
 
@@ -141,7 +145,7 @@ BOOL HDLC::unpack(BYTE b)
     }
 
     if (hdlcChunkLen == 24) {
-      BYTE b = hdlcChunk >> 16;
+      BYTE b = BYTE(hdlcChunk >> 16);
       outData.PutData(&b, 1);
       //myPTRACE(1, "unpack put " << hex << (WORD)hdlcChunk);
       hdlcChunkLen = 16;
@@ -170,8 +174,10 @@ int HDLC::GetInData(void *pBuf, PINDEX count)
   return len;
 }
 
-int HDLC::GetRawData(void *pBuf, PINDEX count)
+int HDLC::GetRawData(void *_pBuf, PINDEX count)
 {
+  BYTE *pBuf = (BYTE *)_pBuf;
+
   switch (inDataType) {
   case T38Engine::dtHdlc:
     break;
@@ -189,7 +195,7 @@ int HDLC::GetRawData(void *pBuf, PINDEX count)
   int len = 0;
 
   if (outLen > 0) {
-    ((BYTE *)pBuf) += outLen;
+    pBuf += outLen;
     count -= outLen;
     len += outLen;
   }
@@ -201,7 +207,7 @@ int HDLC::GetRawData(void *pBuf, PINDEX count)
 
       if (inLen < 0) {
         Buf[0] = fcs >> 8;
-        Buf[1] = fcs;
+        Buf[1] = fcs & 0xFF;
         if (inData->GetDiag() & T38Engine::diagBadFcs)
           Buf[0]++;
         pack(Buf, 2);
@@ -228,7 +234,7 @@ int HDLC::GetRawData(void *pBuf, PINDEX count)
     }
     else
     if (outLen > 0) {
-      ((BYTE *)pBuf) += outLen;
+      pBuf += outLen;
       count -= outLen;
       len += outLen;
     }
@@ -240,9 +246,10 @@ int HDLC::GetRawData(void *pBuf, PINDEX count)
   return len;
 }
 
-int HDLC::GetHdlcData(void *pBuf, PINDEX count)
+int HDLC::GetHdlcData(void *_pBuf, PINDEX count)
 {
   int len;
+  BYTE *pBuf = (BYTE *)_pBuf;
 
   switch (inDataType) {
   case T38Engine::dtHdlc:
@@ -313,7 +320,7 @@ int HDLC::GetHdlcData(void *pBuf, PINDEX count)
         else
         if (outLen > 0) {
           fcs.build(pBuf, outLen);
-          ((BYTE *)pBuf) += outLen;
+          pBuf += outLen;
           count -= outLen;
           len += outLen;
         }

@@ -24,10 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.cxx,v $
- * Revision 1.7  2003-12-04 13:22:28  vfrolov
- * Removed ambiguous isEof()
- * Improved memory usage in DataStream
- * Fixed myPTRACE
+ * Revision 1.8  2004-02-17 13:23:14  vfrolov
+ * Fixed MSVC compile errors
+ *
+ * Revision 1.8  2004/02/17 13:23:14  vfrolov
+ * Fixed MSVC compile errors
  *
  * Revision 1.7  2003/12/04 13:22:28  vfrolov
  * Removed ambiguous isEof()
@@ -127,12 +128,13 @@ int ChunkStream::read(void *pBuf, PINDEX count)
   return len;
 }
 ///////////////////////////////////////////////////////////////
-int DataStream::PutData(const void *pBuf, PINDEX count)
+int DataStream::PutData(const void *_pBuf, PINDEX count)
 {
   if (eof)
     return -1;
 
   int done = 0;
+  const BYTE *pBuf = (const BYTE *)_pBuf;
 
   while (count) {
     if (!lastBuf) {
@@ -145,7 +147,7 @@ int DataStream::PutData(const void *pBuf, PINDEX count)
     if (len < 0) {
       lastBuf = NULL;
     } else {
-      (const BYTE *)pBuf += len;
+      pBuf += len;
       count -= len;
       done += len;
     }
@@ -156,7 +158,7 @@ int DataStream::PutData(const void *pBuf, PINDEX count)
   return done;
 }
 
-int DataStream::GetData(void *pBuf, PINDEX count)
+int DataStream::GetData(void *_pBuf, PINDEX count)
 {
   if (!busy) {
     if (eof)
@@ -166,6 +168,7 @@ int DataStream::GetData(void *pBuf, PINDEX count)
   }
 
   int done = 0;
+  BYTE *pBuf = (BYTE *)_pBuf;
 
   while (count) {
     if (!firstBuf) {
@@ -184,7 +187,7 @@ int DataStream::GetData(void *pBuf, PINDEX count)
     } else {
       if (!len)
         break;
-      (const BYTE *)pBuf += len;
+      pBuf += len;
       count -= len;
       done += len;
     }
