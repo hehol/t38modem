@@ -22,8 +22,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.6  2002-01-10 06:10:02  craigs
- * Added MPL header
+ * Revision 1.7  2002-02-11 08:40:15  vfrolov
+ * More clear call implementation
+ *
+ * Revision 1.7  2002/02/11 08:40:15  vfrolov
+ * More clear call implementation
  *
  * Revision 1.6  2002/01/10 06:10:02  craigs
  * Added MPL header
@@ -218,6 +221,7 @@ class ModemEngineBody : public PObject
   public:
     enum {
       stResetHandle,
+      stBusyHandle,
       stCommand,
       stReqModeAckWait,
       stReqModeAckHandle,
@@ -492,7 +496,15 @@ BOOL ModemEngineBody::Request(PStringToString &request)
     PWaitAndSignal mutexWait(Mutex);
     if( !CallToken().IsEmpty() ) {
       timerRing.Stop();
-      // TODO
+      switch (state) {
+        case stReqModeAckWait:
+          if (callDirection == cdOutgoing ) {
+            timeout.Stop();
+            state = stBusyHandle;
+            parent.SignalDataReady();
+          }
+          break;
+      }
     }
   } else {
     request.SetAt("response", "reject");
@@ -1254,10 +1266,14 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             PWaitAndSignal mutexWait(Mutex);
             state = stCommand;
             timeout.Stop();
-            if( t38engine )
+            if (t38engine) {
               t38engine->ResetModemState();
+              bresp.Concatenate(PBYTEArray((const BYTE *)"\r\nOK\r\n", 6));
+            } else {
+              ClearCall();
+              bresp.Concatenate(PBYTEArray((const BYTE *)"\r\nNO CARRIER\r\n", 14));
+            }
           }
-          bresp.Concatenate(PBYTEArray((const BYTE *)"\r\nOK\r\n", 6));
       }
     }
 }
@@ -1288,8 +1304,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       case stRecvBegWait:
         resp += "\r\nNO CARRIER\r\n";
         state = stCommand;
-        if( t38engine )
+        if (t38engine)
           t38engine->ResetModemState();
+        else
+          ClearCall();
         break;
     }
   }
@@ -1300,8 +1318,21 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         PWaitAndSignal mutexWait(Mutex);
         resp += "\r\nERROR\r\n";
         state = stCommand;
-        if( t38engine )
+        if (t38engine)
           t38engine->ResetModemState();
+        else
+          ClearCall();
+      }
+      break;
+    case stBusyHandle:
+      {
+        PWaitAndSignal mutexWait(Mutex);
+        resp += "\r\nBUSY\r\n";
+        state = stCommand;
+        if (t38engine)
+          t38engine->ResetModemState();
+        else
+          ClearCall();
       }
       break;
     case stSendBufEmptyHandle:
