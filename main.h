@@ -51,6 +51,7 @@ class MyH323EndPoint : public H323EndPoint
     BOOL forceT38Mode;
     PseudoModemQ *pmodemQ;
     PStringArray routes;
+    WORD connectPort;
 
     PDECLARE_NOTIFIER(PObject, MyH323EndPoint, OnMyCallback);
 };
@@ -97,41 +98,6 @@ class MyH323Connection : public H323Connection
 
 ///////////////////////////////////////////////////////////////
 
-class AudioRead : public PChannel
-{
-  PCLASSINFO(AudioRead, PChannel);
-
-  public:
-    enum {
-      Min_Headroom = 90,
-      Max_Headroom = 150
-    };
-
-    AudioRead(MyH323Connection & conn);
-    ~AudioRead();
-    BOOL Read(void * buffer, PINDEX amount);
-    BOOL Close();
-
-  protected:
-    void CreateSilenceFrame(PINDEX amount);
-    void Synchronise(PINDEX amount);
-
-    void FrameDelay(int delay);
-    BOOL AdjustFrame(void * buffer, PINDEX amount);
-
-    MyH323Connection & conn;
-    BOOL closed;
-
-    int headRoom;
-    int WasRead;
-    PTime lastReadTime;
-
-    BYTE *frameBuffer;
-    PINDEX frameLen, frameOffs;
-    
-    PMutex Mutex;
-};
-
 class AudioDelay : public PObject
 { 
   PCLASSINFO(AudioDelay, PObject);
@@ -148,13 +114,30 @@ class AudioDelay : public PObject
     int    error;
 };
 
+class AudioRead : public PChannel
+{
+  PCLASSINFO(AudioRead, PChannel);
+
+  public:
+    AudioRead(MyH323Connection & conn);
+    BOOL Read(void * buffer, PINDEX amount);
+    BOOL Close();
+
+  protected:
+    MyH323Connection & conn;
+    BOOL closed;
+    AudioDelay delay;
+    PMutex Mutex;
+
+    BOOL triggered;
+};
+
 class AudioWrite : public PChannel
 {
   PCLASSINFO(AudioWrite, PChannel)
 
   public:
     AudioWrite(MyH323Connection & conn);
-    ~AudioWrite();
 
     BOOL Write(const void * buf, PINDEX len);
     BOOL Close();

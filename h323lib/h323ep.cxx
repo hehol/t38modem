@@ -47,6 +47,7 @@ void T38Modem::Main()
              "h-help."
              "i-interface:"          "-no-interface."
              "-listenport:"          "-no-listenport."
+             "-connectport:"         "-no-connectport."
 #if PMEMORY_CHECK
              "-setallocationbreakpoint:"
 #endif
@@ -82,6 +83,7 @@ void T38Modem::Main()
             "                            prefix 'all' is all\n"
             "  -i --interface ip   : Bind to a specific interface\n"
             "  --listenport port   : Listen on a specific port\n"
+            "  --connectport port  : Connect to a specific port\n"
             "  -g --gatekeeper host: Specify gatekeeper host.\n"
             "  -n --no-gatekeeper  : Disable gatekeeper discovery.\n"
             "  --require-gatekeeper: Exit if gatekeeper discovery fails.\n"
@@ -184,7 +186,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
             if( rs[0] == "all" ) {
               remote = rs[1];
               break;
-            } else if( num.Find(rs[0]) == 0 ) {
+            } else if (num.Find(rs[0]) == 0) {
               remote = rs[1];
               num.Delete(0, rs[0].GetLength());
               break;
@@ -195,7 +197,14 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
         if( !remote.IsEmpty() ) {
           num += "@" + remote;
           myPTRACE(1, "MyH323EndPoint::OnMyCallback MakeCall(" << num << ")");
+
+	  // add in the port if required
+          if ((num.Find(':') == P_MAX_INDEX) && (connectPort != H323ListenerTCP::DefaultSignalPort))
+	    num += psprintf(":%i", connectPort);
+
+	  // make the call
           MakeCall(num, callToken);
+
           request.SetAt("calltoken", callToken);
           H323Connection * _conn = FindConnectionWithLock(callToken);
           if( _conn != NULL ) {
@@ -287,6 +296,11 @@ void MyH323EndPoint::PMFree(PseudoModem *pmodem) const
 
 BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
 {
+  if (args.HasOption("connectport"))
+    connectPort = (WORD)args.GetOptionString("connectport").AsInteger();
+  else
+    connectPort = H323ListenerTCP::DefaultSignalPort;
+
   if (args.HasOption('f')) {
     forceT38Mode = TRUE;
     myPTRACE(1, "Force T38 mode !!!");
@@ -584,44 +598,7 @@ BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize 
 AudioRead::AudioRead(MyH323Connection & _conn)
   : conn(_conn), closed(FALSE)
 {
-  headRoom = 0;
-  WasRead = 0;
-  frameLen = frameOffs = 0;
-  frameBuffer = NULL;       // size the buffer when we know what the codec wants
-}
-
-AudioRead::~AudioRead() {
-  if (frameBuffer != NULL)
-    delete frameBuffer;
-}
-
-void AudioRead::FrameDelay(int offs)
-{
-  if (WasRead == 0)
-    WasRead++;
-  else {
-    if (WasRead == 1 && conn.ForceT38Mode() && conn.HadAnsweredCall() )
-      conn.RequestModeChange();
-
-    if (WasRead < 10000)
-      WasRead++;
-
-    // subtract actual time taken for previous frame
-    PTime now;
-    PTimeInterval interval = now - lastReadTime;
-    headRoom -= (int)interval.GetMilliSeconds();
-
-    // save time of read so we can calculate delay next time
-    lastReadTime = PTime();
-
-    // if we have acculated too much headroom, then reduce it
-    if (headRoom >= Max_Headroom) {
-      int desiredDelay = headRoom - Min_Headroom;
-      PThread::Sleep(desiredDelay);
-    }
-  }
-
-  headRoom += offs;
+  triggered = FALSE;
 }
 
 BOOL AudioRead::Read(void * buffer, PINDEX amount)
@@ -632,30 +609,15 @@ BOOL AudioRead::Read(void * buffer, PINDEX amount)
   if (closed)
     return FALSE;
 
-  // Create the frame buffer using the amount of bytes the codec wants to
-  // read. Different codecs use different read sizes.
-  if (frameBuffer == NULL)
-    frameBuffer = new BYTE[amount];
-
-  // assume we are returning silence
-  BOOL doSilence = TRUE;
-  BOOL frameBoundary = FALSE;
-
-  // if still outputting a frame from last time, then keep doing it
-  if (frameOffs < frameLen) {
-    frameBoundary = AdjustFrame(buffer, amount);
-    doSilence = FALSE;
-  }
-  
-  // start silence frame if required
-  if (doSilence) {
-    CreateSilenceFrame(amount);
-    frameBoundary = AdjustFrame(buffer, amount);
+  if (!triggered && conn.ForceT38Mode() && conn.HadAnsweredCall()) {
+    cout << "Triggering mode change" << endl;
+    conn.RequestModeChange();
+    triggered = TRUE;
   }
 
-  // delay to synchronise to frame boundary
-  if (frameBoundary)
-    Synchronise(amount);
+  memset(buffer, 0, amount);
+
+  delay.Delay(amount/16);
 
   return TRUE;
 }
@@ -667,33 +629,33 @@ BOOL AudioRead::Close()
   return TRUE;
 }
 
-BOOL AudioRead::AdjustFrame(void * buffer, PINDEX amount)
+///////////////////////////////////////////////////////////////
+
+AudioWrite::AudioWrite(MyH323Connection & _conn)
+  : conn(_conn), closed(FALSE)
 {
-  if ((frameOffs + amount) > frameLen) {
-    cerr << "Reading past end of frame:offs=" << frameOffs << ",amt=" << amount << ",len=" << frameLen << endl;
-    return TRUE;
-  }
-  //PAssert((frameOffs + amount) <= frameLen, "Reading past end of frame");
-
-  memcpy(buffer, frameBuffer+frameOffs, amount);
-  frameOffs += amount;
-
-  lastReadCount = amount;
-
-  return frameOffs == frameLen;
 }
 
-void AudioRead::Synchronise(PINDEX amount)
+BOOL AudioWrite::Close()
 {
-  FrameDelay(amount / 16);
+  PWaitAndSignal mutex(Mutex);
+
+  closed = TRUE;
+  return TRUE;
 }
 
-void AudioRead::CreateSilenceFrame(PINDEX amount)
+BOOL AudioWrite::Write(const void * buf, PINDEX len)
 {
-  frameOffs = 0;
-  frameLen  = amount;
-  memset(frameBuffer, 0, frameLen);
+  // Wait for the mutex, and Signal it at the end of this function
+  PWaitAndSignal mutex(Mutex);
+
+  if (closed)
+    return FALSE;
+    
+  delay.Delay(len/16);
+  return TRUE;
 }
+
 ///////////////////////////////////////////////////////////////
 
 AudioDelay::AudioDelay()
@@ -730,36 +692,6 @@ BOOL AudioDelay::Delay(int frameTime)
 #endif
 
   return error <= -frameTime;
-}
-///////////////////////////////////////////////////////////////
-
-AudioWrite::AudioWrite(MyH323Connection & _conn)
-  : conn(_conn), closed(FALSE)
-{
-}
-
-BOOL AudioWrite::Close()
-{
-  PWaitAndSignal mutex(Mutex);
-
-  closed = TRUE;
-  return TRUE;
-}
-
-BOOL AudioWrite::Write(const void * buf, PINDEX len)
-{
-  // Wait for the mutex, and Signal it at the end of this function
-  PWaitAndSignal mutex(Mutex);
-
-  if (closed)
-    return FALSE;
-    
-  delay.Delay(len/16);
-  return TRUE;
-}
-
-AudioWrite::~AudioWrite()
-{
 }
 
 // End of File ///////////////////////////////////////////////////////////////
