@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2003 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.cxx,v $
- * Revision 1.8  2004-02-17 13:23:14  vfrolov
- * Fixed MSVC compile errors
+ * Revision 1.9  2004-03-09 17:23:11  vfrolov
+ * Added PROCESS_PER_THREAD ifdef
+ *
+ * Revision 1.9  2004/03/09 17:23:11  vfrolov
+ * Added PROCESS_PER_THREAD ifdef
  *
  * Revision 1.8  2004/02/17 13:23:14  vfrolov
  * Fixed MSVC compile errors
@@ -217,14 +220,14 @@ void RenameCurrentThread(const PString &newname)
   PString oldname = PThread::Current()->GetThreadName();
 #endif
   PThread::Current()->SetThreadName(PString(newname)
-    #if defined(P_PTHREADS)
-      #if defined(P_LINUX)
-        + ":" + PString(getpid())
-      #else
-        + ":" + PString(pthread_self())
-      #endif
+    #if defined(PROCESS_PER_THREAD)
+        + ":" + PString((unsigned)getpid())
     #else
+      #if defined(P_PTHREADS)
+        + ":" + PString((unsigned)pthread_self())
+      #else
         + ":%0x"
+      #endif
     #endif
   );
 #if PTRACING
@@ -232,7 +235,7 @@ void RenameCurrentThread(const PString &newname)
 #endif
 }
 ///////////////////////////////////////////////////////////////
-#ifdef P_LINUX
+#ifdef PROCESS_PER_THREAD
 #include <sys/times.h>
 static double clktck = sysconf(_SC_CLK_TCK);
 

@@ -22,8 +22,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.9  2003-12-04 15:56:45  vfrolov
-# Added hdlc.cxx t30.cxx fcs.cxx
+# Revision 1.10  2004-03-09 17:22:58  vfrolov
+# Added PROCESS_PER_THREAD ifdef
+#
+# Revision 1.10  2004/03/09 17:22:58  vfrolov
+# Added PROCESS_PER_THREAD ifdef
 #
 # Revision 1.9  2003/12/04 15:56:45  vfrolov
 # Added hdlc.cxx t30.cxx fcs.cxx
@@ -74,5 +77,14 @@ endif
 #
 ifdef MYPTRACE_LEVEL
 STDCCFLAGS += -DMYPTRACE_LEVEL=$(MYPTRACE_LEVEL)
+endif
+
+#
+# If defined PROCESS_PER_THREAD then
+#  - PID will be used in thread name rather then TID
+#  - CPU usage will be traced
+#
+ifdef PROCESS_PER_THREAD
+STDCCFLAGS += -DPROCESS_PER_THREAD
 endif
 

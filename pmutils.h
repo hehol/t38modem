@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2003 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,10 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.10  2003-12-04 13:22:35  vfrolov
- * Removed ambiguous isEof()
- * Improved memory usage in DataStream
- * Fixed myPTRACE
+ * Revision 1.11  2004-03-09 17:23:19  vfrolov
+ * Added PROCESS_PER_THREAD ifdef
+ *
+ * Revision 1.11  2004/03/09 17:23:19  vfrolov
+ * Added PROCESS_PER_THREAD ifdef
  *
  * Revision 1.10  2003/12/04 13:22:35  vfrolov
  * Removed ambiguous isEof()
@@ -250,7 +251,7 @@ class DataStreamQ : public _DataStreamQ
 ///////////////////////////////////////////////////////////////
 extern void RenameCurrentThread(const PString &newname);
 
-#ifdef P_LINUX
+#ifdef PROCESS_PER_THREAD
 extern const PString GetThreadTimes(const char *head = "", const char *tail = "");
 #else
 inline const PString GetThreadTimes(const char *head = "", const char *tail = "")
