@@ -24,10 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.5  2002-03-07 07:30:44  vfrolov
- * Fixed endless recursive call SignalChildStop(). Possible there is
- * a bug in gcc version 2.95.4 20010902 (Debian prerelease).
- * Markus Storm reported the promlem.
+ * Revision 1.6  2002-04-27 10:12:21  vfrolov
+ * If defined MYPTRACE_LEVEL=N then myPTRACE() will output the trace with level N
+ *
+ * Revision 1.6  2002/04/27 10:12:21  vfrolov
+ * If defined MYPTRACE_LEVEL=N then myPTRACE() will output the trace with level N
  *
  * Revision 1.5  2002/03/07 07:30:44  vfrolov
  * Fixed endless recursive call SignalChildStop(). Possible there is
@@ -195,13 +196,19 @@ class DataStreamQ : public _DataStreamQ
 };
 ///////////////////////////////////////////////////////////////
 #ifdef COUT_TRACE
-#define myPTRACE(level, args) {	\
+#define _myPTRACE(level, args) {	\
   PTRACE(level, args);		\
   cout << PThread::Current()->GetThreadName() << ": " << args << endl;		\
 }
 #else
-#define myPTRACE(level, args) { PTRACE(level, args); }
+#define _myPTRACE(level, args) { PTRACE(level, args); }
 #endif // COUT_TRACE
+
+#ifdef MYPTRACE_LEVEL
+#define myPTRACE(level, args) _myPTRACE(MYPTRACE_LEVEL, args)
+#else
+#define myPTRACE(level, args) _myPTRACE(level, args)
+#endif // MYPTRACE_LEVEL
 
 #define PRTHEX(data) " {\n" << setprecision(2) << hex << setfill('0') << data << dec << setfill(' ') << " }"
 ///////////////////////////////////////////////////////////////
