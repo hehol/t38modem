@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.22  2002-12-19 11:54:43  vfrolov
- * Removed DecodeIFPPacket() and utilized HandleRawIFP()
+ * Revision 1.23  2002-12-19 14:19:20  vfrolov
+ * Added missing brackets (fixed all CPU usage reported by Markus Storm)
+ *
+ * Revision 1.23  2002/12/19 14:19:20  vfrolov
+ * Added missing brackets (fixed all CPU usage reported by Markus Storm)
  *
  * Revision 1.22  2002/12/19 11:54:43  vfrolov
  * Removed DecodeIFPPacket() and utilized HandleRawIFP()
@@ -1249,10 +1252,10 @@ int T38Engine::PreparePacket(T38_IFPPacket & ifp, BOOL enableTimeout)
       }
       if (!waitData)
         break;
-      if (enableTimeout)
+      if (enableTimeout) {
         if (!WaitOutDataReady(msTimeout))
           return -1;
-      else
+      } else
         WaitOutDataReady();
       if (!IsT38Mode())
         return 0;
