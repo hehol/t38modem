@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30.cxx,v $
- * Revision 1.1  2003-12-04 13:38:46  vfrolov
- * Initial revision
+ * Revision 1.2  2003-12-04 15:50:27  vfrolov
+ * Fixed extracting ECM flag
+ *
+ * Revision 1.2  2003/12/04 15:50:27  vfrolov
+ * Fixed extracting ECM flag
  *
  * Revision 1.1  2003/12/04 13:38:46  vfrolov
  * Initial revision
@@ -55,10 +58,10 @@ void T30::v21End(BOOL sent)
     msg = "w/o control field";
   else {
     switch (v21frame[2]) {
-      case 0x01:
-        msg = "DIS";
-        DIS = v21frame;
-        if (DIS.GetSize() > 3 && DIS[2] & 1) {
+      case 0x41:
+      case 0x41 | 0x80:
+        msg = "DCS";
+        if (v21frame.GetSize() > 3+3 && (v21frame[3+2] & 1) && (v21frame[3+3] & 0x20)) {
           ecm = TRUE;
           msg += " with ECM";
         } else {
