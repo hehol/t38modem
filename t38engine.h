@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.14  2002-12-19 11:54:47  vfrolov
- * Removed DecodeIFPPacket() and utilized HandleRawIFP()
+ * Revision 1.15  2003-01-08 16:46:28  vfrolov
+ * Added cbpOutBufNoFull and isOutBufFull()
+ * Added data speed tracing
+ *
+ * Revision 1.15  2003/01/08 16:46:28  vfrolov
+ * Added cbpOutBufNoFull and isOutBufFull()
+ * Added data speed tracing
  *
  * Revision 1.14  2002/12/19 11:54:47  vfrolov
  * Removed DecodeIFPPacket() and utilized HandleRawIFP()
@@ -132,6 +137,7 @@ class T38Engine : public OpalT38Protocol
       cbpUserDataMod	= 255,
       cbpReset		= -1,
       cbpOutBufEmpty	= -2,
+      cbpOutBufNoFull	= -3,
     };
 
   /**@name Construction */
@@ -163,6 +169,7 @@ class T38Engine : public OpalT38Protocol
     BOOL Attach(const PNotifier &callback);
     void Detach(const PNotifier &callback);
     void ResetModemState();
+    BOOL isOutBufFull() const;
 
     void SendOnIdle(int _dataType);
     BOOL SendStart(int _dataType, int param);
@@ -231,16 +238,20 @@ class T38Engine : public OpalT38Protocol
     int callbackParamOut;
     DataStream bufOut;
     MODPARS ModParsOut;
-    PINDEX countOut;
     int lastDteCharOut;
     PTime timeBeginOut;
+    PINDEX countOut;
     BOOL moreFramesOut;
     PSyncPoint outDataReadySyncPoint;
-    
+
     int stateIn;
     int callbackParamIn;
     int isCarrierIn;
-    
+#if PTRACING
+    PTime timeBeginIn;
+    PINDEX countIn;
+#endif
+
     ModStream *modStreamIn;
     ModStream *modStreamInSaved;
     
