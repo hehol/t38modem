@@ -24,9 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.26  2002-11-05 13:46:44  vfrolov
- * Added missed --username option to help
- * Utilized "localpartyname" option from "dial" request
+ * Revision 1.27  2002-11-10 09:22:47  robertj
+ * Moved constants for "well known" ports to better place (OPAL change).
+ *
+ * Revision 1.27  2002/11/10 09:22:47  robertj
+ * Moved constants for "well known" ports to better place (OPAL change).
  *
  * Revision 1.26  2002/11/05 13:46:44  vfrolov
  * Added missed --username option to help
@@ -229,7 +231,7 @@ void T38Modem::Main()
   H323ListenerTCP * listener = NULL;
   if (!args.HasOption("no-listenport")) {
     PIPSocket::Address interfaceAddress(INADDR_ANY);
-    WORD listenPort = H323ListenerTCP::DefaultSignalPort;
+    WORD listenPort = H323EndPoint::DefaultTcpPort;
 
     if (args.HasOption("listenport"))
       listenPort = (WORD)args.GetOptionString("listenport").AsInteger();
@@ -324,7 +326,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
           // add in the route and port if required
           if (!remote.IsEmpty()) {
             num += "@" + remote;
-            if ((num.Find(':') == P_MAX_INDEX) && (connectPort != H323ListenerTCP::DefaultSignalPort))
+            if ((num.Find(':') == P_MAX_INDEX) && (connectPort != H323EndPoint::DefaultTcpPort))
 	      num += psprintf(":%i", connectPort);
 	  }
         }
@@ -435,7 +437,7 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
   if (args.HasOption("connectport"))
     connectPort = (WORD)args.GetOptionString("connectport").AsInteger();
   else
-    connectPort = H323ListenerTCP::DefaultSignalPort;
+    connectPort = H323EndPoint::DefaultTcpPort;
 
   if (args.HasOption("route")) {
     PString r = args.GetOptionString("route");
