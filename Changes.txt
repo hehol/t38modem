@@ -7,6 +7,10 @@
  *
  */
 
+Changelog for t38modem 0.8.0
+
+* Ported to Windows.
+
 Changelog for t38modem 0.7.0
 
 * Implemented FCS generation. The DCE transfers FCS octets after
