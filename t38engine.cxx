@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.14  2002-05-22 12:01:45  vfrolov
- * Implemented redundancy error protection scheme
+ * Revision 1.15  2002-05-22 15:21:26  vfrolov
+ * Added missed enableTimeout check
+ * Fixed bad ifp tracing bug
+ *
+ * Revision 1.15  2002/05/22 15:21:26  vfrolov
+ * Added missed enableTimeout check
+ * Fixed bad ifp tracing bug
  *
  * Revision 1.14  2002/05/22 12:01:45  vfrolov
  * Implemented redundancy error protection scheme
@@ -483,16 +488,29 @@ BOOL T38Engine::Originate()
     udptl.Encode(rawData);
 
 #if PTRACING
-    if (PTrace::CanTrace(4)) {
-      PTRACE(4, "T38\tSending PDU:\n  ifp = "
+    if (res > 0) {
+      if (PTrace::CanTrace(4)) {
+        PTRACE(4, "T38\tSending PDU:\n  ifp = "
              << setprecision(2) << ifp << "\n  UDPTL = "
              << setprecision(2) << udptl << "\n  "
              << setprecision(2) << rawData);
-    }
-    else {
-      PTRACE(3, "T38\tSending PDU:"
+      }
+      else {
+        PTRACE(3, "T38\tSending PDU:"
                 " seq=" << seq <<
                 " type=" << ifp.m_type_of_msg.GetTagName());
+      }
+    }
+    else {
+      if (PTrace::CanTrace(4)) {
+        PTRACE(4, "T38\tSending PDU again:\n  UDPTL = "
+             << setprecision(2) << udptl << "\n  "
+             << setprecision(2) << rawData);
+      }
+      else {
+        PTRACE(3, "T38\tSending PDU again:"
+                " seq=" << seq);
+      }
     }
 #endif
 
@@ -607,7 +625,7 @@ BOOL T38Engine::Answer()
                    << setprecision(2) << udptl);
             break;
           }
-          PTRACE(2, "T38\tReceived recovery ifp seq=" << receivedSequenceNumber << "\n  "
+          PTRACE(2, "T38\tReceived ifp seq=" << receivedSequenceNumber << " (secondary)\n  "
                  << setprecision(2) << ifp);
                  
           if (!HandlePacket(ifp))
@@ -1002,7 +1020,7 @@ int T38Engine::PreparePacket(T38_IFPPacket & ifp, BOOL enableTimeout)
       //myPTRACE(1, name << " T38Engine::PreparePacket outDelay=" << outDelay);
 
       if (outDelay > 0) {
-        if (outDelay > msTimeout) {
+        if (enableTimeout && outDelay > msTimeout) {
           delayRestOut = outDelay - msTimeout;
           outDelay = msTimeout;
           mySleep(outDelay);
