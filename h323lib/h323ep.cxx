@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.19  2002-04-19 14:09:48  vfrolov
- * Enabled T.38 mode request for O/G connections
+ * Revision 1.20  2002-04-27 10:20:41  vfrolov
+ * Added ability to disable listen for incoming calls
+ *
+ * Revision 1.20  2002/04/27 10:20:41  vfrolov
+ * Added ability to disable listen for incoming calls
  *
  * Revision 1.19  2002/04/19 14:09:48  vfrolov
  * Enabled T.38 mode request for O/G connections
@@ -154,6 +157,7 @@ void T38Modem::Main()
             "                            Discards prefix from number. Prefix 'all' is all numbers\n"
 	    "                            Mandatory if not using GK\n"
             "  -i --interface ip       : Bind to a specific interface\n"
+            "  --no-listenport         : Disable listen for incoming calls\n"
             "  --listenport port       : Listen on a specific port\n"
             "  --connectport port      : Connect to a specific port\n"
             "  -g --gatekeeper host    : Specify gatekeeper host.\n"
@@ -184,23 +188,25 @@ void T38Modem::Main()
 
 
   // start the H.323 listener
-  H323ListenerTCP * listener;
-  PIPSocket::Address interfaceAddress(INADDR_ANY);
-  WORD listenPort = H323ListenerTCP::DefaultSignalPort;
+  H323ListenerTCP * listener = NULL;
+  if (!args.HasOption("no-listenport")) {
+    PIPSocket::Address interfaceAddress(INADDR_ANY);
+    WORD listenPort = H323ListenerTCP::DefaultSignalPort;
 
-  if (args.HasOption("listenport"))
-    listenPort = (WORD)args.GetOptionString("listenport").AsInteger();
+    if (args.HasOption("listenport"))
+      listenPort = (WORD)args.GetOptionString("listenport").AsInteger();
 
-  if (args.HasOption('i'))
-    interfaceAddress = PIPSocket::Address(args.GetOptionString('i'));
+    if (args.HasOption('i'))
+      interfaceAddress = PIPSocket::Address(args.GetOptionString('i'));
 
-  listener  = new H323ListenerTCP(endpoint, interfaceAddress, listenPort);
+    listener  = new H323ListenerTCP(endpoint, interfaceAddress, listenPort);
 
-  if (!endpoint.StartListener(listener)) {
-    cout <<  "Could not open H.323 listener port on "
-         << listener->GetListenerPort() << endl;
-    delete listener;
-    return;
+    if (!endpoint.StartListener(listener)) {
+      cout <<  "Could not open H.323 listener port on "
+           << listener->GetListenerPort() << endl;
+      delete listener;
+      return;
+    }
   }
 
   if (args.HasOption('g')) {
@@ -223,9 +229,10 @@ void T38Modem::Main()
     }
   }
 
-  cout << "Waiting for incoming calls for \"" << endpoint.GetLocalUserName() << '"' << endl;
+  cout << "Waiting for incoming calls for \"" << endpoint.GetLocalUserName() << '"'
+       << PString(listener ? "" : " disabled") << endl;
 
-  for (;;) 
+  for (;;)
     PThread::Sleep(5000);
 }
 
