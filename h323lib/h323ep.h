@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.11  2002-05-22 12:01:39  vfrolov
- * Implemented redundancy error protection scheme
+ * Revision 1.12  2002-11-05 13:46:51  vfrolov
+ * Added missed --username option to help
+ * Utilized "localpartyname" option from "dial" request
+ *
+ * Revision 1.12  2002/11/05 13:46:51  vfrolov
+ * Added missed --username option to help
+ * Utilized "localpartyname" option from "dial" request
  *
  * Revision 1.11  2002/05/22 12:01:39  vfrolov
  * Implemented redundancy error protection scheme
@@ -95,7 +100,7 @@ class MyH323EndPoint : public H323EndPoint
     MyH323EndPoint();
 
     // overrides from H323EndPoint
-    virtual H323Connection * CreateConnection(unsigned callReference);
+    virtual H323Connection * CreateConnection(unsigned callReference, void *userData);
 
     // new functions
     BOOL Initialise(PConfigArgs & args);

@@ -24,8 +24,13 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.25  2002-05-22 12:01:36  vfrolov
- * Implemented redundancy error protection scheme
+ * Revision 1.26  2002-11-05 13:46:44  vfrolov
+ * Added missed --username option to help
+ * Utilized "localpartyname" option from "dial" request
+ *
+ * Revision 1.26  2002/11/05 13:46:44  vfrolov
+ * Added missed --username option to help
+ * Utilized "localpartyname" option from "dial" request
  *
  * Revision 1.25  2002/05/22 12:01:36  vfrolov
  * Implemented redundancy error protection scheme
@@ -197,6 +202,7 @@ void T38Modem::Main()
         "  -F --fastenable           : Enable fast start.\n"
         "  -T --h245tunneldisable    : Disable H245 tunnelling.\n"
 	"  -G --g7231enable          : Enable G.723.1 codec, rather than G.711.\n"
+	"  -u --username str         : Set the local endpoint name to str.\n"
 #if PTRACING
         "  -t --trace                : Enable trace, use multiple times for more detail.\n"
         "  -o --output               : File for trace output, default is stderr.\n"
@@ -294,8 +300,6 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
     if (command == "dial" ) {
       PseudoModem *modem = pmodemQ->Dequeue(modemToken);
       if (modem != NULL ) {
-
-        PString callToken;
         PString num = request("number");
         PString remote;
 
@@ -330,8 +334,10 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
         else {
           PTRACE(1, "MyH323EndPoint::OnMyCallback MakeCall(" << num << ")");
 
-	  // make the call
-          MakeCall(num, callToken);
+          PString LocalPartyName = request("localpartyname");
+          PString callToken;
+
+          MakeCall(num, callToken, (void *)(LocalPartyName.IsEmpty() ? NULL : (const char*)LocalPartyName));
 
           request.SetAt("calltoken", callToken);
           H323Connection * _conn = FindConnectionWithLock(callToken);
@@ -339,7 +345,10 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
           if (_conn == NULL ) 
             pmodemQ->Enqueue(modem);
           else {
-            cout << "O/G connection to " << num << "\n";
+            cout << "O/G connection to " << num;
+            if (!LocalPartyName.IsEmpty())
+              cout << " from " << LocalPartyName;
+            cout << endl;
             PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
             MyH323Connection *conn = (MyH323Connection *)_conn;
             if( conn->Attach(modem) )
@@ -388,9 +397,12 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
   }
 }
 
-H323Connection * MyH323EndPoint::CreateConnection(unsigned callReference)
+H323Connection * MyH323EndPoint::CreateConnection(unsigned callReference, void *userData)
 {
-  return new MyH323Connection(*this, callReference);
+  MyH323Connection *connection = new MyH323Connection(*this, callReference);
+  if (connection && userData)
+    connection->SetLocalPartyName((const char *)userData);
+  return connection;
 }
 
 PseudoModem * MyH323EndPoint::PMAlloc(const PString &number) const
