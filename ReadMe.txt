@@ -1,37 +1,9 @@
 /*
- * $Id: ReadMe.txt,v 1.8 2005-02-03 13:20:01 vfrolov Exp $
+ * $Id: ReadMe.txt,v 1.9 2005-02-07 10:07:38 vfrolov Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
- *
- * $Log: ReadMe.txt,v $
- * Revision 1.8  2005-02-03 13:20:01  vfrolov
- * Added comments for Windows users
- *
- * Revision 1.8  2005/02/03 13:20:01  vfrolov
- * Added comments for Windows users
- *
- * Revision 1.7  2002/12/19 10:41:03  vfrolov
- * Added "Introduction" and "AT commands" sections and made some fixes
- *
- * Revision 1.6  2002/11/18 22:57:53  craigs
- * Added patches from Vyacheslav Frolov for CORRIGENDUM
- *
- * Revision 1.5  2002/03/22 09:40:57  vfrolov
- * Removed obsoleted option -f
- *
- * Revision 1.4  2002/01/09 16:14:58  rogerh
- * FreeBSD uses /dev/ttypa and /dev/ttypb
- *
- * Revision 1.3  2002/01/09 16:01:03  rogerh
- * Executable is called t38modem
- *
- * Revision 1.2  2002/01/01 23:11:49  craigs
- * New version from Vyacheslav Frolov
- * Removed references to unneeded OpenH323 patches
- * Removed reference to -k and -m options in usage
- * Change to use -route option
  *
  */
 
@@ -80,7 +52,7 @@ Windows Users: You need two COM ports connected via Null-modem cable to create o
                This will create two modems COM1 and COM3.
                Q. How to use t38modem without additional COM port hardware on Windows?
                A. Replace a pair of physical COM ports with a pair of virtual COM ports.
-                  See http://sourceforge.net/projects/com0com/.
+                  See http://com0com.sourceforge.net/ project for details.
 
 Cisco Users:   You additionaly need to use --old-asn and --h245tunneldisable options.
 
@@ -259,4 +231,43 @@ Examples:
 
     calling number is <calling number> and user can't override
     it by inserting L<user's calling number> into <user's number>
+
+
+                         -----------------------------
+
+/*
+ * $Log: ReadMe.txt,v $
+ * Revision 1.9  2005-02-07 10:07:38  vfrolov
+ * Fixed com0com link
+ * Moved Log to the bottom
+ *
+ * Revision 1.9  2005/02/07 10:07:38  vfrolov
+ * Fixed com0com link
+ * Moved Log to the bottom
+ *
+ * Revision 1.8  2005/02/03 13:20:01  vfrolov
+ * Added comments for Windows users
+ *
+ * Revision 1.7  2002/12/19 10:41:03  vfrolov
+ * Added "Introduction" and "AT commands" sections and made some fixes
+ *
+ * Revision 1.6  2002/11/18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
+ *
+ * Revision 1.5  2002/03/22 09:40:57  vfrolov
+ * Removed obsoleted option -f
+ *
+ * Revision 1.4  2002/01/09 16:14:58  rogerh
+ * FreeBSD uses /dev/ttypa and /dev/ttypb
+ *
+ * Revision 1.3  2002/01/09 16:01:03  rogerh
+ * Executable is called t38modem
+ *
+ * Revision 1.2  2002/01/01 23:11:49  craigs
+ * New version from Vyacheslav Frolov
+ * Removed references to unneeded OpenH323 patches
+ * Removed reference to -k and -m options in usage
+ * Change to use -route option
+ *
+ */
 
