@@ -24,8 +24,13 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.30  2003-04-07 06:52:43  vfrolov
- * Fixed --save option
+ * Revision 1.31  2003-04-14 07:04:33  vfrolov
+ * Added missing --disable and --prefer options.
+ * Reported by Alexandre Aractingi.
+ *
+ * Revision 1.31  2003/04/14 07:04:33  vfrolov
+ * Added missing --disable and --prefer options.
+ * Reported by Alexandre Aractingi.
  *
  * Revision 1.30  2003/04/07 06:52:43  vfrolov
  * Fixed --save option
@@ -161,6 +166,7 @@ BOOL T38Modem::Initialise()
              "F-fastenable."
              "T-h245tunneldisable."
 	     "G-g7231code."
+             "D-disable:"            "P-prefer:"
 
              "g-gatekeeper:"         "n-no-gatekeeper."
              "-require-gatekeeper."  "-no-require-gatekeeper."
@@ -175,11 +181,7 @@ BOOL T38Modem::Initialise()
              "t-trace."
              "o-output:"
 #endif
-             "r-run:"                "-no-run."
              "-save."
-#if PTRACING
-             "t-trace."
-#endif
 	     "u-username:"           "-no-username."
           , FALSE);
 
@@ -226,6 +228,10 @@ BOOL T38Modem::Initialise()
         "  -F --fastenable           : Enable fast start.\n"
         "  -T --h245tunneldisable    : Disable H245 tunnelling.\n"
 	"  -G --g7231enable          : Enable G.723.1 codec, rather than G.711.\n"
+	"  -D --disable codec        : Disable the specified codec.\n"
+        "                              Can be used multiple times.\n"
+	"  -P --prefer codec         : Prefer the specified codec.\n"
+        "                              Can be used multiple times.\n"
 	"  -u --username str         : Set the local endpoint name to str.\n"
 #if PTRACING
         "  -t --trace                : Enable trace, use multiple times for more detail.\n"
