@@ -22,9 +22,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.5  2002-04-27 10:17:20  vfrolov
-# Added checking if COUT_TRACE or MYPTRACE_LEVEL defined
-# Do not add -DCOUT_TRACE by default
+# Revision 1.6  2002-04-30 03:52:28  craigs
+# Added option for G.723.1 codec
+#
+# Revision 1.6  2002/04/30 03:52:28  craigs
+# Added option for G.723.1 codec
 #
 # Revision 1.5  2002/04/27 10:17:20  vfrolov
 # Added checking if COUT_TRACE or MYPTRACE_LEVEL defined
@@ -39,7 +41,7 @@
 # 
 
 PROG		= t38modem
-SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pty.cxx pmodemi.cxx pmodeme.cxx t38engine.cxx main.cxx
+SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pty.cxx pmodemi.cxx pmodeme.cxx t38engine.cxx main.cxx g7231_fake.cxx
 
 ifndef PWLIBDIR
 PWLIBDIR=$(HOME)/pwlib
