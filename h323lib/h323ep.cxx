@@ -24,10 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.33  2003-12-19 15:25:06  vfrolov
- * Removed class AudioDelay (utilized PAdaptiveDelay)
- * Renamed pmodemQ to pmodem_pool
- * Fixed modem loss on no route
+ * Revision 1.34  2004-05-09 07:46:11  csoutheren
+ * Updated to compile with new PIsDescendant function
+ *
+ * Revision 1.34  2004/05/09 07:46:11  csoutheren
+ * Updated to compile with new PIsDescendant function
  *
  * Revision 1.33  2003/12/19 15:25:06  vfrolov
  * Removed class AudioDelay (utilized PAdaptiveDelay)
@@ -330,7 +331,7 @@ MyH323EndPoint::MyH323EndPoint()
 
 void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
 {
-  if (from.IsDescendant(PStringToString::Class()) ) {
+  if (PIsDescendant(&from, PStringToString) ) {
     PStringToString &request = (PStringToString &)from;
     PString command = request("command");
 
@@ -389,7 +390,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
             if (!LocalPartyName.IsEmpty())
               cout << " from " << LocalPartyName;
             cout << endl;
-            PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
+            PAssert(PIsDescendant(_conn, MyH323Connection), PInvalidCast);
             MyH323Connection *conn = (MyH323Connection *)_conn;
             if (conn->Attach(modem)) {
               response = "confirm";
@@ -463,7 +464,7 @@ void MyH323EndPoint::SetOptions(MyH323Connection &/*conn*/, OpalT38Protocol *t38
   // TODO: make it per host
 
   if (t38handler != NULL) {
-    PAssert(t38handler->IsDescendant(T38Engine::Class()), PInvalidCast);
+    PAssert(PIsDescendant(t38handler, T38Engine), PInvalidCast);
     ((T38Engine *)t38handler)->SetRedundancy(in_redundancy, ls_redundancy, hs_redundancy);
     if (old_asn)
       ((T38Engine *)t38handler)->SetOldASN();
@@ -568,7 +569,7 @@ MyH323Connection::~MyH323Connection()
 
   if (pmodem != NULL) {
     if (t38handler != NULL) {
-      PAssert(t38handler->IsDescendant(T38Engine::Class()), PInvalidCast);
+      PAssert(PIsDescendant(t38handler, T38Engine), PInvalidCast);
       pmodem->Detach((T38Engine *)t38handler);
     }
 

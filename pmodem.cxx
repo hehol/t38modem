@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.cxx,v $
- * Revision 1.5  2002-05-15 16:17:44  vfrolov
- * Implemented per modem routing for I/C calls
+ * Revision 1.6  2004-05-09 07:46:11  csoutheren
+ * Updated to compile with new PIsDescendant function
+ *
+ * Revision 1.6  2004/05/09 07:46:11  csoutheren
+ * Updated to compile with new PIsDescendant function
  *
  * Revision 1.5  2002/05/15 16:17:44  vfrolov
  * Implemented per modem routing for I/C calls
@@ -66,7 +69,7 @@ PseudoModem::PseudoModem(const PString &_tty)
 
 PObject::Comparison PseudoModem::Compare(const PObject & obj) const
 {
-  PAssert(obj.IsDescendant(PseudoModem::Class()), PInvalidCast);
+  PAssert(PIsDescendant(&obj, PseudoModem), PInvalidCast);
   const PseudoModem & other = (const PseudoModem &)obj;
   return modemToken().Compare(other.modemToken());
 }
@@ -105,7 +108,7 @@ PseudoModem *PseudoModemQ::DequeueWithRoute(const PString &number)
   PObject *object;
   
   for( PINDEX i = 0 ; (object = GetAt(i)) != NULL ; i++ ) {
-    PAssert(object->IsDescendant(PseudoModem::Class()), PInvalidCast);
+    PAssert(PIsDescendant(object, PseudoModem), PInvalidCast);
     PseudoModem *modem = (PseudoModem *)object;
     if( modem->CheckRoute(number) && modem->IsReady() ) {
       return Remove(modem) ? modem : NULL;;
@@ -120,7 +123,7 @@ PseudoModem *PseudoModemQ::Find(const PString &modemToken) const
   PObject *object;
   
   for( PINDEX i = 0 ; (object = GetAt(i)) != NULL ; i++ ) {
-    PAssert(object->IsDescendant(PseudoModem::Class()), PInvalidCast);
+    PAssert(PIsDescendant(object, PseudoModem), PInvalidCast);
     PseudoModem *modem = (PseudoModem *)object;
     if( modem->modemToken() == modemToken ) {
       return modem;

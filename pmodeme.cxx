@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.20  2004-03-01 17:14:34  vfrolov
- * Fixed binary log in command mode
+ * Revision 1.21  2004-05-09 07:46:11  csoutheren
+ * Updated to compile with new PIsDescendant function
+ *
+ * Revision 1.21  2004/05/09 07:46:11  csoutheren
+ * Updated to compile with new PIsDescendant function
  *
  * Revision 1.20  2004/03/01 17:14:34  vfrolov
  * Fixed binary log in command mode
@@ -673,7 +676,7 @@ void ModemEngineBody::Detach(T38Engine *_t38engine)
 void ModemEngineBody::OnMyCallback(PObject &from, INT extra)
 {
   PTRACE(1, "ModemEngineBody::OnMyCallback " << from.GetClass() << " " << extra);
-  if( from.IsDescendant(T38Engine::Class()) ) {
+  if (PIsDescendant(&from, T38Engine) ) {
     PWaitAndSignal mutexWait(Mutex);
     if( extra == seq ) {
       switch( state ) {
