@@ -24,12 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pty.cxx,v $
- * Revision 1.4  2002-03-01 08:53:16  vfrolov
- * Added Copyright header
- * Some OS specific code moved from pmodemi.cxx to pty.cxx
- * Added error code string to log
- * Fixed race condition with fast close and open slave tty
- * Some other changes
+ * Revision 1.5  2002-03-05 12:37:45  vfrolov
+ * Some OS specific code moved from pmodem.cxx to pty.cxx
+ *
+ * Revision 1.5  2002/03/05 12:37:45  vfrolov
+ * Some OS specific code moved from pmodem.cxx to pty.cxx
  *
  * Revision 1.4  2002/03/01 08:53:16  vfrolov
  * Added Copyright header
@@ -259,6 +258,38 @@ void PseudoModemBody::ClosePty()
   }
   
   hPty = -1;
+}
+///////////////////////////////////////////////////////////////
+BOOL PseudoModem::ttySet(const PString &_tty)
+{
+  PRegularExpression reg(ttyPattern(), PRegularExpression::Extended);
+
+  if (_tty.FindRegEx(reg) == 0) {
+    if (_tty[0] != '/')
+      ttypath = "/dev/" + _tty;
+    else
+      ttypath = _tty;
+    (ptypath = ttypath)[5] = 'p';
+    ptyname = &ptypath[5];
+    
+    return TRUE;
+  }
+  return FALSE;
+}
+
+const char *PseudoModem::ttyPattern()
+{
+#if defined(P_LINUX)
+  #define TTY_PATTERN "^(/dev/)?tty[pqrstuvwxyzabcde][0123456789abcdef]$"
+#endif
+#if defined(P_FREEBSD)
+  #define TTY_PATTERN "^(/dev/)?tty[pqrsPQRS][0123456789abcdefghijklmnopqrstuv]$"
+#endif
+#ifndef TTY_PATTERN
+  #define TTY_PATTERN "^(/dev/)?tty..$"
+#endif
+
+  return TTY_PATTERN;
 }
 ///////////////////////////////////////////////////////////////
 
