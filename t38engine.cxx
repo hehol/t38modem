@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.9  2002-04-19 13:58:59  vfrolov
- * Added SendOnIdle()
+ * Revision 1.10  2002-05-07 10:15:38  vfrolov
+ * Fixed dead lock on modemCallback
+ *
+ * Revision 1.10  2002/05/07 10:15:38  vfrolov
+ * Fixed dead lock on modemCallback
  *
  * Revision 1.9  2002/04/19 13:58:59  vfrolov
  * Added SendOnIdle()
@@ -281,7 +284,7 @@ static void t38data(T38_IFPPacket &ifp, unsigned type, unsigned field_type, cons
 T38Engine::T38Engine(const PString &_name)
   : OpalT38Protocol(), name(_name)
 {
-  PTRACE(3, name << " T38Engine::T38Engine");
+  PTRACE(2, name << " T38Engine::T38Engine");
   stateModem = stmIdle;
   stateOut = stOutNoSig;
   onIdleOut = dtNone;
@@ -301,7 +304,7 @@ BOOL T38Engine::Originate()
     PTRACE(2, name << " T38Engine::Originate old ThreadName=" << old);
   }
   BOOL res = OpalT38Protocol::Originate();
-  PTRACE(3, name << " T38Engine::Originate end");
+  PTRACE(2, name << " T38Engine::Originate end");
   return res;
 }
 
@@ -363,6 +366,17 @@ void T38Engine::Detach(const PNotifier &callback)
 }
 ///////////////////////////////////////////////////////////////
 //
+void T38Engine::ModemCallbackWithUnlock(INT extra) const
+{
+  PNotifier callback = modemCallback;
+  
+  if (!callback.IsNULL()) {
+    Mutex.Signal();
+    callback(*this, extra);
+    Mutex.Wait();
+  }
+}
+
 void T38Engine::CleanUpOnTermination()
 {
   myPTRACE(1, name << " T38Engine::CleanUpOnTermination");
@@ -376,8 +390,8 @@ void T38Engine::SetT38Mode(BOOL mode)
   T38Mode = mode;
   myPTRACE(1, name << " T38Engine::SetT38Mode T38Mode=" << (T38Mode ? "TRUE" : "FALSE"));
   SignalOutDataReady();
-  if (!T38Mode && !modemCallback.IsNULL() )
-    modemCallback(*this, cbpReset);
+  if (!T38Mode)
+    ModemCallbackWithUnlock(cbpReset);
 }
 
 void T38Engine::ResetModemState() {
@@ -526,8 +540,7 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
       if( ModParsIn.val == modStreamIn->ModPars.val ) {
         PTRACE(1, name << " T38Engine::RecvWait ModParsIn.val == modStreamIn->ModPars.val(" <<  modStreamIn->ModPars.val << ")");
         stateModem = stmInReadyData;
-        if( !modemCallback.IsNULL() )
-          modemCallback(*this, callbackParamIn);
+        ModemCallbackWithUnlock(_callbackParam);
         return TRUE;
       }
       delete modStreamIn;
@@ -549,8 +562,7 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
       modStreamIn->PutEof(diagDiffSig);
     }
     stateModem = stmInReadyData;
-    if( !modemCallback.IsNULL() )
-      modemCallback(*this, callbackParamIn);
+    ModemCallbackWithUnlock(callbackParamIn);
     return TRUE;
   }
 
@@ -724,16 +736,14 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
             case stOutCedWait:
               stateOut = stOutNoSig;
               stateModem = stmIdle;
-              if( !modemCallback.IsNULL() )
-                modemCallback(*this, callbackParamOut);
+              ModemCallbackWithUnlock(callbackParamOut);
               redo = TRUE;
               break;
             ////////////////////////////////////////////////////
             case stOutSilenceWait:
               stateOut = stOutIdle;
               stateModem = stmIdle;
-              if( !modemCallback.IsNULL() )
-                modemCallback(*this, callbackParamOut);
+              ModemCallbackWithUnlock(callbackParamOut);
               redo = TRUE;
               break;
             ////////////////////////////////////////////////////
@@ -769,12 +779,9 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
                     redo = TRUE;
                     break;
                   case 0:
-                    if( lastDteCharOut != -1 ) {
-                      if( ModParsOut.dataType == dtHdlc || lastDteCharOut != 0 ) {
-                        if( !modemCallback.IsNULL() )
-                          modemCallback(*this, cbpOutBufEmpty);
-                      }
-                    }
+                    if (lastDteCharOut != -1)
+                      if (ModParsOut.dataType == dtHdlc || lastDteCharOut != 0)
+                        ModemCallbackWithUnlock(cbpOutBufEmpty);
                     waitData = TRUE;
                     break;
                   default:
@@ -805,8 +812,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
                 stateOut = stOutHdlcFlagsWait;
                 bufOut.Clean();		// reset eof
                 stateModem = stmOutMoreData;
-                if( !modemCallback.IsNULL() )
-                  modemCallback(*this, callbackParamOut);
+                ModemCallbackWithUnlock(callbackParamOut);
               } else {
                 stateOut = stOutDataNoSig;
               }
@@ -837,8 +843,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
               }
               stateOut = stOutNoSig;
               stateModem = stmIdle;
-              if( !modemCallback.IsNULL() )
-                modemCallback(*this, callbackParamOut);
+              ModemCallbackWithUnlock(callbackParamOut);
               break;
             ////////////////////////////////////////////////////
             case stOutNoSig:
@@ -963,8 +968,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
               myPTRACE(1, name << " T38Engine::HandlePacket modStreamIn == NULL");
             }
             stateModem = stmInReadyData;
-            if( !modemCallback.IsNULL() )
-              modemCallback(*this, callbackParamIn);
+            ModemCallbackWithUnlock(callbackParamIn);
           }
           break;
         default:
@@ -987,8 +991,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
           myPTRACE(1, name << " T38Engine::HandlePacket modStream->ModPars.msgType(" << modStream->ModPars.msgType << ") != type_of_msg(" << type_of_msg << ")");
           modStream->PutEof(diagOutOfOrder);
           if( stateModem == stmInRecvData )
-            if( !modemCallback.IsNULL() )
-              modemCallback(*this, callbackParamIn);
+            ModemCallbackWithUnlock(callbackParamIn);
           break;
         }
 
@@ -1059,8 +1062,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
             myPTRACE(1, name << " T38Engine::HandlePacket type_of_msg bad !!! " << setprecision(2) << ifp);
         }
         if( stateModem == stmInRecvData )
-          if( !modemCallback.IsNULL() )
-            modemCallback(*this, callbackParamIn);
+          ModemCallbackWithUnlock(callbackParamIn);
         break;
       }
     default:

@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.8  2002-04-19 14:29:40  vfrolov
- * Added Copyright header
+ * Revision 1.9  2002-05-07 10:15:44  vfrolov
+ * Fixed dead lock on modemCallback
+ *
+ * Revision 1.9  2002/05/07 10:15:44  vfrolov
+ * Fixed dead lock on modemCallback
  *
  * Revision 1.8  2002/04/19 14:29:40  vfrolov
  * Added Copyright header
@@ -176,10 +179,11 @@ class T38Engine : public OpalT38Protocol
     
   private:
   
-    virtual void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }
-    virtual void WaitOutDataReady() { outDataReadySyncPoint.Wait(); }
+    void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }
+    void WaitOutDataReady() { outDataReadySyncPoint.Wait(); }
     
     BOOL IsT38Mode() const { return T38Mode; }
+    void ModemCallbackWithUnlock(INT extra) const;
 
     int stateOut;
     int onIdleOut;
