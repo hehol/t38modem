@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: dle.cxx,v $
- * Revision 1.7  2004-10-22 13:34:20  vfrolov
- * Fixed buffer overflow
+ * Revision 1.8  2004-10-27 13:18:03  vfrolov
+ * Fixed compiler warning
+ *
+ * Revision 1.8  2004/10/27 13:18:03  vfrolov
+ * Fixed compiler warning
  *
  * Revision 1.7  2004/10/22 13:34:20  vfrolov
  * Fixed buffer overflow
@@ -156,7 +159,7 @@ int DLEData::GetDleData(void *pBuf, PINDEX count)
     PINDEX cGet = (count - done - 2) / 2;
     BYTE tmp[1024];
 
-    if (cGet > sizeof(tmp))
+    if (cGet > (PINDEX)sizeof(tmp))
       cGet = sizeof(tmp);
 
     switch( cGet = GetData(tmp, cGet) ) {
