@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.h,v $
- * Revision 1.2  2002-01-10 06:10:02  craigs
- * Added MPL header
+ * Revision 1.3  2002-04-19 14:29:33  vfrolov
+ * Added Copyright header
+ *
+ * Revision 1.3  2002/04/19 14:29:33  vfrolov
+ * Added Copyright header
  *
  * Revision 1.2  2002/01/10 06:10:02  craigs
  * Added MPL header

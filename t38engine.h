@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.7  2002-04-19 13:59:04  vfrolov
- * Added SendOnIdle()
+ * Revision 1.8  2002-04-19 14:29:40  vfrolov
+ * Added Copyright header
+ *
+ * Revision 1.8  2002/04/19 14:29:40  vfrolov
+ * Added Copyright header
  *
  * Revision 1.7  2002/04/19 13:59:04  vfrolov
  * Added SendOnIdle()
