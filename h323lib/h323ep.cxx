@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.16  2002-03-22 09:39:13  vfrolov
- * Removed obsoleted option -f
+ * Revision 1.17  2002-04-17 08:55:18  vfrolov
+ * Utilized trace output of H323Channel::Direction enum
+ *
+ * Revision 1.17  2002/04/17 08:55:18  vfrolov
+ * Utilized trace output of H323Channel::Direction enum
  *
  * Revision 1.16  2002/03/22 09:39:13  vfrolov
  * Removed obsoleted option -f
@@ -508,7 +511,7 @@ H323Connection::AnswerCallResponse
   if (setupPDU.GetDestinationE164(number)) {
     cout << "To:   " << number << "\n";
     PTRACE(1, "To: " << number);
-}
+  }
 
   PseudoModem *_pmodem = ep.PMAlloc();
 
@@ -562,28 +565,17 @@ H323Connection::AnswerCallResponse
 
 BOOL MyH323Connection::OnStartLogicalChannel(H323Channel & channel)
 {
-  myPTRACE(1, "MyH323Connection::OnStartLogicalChannel ch=" << channel << " cp=" << channel.GetCapability() << " sid=" << channel.GetSessionID() << " d=" << (int)channel.GetDirection());
+  myPTRACE(1, "MyH323Connection::OnStartLogicalChannel ch=" << channel << " cp=" << channel.GetCapability() << " sid=" << channel.GetSessionID() << " " << channel.GetDirection());
 
   if (!H323Connection::OnStartLogicalChannel(channel))
     return FALSE;
 
-  cout << "Started logical channel: ";
+  cout
+    << "Started logical channel: " << channel
+    << " " << channel.GetCapability()
+    << " " << channel.GetDirection()
+    << endl;
 
-  switch (channel.GetDirection()) {
-    case H323Channel::IsTransmitter :
-      cout << "sending ";
-      break;
-
-    case H323Channel::IsReceiver :
-      cout << "receiving ";
-      break;
-
-    default :
-      break;
-  }
-  
-  cout << channel << endl;
-  
   return TRUE;
 }
 
@@ -593,7 +585,7 @@ void MyH323Connection::OnClosedLogicalChannel(const H323Channel & channel)
   
   H323Connection::OnClosedLogicalChannel(channel);
 
-  myPTRACE(1, "MyH323Connection::OnClosedLogicalChannel ch=" << channel << " cp=" << channel.GetCapability() << " sid=" << channel.GetSessionID() << " d=" << (int)channel.GetDirection());
+  myPTRACE(1, "MyH323Connection::OnClosedLogicalChannel ch=" << channel << " cp=" << channel.GetCapability() << " sid=" << channel.GetSessionID() << " " << channel.GetDirection());
 }
 
 BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize */, H323AudioCodec & codec)
