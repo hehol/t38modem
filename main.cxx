@@ -3,7 +3,7 @@
  *
  * T38Modem simulator - main program
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2003 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,9 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.31  2003-04-14 07:04:33  vfrolov
- * Added missing --disable and --prefer options.
- * Reported by Alexandre Aractingi.
+ * Revision 1.32  2003-12-04 11:23:51  vfrolov
+ * Added "h323:" prefix to remoteParty
+ *
+ * Revision 1.32  2003/12/04 11:23:51  vfrolov
+ * Added "h323:" prefix to remoteParty
  *
  * Revision 1.31  2003/04/14 07:04:33  vfrolov
  * Added missing --disable and --prefer options.
@@ -370,7 +372,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
           PString LocalPartyName = request("localpartyname");
           PString callToken;
 
-          MakeCall(num, callToken, (void *)(LocalPartyName.IsEmpty() ? NULL : (const char*)LocalPartyName));
+          MakeCall("h323:" + num, callToken, (void *)(LocalPartyName.IsEmpty() ? NULL : (const char*)LocalPartyName));
 
           request.SetAt("calltoken", callToken);
           H323Connection * _conn = FindConnectionWithLock(callToken);
