@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.33  2005-02-04 10:18:49  vfrolov
- * Fixed warnings for No Trace build
+ * Revision 1.34  2005-03-03 16:09:06  vfrolov
+ * Fixed memory leak
+ *
+ * Revision 1.34  2005/03/03 16:09:06  vfrolov
+ * Fixed memory leak
  *
  * Revision 1.33  2005/02/04 10:18:49  vfrolov
  * Fixed warnings for No Trace build
@@ -987,9 +990,8 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
         ModemCallbackWithUnlock(_callbackParam);
         return TRUE;
       }
-      delete modStreamIn;
-      modStreamIn = NULL;
     }
+    delete modStreamIn;
   }
 
   modStreamIn = new ModStream(ModParsIn);
