@@ -1,13 +1,17 @@
 /*
- * $Id: pmodeme.cxx,v 1.4 2002-01-03 21:36:00 craigs Exp $
+ * $Id: pmodeme.cxx,v 1.5 2002-01-06 03:48:45 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.4  2002-01-03 21:36:00  craigs
- * Added change to use S1 register for number of rings on answer
+ * Revision 1.5  2002-01-06 03:48:45  craigs
+ * Added changes to support efax 0.9
+ * Thanks to Vyacheslav Frolov
+ *
+ * Revision 1.5  2002/01/06 03:48:45  craigs
+ * Added changes to support efax 0.9
  * Thanks to Vyacheslav Frolov
  *
  * Revision 1.4  2002/01/03 21:36:00  craigs
@@ -200,6 +204,7 @@ class ModemEngineBody : public PObject
       stReqModeAckWait,
       stReqModeAckHandle,
       stSend,
+      stSendBufEmptyHandle,
       stSendAckWait,
       stSendAckHandle,
       stRecvBegWait,
@@ -273,7 +278,7 @@ class ModemEngineBody : public PObject
     
     void ClearCall();
 
-    int NextSeq() { return seq = ++seq % 255; }
+    int NextSeq() { return seq = ++seq % T38Engine::cbpUserDataMod; }
 
     ModemEngine &parent;
     T38Engine *t38engine;
@@ -531,14 +536,23 @@ void ModemEngineBody::OnMyCallback(PObject &from, INT extra)
           timeout.Stop();
           break;
       }
-    } else if( extra == -1 ) {	// reset
-      switch( state ) {
-        case stSend:
-          state = stResetHandle;
-          break;
-      }
-    } else {
-      myPTRACE(1, "ModemEngineBody::OnMyCallback extra(" << extra << ") != seq(" << seq << ")");
+    } else switch( extra ) {
+      case T38Engine::cbpReset:
+        switch( state ) {
+          case stSend:
+            state = stResetHandle;
+            break;
+        }
+        break;
+      case T38Engine::cbpOutBufEmpty:
+        switch( state ) {
+          case stSend:
+            state = stSendBufEmptyHandle;
+            break;
+        }
+        break;
+      default:
+        myPTRACE(1, "ModemEngineBody::OnMyCallback extra(" << extra << ") != seq(" << seq << ")");
     }
   }
   parent.SignalDataReady();
@@ -1188,12 +1202,10 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
               PWaitAndSignal mutexWait(Mutex);
               switch( count ) {
                 case -1:
-                  {
-                    state = stSendAckWait;
-                    if( !t38engine || !t38engine->SendStop(moreFrames, NextSeq()) ) {
-                      bresp.Concatenate(PBYTEArray((const BYTE *)"\r\nERROR\r\n", 9));
-                      state = stCommand;
-                    }
+                  state = stSendAckWait;
+                  if( !t38engine || !t38engine->SendStop(moreFrames, NextSeq()) ) {
+                    bresp.Concatenate(PBYTEArray((const BYTE *)"\r\nERROR\r\n", 9));
+                    state = stCommand;
                   }
                   break;
                 case 0:
@@ -1266,10 +1278,23 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
   switch( state ) {
     case stResetHandle:
-      resp += "\r\nERROR\r\n";
-      state = stCommand;
-      if( t38engine )
-        t38engine->ResetModemState();
+      {
+        PWaitAndSignal mutexWait(Mutex);
+        resp += "\r\nERROR\r\n";
+        state = stCommand;
+        if( t38engine )
+          t38engine->ResetModemState();
+      }
+      break;
+    case stSendBufEmptyHandle:
+      {
+        PWaitAndSignal mutexWait(Mutex);
+        state = stSendAckWait;
+        if( !t38engine || !t38engine->SendStop(moreFrames, NextSeq()) ) {
+          resp += "\r\nERROR\r\n";
+          state = stCommand;
+        }
+      }
       break;
     case stReqModeAckHandle:
       {

@@ -1,13 +1,17 @@
 /*
- * $Id: t38engine.h,v 1.3 2002-01-03 21:36:42 craigs Exp $
+ * $Id: t38engine.h,v 1.4 2002-01-06 03:48:45 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: t38engine.h,v $
- * Revision 1.3  2002-01-03 21:36:42  craigs
- * Added additional logic to work with efax
+ * Revision 1.4  2002-01-06 03:48:45  craigs
+ * Added changes to support efax 0.9
+ * Thanks to Vyacheslav Frolov
+ *
+ * Revision 1.4  2002/01/06 03:48:45  craigs
+ * Added changes to support efax 0.9
  * Thanks to Vyacheslav Frolov
  *
  * Revision 1.3  2002/01/03 21:36:42  craigs
@@ -71,6 +75,12 @@ class T38Engine : public OpalT38Protocol
       dtSilence,
       dtHdlc,
       dtRaw,
+    };
+
+    enum {
+      cbpUserDataMod	= 255,
+      cbpReset		= -1,
+      cbpOutBufEmpty	= -2,
     };
 
   /**@name Construction */
@@ -143,13 +153,14 @@ class T38Engine : public OpalT38Protocol
     DataStream bufOut;
     MODPARS ModParsOut;
     PINDEX countOut;
+    int lastDteCharOut;
     PTime timeBeginOut;
     BOOL moreFramesOut;
     PSyncPoint outDataReadySyncPoint;
     
     int stateIn;
     int callbackParamIn;
-    BOOL no_signal;
+    int isCarrierIn;
     
     ModStream *modStreamIn;
     ModStream *modStreamInSaved;
