@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,9 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.7  2002-02-11 16:46:18  vfrolov
- * Discarded transport arg from Originate() and Answer()
- * Thanks to Christopher Curtis
+ * Revision 1.8  2002-03-01 09:02:04  vfrolov
+ * Added Copyright header
+ * Added name name to trace messages
+ *
+ * Revision 1.8  2002/03/01 09:02:04  vfrolov
+ * Added Copyright header
+ * Added name name to trace messages
  *
  * Revision 1.7  2002/02/11 16:46:18  vfrolov
  * Discarded transport arg from Originate() and Answer()
@@ -273,7 +279,7 @@ static void t38data(T38_IFPPacket &ifp, unsigned type, unsigned field_type, cons
 T38Engine::T38Engine(const PString &_name)
   : OpalT38Protocol(), name(_name)
 {
-  PTRACE(1, "T38Engine::T38Engine");
+  PTRACE(3, name << " T38Engine::T38Engine");
   stateModem = stmIdle;
   stateOut = stOutNoSig;
   
@@ -289,7 +295,7 @@ BOOL T38Engine::Originate()
   if (!name.IsEmpty()) {
     PString old = PThread::Current()->GetThreadName();
     PThread::Current()->SetThreadName(name + "(tx):%0x");
-    PTRACE(2, "myT38Protocol::Originate old ThreadName=" << old);
+    PTRACE(2, name << " T38Engine::Originate old ThreadName=" << old);
   }
   return OpalT38Protocol::Originate();
 }
@@ -299,14 +305,14 @@ BOOL T38Engine::Answer()
   if( !name.IsEmpty() ) {
     PString old = PThread::Current()->GetThreadName();
     PThread::Current()->SetThreadName(name + "(rx):%0x");
-    PTRACE(2, "myT38Protocol::Answer old ThreadName=" << old);
+    PTRACE(2, name << " T38Engine::Answer old ThreadName=" << old);
   }
   return OpalT38Protocol::Answer();
 }
 
 T38Engine::~T38Engine()
 {
-  PTRACE(1, "T38Engine::~T38Engine");
+  PTRACE(1, name << " T38Engine::~T38Engine ");
 
   SignalOutDataReady();
   PWaitAndSignal mutexWaitIn(MutexIn);
@@ -318,16 +324,16 @@ T38Engine::~T38Engine()
   if( modStreamInSaved != NULL )
     delete modStreamInSaved;
   if( !modemCallback.IsNULL() )
-    myPTRACE(1, "T38Engine::~T38Engine !modemCallback.IsNULL()");
+    myPTRACE(1, name << " T38Engine::~T38Engine !modemCallback.IsNULL()");
 }
 
 BOOL T38Engine::Attach(const PNotifier &callback)
 {
+  PTRACE(1, name << " T38Engine::Attach");
   PWaitAndSignal mutexWaitModem(MutexModem);
-  PTRACE(1, "T38Engine::Attach");
   PWaitAndSignal mutexWait(Mutex);
   if( !modemCallback.IsNULL() ) {
-    myPTRACE(1, "T38Engine::Attach !modemCallback.IsNULL()");
+    myPTRACE(1, name << " T38Engine::Attach !modemCallback.IsNULL()");
     return FALSE;
   }
   modemCallback = callback;
@@ -338,14 +344,14 @@ BOOL T38Engine::Attach(const PNotifier &callback)
 void T38Engine::Detach(const PNotifier &callback)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  PTRACE(1, "T38Engine::Detach");
+  PTRACE(1, name << " T38Engine::Detach");
   PWaitAndSignal mutexWait(Mutex);
   if( modemCallback == callback ) {
     modemCallback = NULL;
     ResetModemState();
     SetT38Mode(FALSE);
   } else {
-    myPTRACE(1, "T38Engine::Detach modemCallback != callback");
+    myPTRACE(1, name << " T38Engine::Detach modemCallback != callback");
   }
 }
 ///////////////////////////////////////////////////////////////
@@ -354,7 +360,7 @@ void T38Engine::SetT38Mode(BOOL mode)
 {
   PWaitAndSignal mutexWait(Mutex);
   T38Mode = mode;
-  myPTRACE(1, "T38Engine::SetT38Mode T38Mode=" << (T38Mode ? "TRUE" : "FALSE"));
+  myPTRACE(1, name << " T38Engine::SetT38Mode T38Mode=" << (T38Mode ? "TRUE" : "FALSE"));
   SignalOutDataReady();
   if (!T38Mode && !modemCallback.IsNULL() )
     modemCallback(*this, cbpReset);
@@ -365,11 +371,11 @@ void T38Engine::ResetModemState() {
   PWaitAndSignal mutexWait(Mutex);
 
   if( modStreamIn && modStreamIn->DeleteFirstBuf() )
-    PTRACE(1, "T38Engine::ResetModemState modStreamIn->DeleteFirstBuf(), clean");
+    PTRACE(1, name << " T38Engine::ResetModemState modStreamIn->DeleteFirstBuf(), clean");
 
   bufOut.PutEof();
   if( stateModem != stmIdle ) {
-    myPTRACE(1, "T38Engine::ResetModemState stateModem(" << stateModem << ") != stmIdle, reset");
+    myPTRACE(1, name << " T38Engine::ResetModemState stateModem(" << stateModem << ") != stmIdle, reset");
     stateModem = stmIdle;
   }
   callbackParamIn = -1;
@@ -382,7 +388,7 @@ BOOL T38Engine::SendStart(int _dataType, int param) {
     return FALSE;
 
   if (stateModem != stmIdle)  {
-    myPTRACE(1, "T38Engine::SendStart stateModem(" << stateModem << ") != stmIdle");
+    myPTRACE(1, name << " T38Engine::SendStart stateModem(" << stateModem << ") != stmIdle");
     return FALSE;
   }
 
@@ -432,14 +438,14 @@ int T38Engine::Send(const void *pBuf, PINDEX count) {
     return -1;
 
   if (stateModem != stmOutMoreData) {
-    myPTRACE(1, "T38Engine::Send stateModem(" << stateModem << ") != stmOutMoreData");
+    myPTRACE(1, name << " T38Engine::Send stateModem(" << stateModem << ") != stmOutMoreData");
     return -1;
   }
 
   PWaitAndSignal mutexWait(Mutex);
   int res = bufOut.PutData(pBuf, count);
   if (res < 0)
-    myPTRACE(1, "T38Engine::Send res(" << res << ") < 0");
+    myPTRACE(1, name << " T38Engine::Send res(" << res << ") < 0");
 
   SignalOutDataReady();
   return res;
@@ -451,7 +457,7 @@ BOOL T38Engine::SendStop(BOOL moreFrames, int _callbackParam) {
     return FALSE;
 
   if (stateModem != stmOutMoreData ) {
-    myPTRACE(1, "T38Engine::SendStop stateModem(" << stateModem << ") != stmOutMoreData");
+    myPTRACE(1, name << " T38Engine::SendStop stateModem(" << stateModem << ") != stmOutMoreData");
     return FALSE;
   }
 
@@ -471,7 +477,7 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
     return FALSE;
 
   if( stateModem != stmIdle ) {
-    myPTRACE(1, "T38Engine::RecvWait stateModem(" << stateModem << ") != stmIdle");
+    myPTRACE(1, name << " T38Engine::RecvWait stateModem(" << stateModem << ") != stmIdle");
     return FALSE;
   }
   
@@ -493,12 +499,12 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
 
   if( modStreamIn != NULL ) {
     if( modStreamIn->DeleteFirstBuf() )
-      PTRACE(1, "T38Engine::RecvWait modStreamIn->DeleteFirstBuf(), clean");
+      PTRACE(1, name << " T38Engine::RecvWait modStreamIn->DeleteFirstBuf(), clean");
   
     if( modStreamIn->bufQ.GetSize() > 0 ) {
-      PTRACE(1, "T38Engine::RecvWait modStreamIn->bufQ.GetSize()=" << modStreamIn->bufQ.GetSize());
+      PTRACE(1, name << " T38Engine::RecvWait modStreamIn->bufQ.GetSize()=" << modStreamIn->bufQ.GetSize());
       if( ModParsIn.val == modStreamIn->ModPars.val ) {
-        PTRACE(1, "T38Engine::RecvWait ModParsIn.val == modStreamIn->ModPars.val(" <<  modStreamIn->ModPars.val << ")");
+        PTRACE(1, name << " T38Engine::RecvWait ModParsIn.val == modStreamIn->ModPars.val(" <<  modStreamIn->ModPars.val << ")");
         stateModem = stmInReadyData;
         if( !modemCallback.IsNULL() )
           modemCallback(*this, callbackParamIn);
@@ -513,12 +519,12 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
   
   if( modStreamInSaved != NULL ) {
     if( modStreamIn->ModPars.val == modStreamInSaved->ModPars.val ) {
-      myPTRACE(2, "T38Engine::RecvWait modStreamIn->ModPars.val(" <<  modStreamIn->ModPars.val << ") == modStreamInSaved->ModPars.val");
+      myPTRACE(2, name << " T38Engine::RecvWait modStreamIn->ModPars.val(" <<  modStreamIn->ModPars.val << ") == modStreamInSaved->ModPars.val");
       modStreamIn->Move(*modStreamInSaved);
       delete modStreamInSaved;
       modStreamInSaved = NULL;
     } else {
-      myPTRACE(2, "T38Engine::RecvWait modStreamIn->ModPars.val(" <<  modStreamIn->ModPars.val << ") != modStreamInSaved->ModPars.val(" << modStreamInSaved->ModPars.val << ")");
+      myPTRACE(2, name << " T38Engine::RecvWait modStreamIn->ModPars.val(" <<  modStreamIn->ModPars.val << ") != modStreamInSaved->ModPars.val(" << modStreamInSaved->ModPars.val << ")");
       modStreamIn->PushBuf();
       modStreamIn->PutEof(diagDiffSig);
     }
@@ -539,7 +545,7 @@ BOOL T38Engine::RecvStart(int _callbackParam)
     return FALSE;
 
   if (stateModem != stmInReadyData ) {
-    myPTRACE(1, "T38Engine::RecvStart stateModem(" << stateModem << ") != stmInReadyData");
+    myPTRACE(1, name << " T38Engine::RecvStart stateModem(" << stateModem << ") != stmInReadyData");
     return FALSE;
   }
   PWaitAndSignal mutexWait(Mutex);
@@ -550,11 +556,11 @@ BOOL T38Engine::RecvStart(int _callbackParam)
       stateModem = stmInRecvData;
       return TRUE;
     }
-    myPTRACE(1, "T38Engine::RecvStart can't receive firstBuf");
+    myPTRACE(1, name << " T38Engine::RecvStart can't receive firstBuf");
     delete modStreamIn;
     modStreamIn = NULL;
   } else {
-    myPTRACE(1, "T38Engine::RecvStart modStreamIn == NULL");
+    myPTRACE(1, name << " T38Engine::RecvStart modStreamIn == NULL");
   }
 
   stateModem = stmIdle;
@@ -568,12 +574,12 @@ int T38Engine::Recv(void *pBuf, PINDEX count)
     return -1;
 
   if( stateModem != stmInRecvData ) {
-    myPTRACE(1, "T38Engine::Recv stateModem(" << stateModem << ") != stmInRecvData");
+    myPTRACE(1, name << " T38Engine::Recv stateModem(" << stateModem << ") != stmInRecvData");
     return -1;
   }
   PWaitAndSignal mutexWait(Mutex);
   if( modStreamIn == NULL ) {
-    myPTRACE(1, "T38Engine::Recv modStreamIn == NULL");
+    myPTRACE(1, name << " T38Engine::Recv modStreamIn == NULL");
     return -1;
   }
   return modStreamIn->GetData(pBuf, count);
@@ -584,11 +590,11 @@ int T38Engine::RecvDiag()
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
   if( modStreamIn == NULL ) {
-    myPTRACE(1, "T38Engine::RecvDiag modStreamIn == NULL");
+    myPTRACE(1, name << " T38Engine::RecvDiag modStreamIn == NULL");
     return diagError;
   }
   if( modStreamIn->firstBuf == NULL ) {
-    myPTRACE(1, "T38Engine::RecvDiag modStreamIn->firstBuf == NULL");
+    myPTRACE(1, name << " T38Engine::RecvDiag modStreamIn->firstBuf == NULL");
     return diagError;
   }
   return modStreamIn->firstBuf->GetDiag();
@@ -601,7 +607,7 @@ BOOL T38Engine::RecvStop()
     return FALSE;
 
   if(!isStateModemIn()) {
-    myPTRACE(1, "T38Engine::RecvStop stateModem(" << stateModem << ") != stmIn");
+    myPTRACE(1, name << " T38Engine::RecvStop stateModem(" << stateModem << ") != stmIn");
     return FALSE;
   }
   PWaitAndSignal mutexWait(Mutex);
@@ -620,7 +626,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
   if(!IsT38Mode())
     return FALSE;
   
-  //myPTRACE(1, "T38Engine::PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
+  //myPTRACE(1, name << " T38Engine::PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
   
   ifp = T38_IFPPacket();
 
@@ -648,7 +654,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
       default:				outDelay = 0;
     }
       
-    //myPTRACE(1, "T38Engine::PreparePacket outDelay=" << outDelay);
+    //myPTRACE(1, name << " T38Engine::PreparePacket outDelay=" << outDelay);
     
     if( outDelay > 0 )
     #ifdef P_LINUX
@@ -668,9 +674,9 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
           switch( stateOut ) {
             case stOutIdle:
               if( isCarrierIn ) {
-                myPTRACE(1, "T38Engine::PreparePacket waiting isCarrierIn(" << isCarrierIn << ") == 0");
+                myPTRACE(1, name << " T38Engine::PreparePacket waiting isCarrierIn(" << isCarrierIn << ") == 0");
                 if( --isCarrierIn == 0 ) {	// to prevent dead lock
-                  myPTRACE(1, "T38Engine::PreparePacket isCarrierIn expired");
+                  myPTRACE(1, name << " T38Engine::PreparePacket isCarrierIn expired");
                 }
                 redo = TRUE;
                 break;
@@ -690,7 +696,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
                   redo = TRUE;
                   break;
                 default:
-                  myPTRACE(1, "T38Engine::PreparePacket bad dataType=" << ModParsOut.dataType);
+                  myPTRACE(1, name << " T38Engine::PreparePacket bad dataType=" << ModParsOut.dataType);
                   return FALSE;
               }
               break;
@@ -737,7 +743,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
                         stateOut = stOutDataNoSig;
                         break;
                       default:
-                        myPTRACE(1, "T38Engine::PreparePacket stOutData bad dataType=" << ModParsOut.dataType);
+                        myPTRACE(1, name << " T38Engine::PreparePacket stOutData bad dataType=" << ModParsOut.dataType);
                         return FALSE;
                     }
                     redo = TRUE;
@@ -760,7 +766,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
                         t38data(ifp, ModParsOut.msgType, T38F(e_t4_non_ecm_data), PBYTEArray(b, count));
                         break;
                       default:
-                        myPTRACE(1, "T38Engine::PreparePacket stOutData bad dataType=" << ModParsOut.dataType);
+                        myPTRACE(1, name << " T38Engine::PreparePacket stOutData bad dataType=" << ModParsOut.dataType);
                         return FALSE;
                     }
                     lastDteCharOut = b[count - 1] & 0xFF;
@@ -771,7 +777,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
             ////////////////////////////////////////////////////
             case stOutHdlcFcs:
               if( stateModem != stmOutNoMoreData ) {
-                myPTRACE(1, "T38Engine::PreparePacket stOutHdlcFcs stateModem(" << stateModem << ") != stmOutNoMoreData");
+                myPTRACE(1, name << " T38Engine::PreparePacket stOutHdlcFcs stateModem(" << stateModem << ") != stmOutNoMoreData");
                 return FALSE;
               }
               t38data(ifp, ModParsOut.msgType, T38F(e_hdlc_fcs_OK));
@@ -795,7 +801,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
             ////////////////////////////////////////////////////
             case stOutDataNoSig:
               if( stateModem != stmOutNoMoreData ) {
-                myPTRACE(1, "T38Engine::PreparePacket stOutDataNoSig stateModem(" << stateModem << ") != stmOutNoMoreData");
+                myPTRACE(1, name << " T38Engine::PreparePacket stOutDataNoSig stateModem(" << stateModem << ") != stmOutNoMoreData");
                 return FALSE;
               }
               switch( ModParsOut.dataType ) {
@@ -806,7 +812,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
                   t38data(ifp, ModParsOut.msgType, T38F(e_t4_non_ecm_sig_end));
                   break;
                 default:
-                  myPTRACE(1, "T38Engine::PreparePacket stOutDataNoSig bad dataType=" << ModParsOut.dataType);
+                  myPTRACE(1, name << " T38Engine::PreparePacket stOutDataNoSig bad dataType=" << ModParsOut.dataType);
                   return FALSE;
               }
               stateOut = stOutNoSig;
@@ -820,7 +826,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
               stateOut = stOutIdle;
               break;
             default:
-              myPTRACE(1, "T38Engine::PreparePacket bad stateOut=" << stateOut);
+              myPTRACE(1, name << " T38Engine::PreparePacket bad stateOut=" << stateOut);
               return FALSE;
           }
         } else {
@@ -836,7 +842,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
       {
         PWaitAndSignal mutexWait(Mutex);
         if( stateOut == stOutData ) {
-          myPTRACE(1, "T38Engine::PreparePacket DTE's data delay, reset " << countOut);
+          myPTRACE(1, name << " T38Engine::PreparePacket DTE's data delay, reset " << countOut);
           countOut = 0;
           timeBeginOut = PTime() - PTimeInterval(msPerOut);	// no delay
         }
@@ -854,7 +860,7 @@ BOOL T38Engine::HandlePacketLost(unsigned nLost)
   if (!IsT38Mode())
     return FALSE;
 
-  myPTRACE(1, "T38Engine::HandlePacketLost " << nLost);
+  myPTRACE(1, name << " T38Engine::HandlePacketLost " << nLost);
   PWaitAndSignal mutexWait(Mutex);
 
   ModStream *modStream = modStreamIn;
@@ -881,10 +887,10 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
   switch( ifp.m_type_of_msg.GetTag() ) {
     case T38_Type_of_msg::e_t30_indicator:
       if( modStreamIn != NULL && modStreamIn->PutEof(diagOutOfOrder) )
-        myPTRACE(1, "T38Engine::HandlePacket indicator && modStreamIn->lastBuf != NULL");
+        myPTRACE(1, name << " T38Engine::HandlePacket indicator && modStreamIn->lastBuf != NULL");
 
       if( modStreamInSaved != NULL ) {
-        myPTRACE(1, "T38Engine::HandlePacket indicator && modStreamInSaved != NULL, clean");
+        myPTRACE(1, name << " T38Engine::HandlePacket indicator && modStreamInSaved != NULL, clean");
         delete modStreamInSaved;
         modStreamInSaved = NULL;
       }
@@ -919,12 +925,12 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
                 delete modStreamInSaved;
                 modStreamInSaved = NULL;
               } else {
-                myPTRACE(2, "T38Engine::HandlePacket modStreamIn->ModPars.val(" <<  modStreamIn->ModPars.val << ") != modStreamInSaved->ModPars.val(" << modStreamInSaved->ModPars.val << ")");
+                myPTRACE(2, name << " T38Engine::HandlePacket modStreamIn->ModPars.val(" <<  modStreamIn->ModPars.val << ") != modStreamInSaved->ModPars.val(" << modStreamInSaved->ModPars.val << ")");
                 modStreamIn->PushBuf();
                 modStreamIn->PutEof(diagDiffSig);
               }
             } else {
-              myPTRACE(1, "T38Engine::HandlePacket modStreamIn == NULL");
+              myPTRACE(1, name << " T38Engine::HandlePacket modStreamIn == NULL");
             }
             stateModem = stmInReadyData;
             if( !modemCallback.IsNULL() )
@@ -932,7 +938,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
           }
           break;
         default:
-          myPTRACE(1, "T38Engine::HandlePacket type_of_msg bad !!! " << setprecision(2) << ifp);
+          myPTRACE(1, name << " T38Engine::HandlePacket type_of_msg bad !!! " << setprecision(2) << ifp);
       }
       break;
     case T38_Type_of_msg::e_data:
@@ -944,11 +950,11 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
           modStream = modStreamInSaved;
         }
         if( modStream == NULL || modStream->lastBuf == NULL ) {
-          PTRACE(1, "T38Engine::HandlePacket lastBuf == NULL");
+          PTRACE(1, name << " T38Engine::HandlePacket lastBuf == NULL");
           break;
         }
         if( modStream->ModPars.msgType != type_of_msg ) {
-          myPTRACE(1, "T38Engine::HandlePacket modStream->ModPars.msgType(" << modStream->ModPars.msgType << ") != type_of_msg(" << type_of_msg << ")");
+          myPTRACE(1, name << " T38Engine::HandlePacket modStream->ModPars.msgType(" << modStream->ModPars.msgType << ") != type_of_msg(" << type_of_msg << ")");
           modStream->PutEof(diagOutOfOrder);
           if( stateModem == stmInRecvData )
             if( !modemCallback.IsNULL() )
@@ -970,7 +976,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
               PINDEX count = ifp.m_data_field.GetSize();
               for( PINDEX i = 0 ; i < count ; i++ ) {
                 if( modStream == NULL ) {
-                  PTRACE(1, "T38Engine::HandlePacket modStream == NULL");
+                  PTRACE(1, name << " T38Engine::HandlePacket modStream == NULL");
                   break;
                 }
                 const T38_Data_Field_subtype &Data_Field = ifp.m_data_field[i];
@@ -988,13 +994,13 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
                       modStream->PutData(Data_Field.m_field_data, Data_Field.m_field_data.GetSize());
                     break;
                   default:
-                    myPTRACE(1, "T38Engine::HandlePacket field_type bad !!! " << setprecision(2) << ifp);
+                    myPTRACE(1, name << " T38Engine::HandlePacket field_type bad !!! " << setprecision(2) << ifp);
                 }
                 switch( Data_Field.m_field_type ) {	// Handle fcs_BAD
                   case T38F(e_hdlc_fcs_BAD):
                   case T38F(e_hdlc_fcs_BAD_sig_end):
                     modStream->SetDiag(diagBadFcs);
-                    myPTRACE(1, "T38Engine::HandlePacket bad FCS");
+                    myPTRACE(1, name << " T38Engine::HandlePacket bad FCS");
                     break;
                 }
                 switch( Data_Field.m_field_type ) {	// Handle fcs
@@ -1020,7 +1026,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
             }
             break;
           default:
-            myPTRACE(1, "T38Engine::HandlePacket type_of_msg bad !!! " << setprecision(2) << ifp);
+            myPTRACE(1, name << " T38Engine::HandlePacket type_of_msg bad !!! " << setprecision(2) << ifp);
         }
         if( stateModem == stmInRecvData )
           if( !modemCallback.IsNULL() )
@@ -1028,7 +1034,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
         break;
       }
     default:
-      myPTRACE(1, "T38Engine::HandlePacket Tag bad !!! " << setprecision(2) << ifp);
+      myPTRACE(1, name << " T38Engine::HandlePacket Tag bad !!! " << setprecision(2) << ifp);
   }
   return TRUE;
 }
