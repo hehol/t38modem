@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.9  2002-03-01 14:59:48  vfrolov
- * Get data for Revision string from version.h
+ * Revision 1.10  2002-04-03 02:45:36  vfrolov
+ * Implemented AT#CID=10 - ANI/DNIS reporting between RINGs
+ *
+ * Revision 1.10  2002/04/03 02:45:36  vfrolov
+ * Implemented AT#CID=10 - ANI/DNIS reporting between RINGs
  *
  * Revision 1.9  2002/03/01 14:59:48  vfrolov
  * Get data for Revision string from version.h
@@ -82,6 +85,7 @@ static const char Revision[] = TOSTR(MAJOR_VERSION) "." TOSTR(MINOR_VERSION) "."
 class Profile
 {
   enum {
+    CidModeReg = 50,
     MaxReg = 50,
     MaxBit = 7
   };
@@ -116,6 +120,16 @@ class Profile
     BOOL noResultCodes() const {
       BOOL val;
       GetBit(23, 7, val);
+      return val;
+    }
+    
+    void CidMode(BYTE val) {
+      SetReg(CidModeReg, val);
+    }
+
+    BYTE CidMode() const {
+      BYTE val;
+      GetReg(CidModeReg, val);
       return val;
     }
 
@@ -1215,6 +1229,40 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               err = TRUE;
           }
           break;
+        case '#':
+          if( strncmp(pCmd, "CID", 3) == 0 ) {		// #CID
+            pCmd += 3;
+            switch( *pCmd++ ) {
+              case '=':
+                switch( *pCmd ) {
+                  case '?':
+                    pCmd++;
+                    resp += "\r\n(0,10)";
+                    break;
+                  default:
+                    {
+                      int val = ParseNum(&pCmd);
+                      switch( val ) {
+                        case 0:
+                        case 10:
+                          P.CidMode(val);
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                    }
+                }
+                break;
+              case '?':
+                resp.sprintf("\r\n%u", (unsigned)P.CidMode());
+                break;
+              default:
+                err = TRUE;
+            }
+          } else {
+            err = TRUE;
+          }
+          break;
         default:
           err = TRUE;
       }
@@ -1357,6 +1405,11 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       BYTE s0, ringCount;
       P.GetReg(0, s0);
       P.GetReg(1, ringCount);
+      if (!ringCount && P.CidMode() == 10) {
+        resp += "NMBR = " + SrcNum();
+        resp += "\r\nNDID = " + DstNum();
+        resp += "\r\nRING\r\n";
+      }
       P.SetReg(1, ++ringCount);
       if (s0 > 0 && (ringCount >= s0)) {
         PString resp;

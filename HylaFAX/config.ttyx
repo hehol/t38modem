@@ -11,3 +11,18 @@ ModemFlowControl:	rtscts		# default
 ModemRevQueryCmd:	AT+FREV?
 Class1FrameOverhead:	2		# does not include FCS
 
+#
+# AT#CID=10 enables ANI/DNIS reporting between the 
+# first and second RINGs in the form:
+#
+#   RING
+#   NMBR = <calling number>
+#   NDID = <called number>
+#   RING
+#
+#ModemResetCmds:	"AT#CID=10"	# enable ANI/DNIS reporting
+#RingsBeforeAnswer:	2		# collect info between two RINGs
+#QualifyCID:		etc/cid		# CID access control list file
+#CIDNumber:		"NMBR = "	# pattern string for calling number
+#CIDName:		"NDID = "	# pattern string for called number
+
