@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2003 Vyacheslav Frolov
+ * Copyright (c) 2003-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: hdlc.cxx,v $
- * Revision 1.2  2004-02-17 13:23:07  vfrolov
- * Fixed MSVC compile errors
+ * Revision 1.3  2004-03-09 12:52:39  vfrolov
+ * Fixed compile warning
+ *
+ * Revision 1.3  2004/03/09 12:52:39  vfrolov
+ * Fixed compile warning
  *
  * Revision 1.2  2004/02/17 13:23:07  vfrolov
  * Fixed MSVC compile errors
@@ -306,6 +309,9 @@ int HDLC::GetHdlcData(void *_pBuf, PINDEX count)
             hdlcState = stEof;
             //myPTRACE(1, "hdlcState=stEof " << hex << (int)b);
           }
+          break;
+        default:
+          myPTRACE(1, "HDLC::GetHdlcData(): unexpected hdlcState=" << hdlcState);
         }
       }
 
