@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.h,v $
- * Revision 1.1  2004-07-07 12:38:32  vfrolov
- * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ * Revision 1.2  2004-07-19 08:31:06  vfrolov
+ * Fixed "friend declaration requires class-key"
+ *
+ * Revision 1.2  2004/07/19 08:31:06  vfrolov
+ * Fixed "friend declaration requires class-key"
  *
  * Revision 1.1  2004/07/07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
@@ -98,8 +101,8 @@ class PseudoModemPty : public PseudoModemBody
     PString ptypath;
     PString ttypath;
 
-    friend InPty;
-    friend OutPty;
+    friend class InPty;
+    friend class OutPty;
 };
 ///////////////////////////////////////////////////////////////
 

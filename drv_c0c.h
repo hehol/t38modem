@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drv_c0c.h,v $
- * Revision 1.1  2004-07-07 13:36:46  vfrolov
- * Initial revision
+ * Revision 1.2  2004-07-19 08:31:06  vfrolov
+ * Fixed "friend declaration requires class-key"
+ *
+ * Revision 1.2  2004/07/19 08:31:06  vfrolov
+ * Fixed "friend declaration requires class-key"
  *
  * Revision 1.1  2004/07/07 13:36:46  vfrolov
  * Initial revision
@@ -89,8 +92,8 @@ class PseudoModemC0C : public PseudoModemBody
 
     PString ptypath;
 
-    friend InC0C;
-    friend OutC0C;
+    friend class InC0C;
+    friend class OutC0C;
 };
 ///////////////////////////////////////////////////////////////
 
