@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drivers.cxx,v $
- * Revision 1.1  2004-07-07 12:38:32  vfrolov
- * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ * Revision 1.2  2004-07-07 13:45:17  vfrolov
+ * Added C0C driver for Windows
+ *
+ * Revision 1.2  2004/07/07 13:45:17  vfrolov
+ * Added C0C driver for Windows
  *
  * Revision 1.1  2004/07/07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
@@ -37,6 +40,7 @@
 #include "pmodemi.h"
 #include "drivers.h"
 #include "drv_pty.h"
+#include "drv_c0c.h"
 
 ///////////////////////////////////////////////////////////////
 
@@ -105,6 +109,9 @@ static int addDriver(
 ///////////////////////////////////////////////////////////////
 #ifdef MODEM_DRIVER_Pty
   DECLARE_MODEM_DRIVER("PTY", Pty)
+#endif
+#ifdef MODEM_DRIVER_C0C
+  DECLARE_MODEM_DRIVER("C0C", C0C)
 #endif
 ///////////////////////////////////////////////////////////////
 PseudoModem *PseudoModemDrivers::CreateModem(
