@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.18  2002-11-18 23:01:58  craigs
- * Changed name of pre CORRIGENDUM ASN
+ * Revision 1.19  2002-11-18 23:12:17  craigs
+ * Removed reference to t38old.h
+ *
+ * Revision 1.19  2002/11/18 23:12:17  craigs
+ * Removed reference to t38old.h
  *
  * Revision 1.18  2002/11/18 23:01:58  craigs
  * Changed name of pre CORRIGENDUM ASN
@@ -89,7 +92,6 @@
 
 #include "t38engine.h"
 #include "t38.h"
-#include "t38old.h"
 #include "transports.h"
 
 #define new PNEW
