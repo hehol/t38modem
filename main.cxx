@@ -42,6 +42,9 @@ void T38Modem::Main()
 	     "p-ptty:"
 	     "-route:"
 
+             "F-fastenable."
+             "T-h245tunneldisable."
+
              "g-gatekeeper:"         "n-no-gatekeeper."
              "-require-gatekeeper."  "-no-require-gatekeeper."
              "h-help."
@@ -81,18 +84,20 @@ void T38Modem::Main()
             "     --route prefix@host  : route number with prefix to host (mandatory, multi)\n"
             "                            discards prefix from number\n"
             "                            prefix 'all' is all\n"
-            "  -i --interface ip   : Bind to a specific interface\n"
-            "  --listenport port   : Listen on a specific port\n"
-            "  --connectport port  : Connect to a specific port\n"
-            "  -g --gatekeeper host: Specify gatekeeper host.\n"
-            "  -n --no-gatekeeper  : Disable gatekeeper discovery.\n"
-            "  --require-gatekeeper: Exit if gatekeeper discovery fails.\n"
+            "  -i --interface ip       : Bind to a specific interface\n"
+            "  --listenport port       : Listen on a specific port\n"
+            "  --connectport port      : Connect to a specific port\n"
+            "  -g --gatekeeper host    : Specify gatekeeper host.\n"
+            "  -n --no-gatekeeper      : Disable gatekeeper discovery.\n"
+            "  --require-gatekeeper    : Exit if gatekeeper discovery fails.\n"
+            "  -F --fastenable         : Enable fast start\n"
+            "  -T --h245tunneldisable  : Disable H245 tunnelling.\n"
 #if PTRACING
-            "  -t --trace          : Enable trace, use multiple times for more detail\n"
-            "  -o --output         : File for trace output, default is stderr\n"
+            "  -t --trace              : Enable trace, use multiple times for more detail\n"
+            "  -o --output             : File for trace output, default is stderr\n"
 #endif
-            "     --save           : Save arguments in configuration file\n"
-            "  -h --help           : Display this help message\n";
+            "     --save               : Save arguments in configuration file\n"
+            "  -h --help               : Display this help message\n";
     return;
   }
 
@@ -107,6 +112,7 @@ void T38Modem::Main()
 
   if (!endpoint.Initialise(args))
     return;
+
 
   // start the H.323 listener
   H323ListenerTCP * listener;
@@ -304,6 +310,9 @@ void MyH323EndPoint::PMFree(PseudoModem *pmodem) const
 
 BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
 {
+  DisableFastStart(!args.HasOption('F'));
+  DisableH245Tunneling(args.HasOption('T'));
+
   if (args.HasOption("connectport"))
     connectPort = (WORD)args.GetOptionString("connectport").AsInteger();
   else
@@ -381,10 +390,7 @@ void MyH323EndPoint::OnConnectionEstablished(H323Connection & /*connection*/,
 ///////////////////////////////////////////////////////////////
 
 MyH323Connection::MyH323Connection(MyH323EndPoint & _ep, unsigned callReference)
-  : H323Connection(_ep, callReference
-    , TRUE // disable FastStart (there are problems for FastStart & AnswerCallPending)
-    , FALSE
-    ), ep(_ep),
+  : H323Connection(_ep, callReference), ep(_ep),
     t38handler(NULL), T38TransportUDP(NULL), pmodem(NULL),
     audioWrite(NULL), audioRead(NULL)
 {
