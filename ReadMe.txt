@@ -1,5 +1,5 @@
 /*
- * $Id: ReadMe.txt,v 1.10 2005-02-10 15:07:15 vfrolov Exp $
+ * $Id: ReadMe.txt,v 1.11 2005-03-04 16:41:01 vfrolov Exp $
  *
  * T38FAX Pseudo Modem
  *
@@ -146,8 +146,8 @@ $ .../faxgetty -D ttyx1
 
 (FreeBSD users - don't forget we are using ttypa and ttypb)
 
-4. AT commands
---------------
+4. AT commands specific to t38modem
+-----------------------------------
 
 4.1. AT#CID command
 -------------------
@@ -234,13 +234,25 @@ Examples:
     calling number is <calling number> and user can't override
     it by inserting L<user's calling number> into <user's number>
 
+4.4. AT#DFRMC command
+---------------------
+
+4.4.1 Set delay for CONNECT result code for AT+FRM command
+----------------------------------------------------------
+
+#DFRMC=0	- disable delay (default).
+#DFRMC=25	- set delay to 250 ms.
+
 
                          -----------------------------
 
 /*
  * $Log: ReadMe.txt,v $
- * Revision 1.10  2005-02-10 15:07:15  vfrolov
- * Added more comments for Windows users
+ * Revision 1.11  2005-03-04 16:41:01  vfrolov
+ * Implemented AT#DFRMC command
+ *
+ * Revision 1.11  2005/03/04 16:41:01  vfrolov
+ * Implemented AT#DFRMC command
  *
  * Revision 1.10  2005/02/10 15:07:15  vfrolov
  * Added more comments for Windows users
