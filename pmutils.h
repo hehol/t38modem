@@ -24,9 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.4  2002-03-01 08:17:28  vfrolov
- * Added Copyright header
- * Removed virtual modifiers
+ * Revision 1.5  2002-03-07 07:30:44  vfrolov
+ * Fixed endless recursive call SignalChildStop(). Possible there is
+ * a bug in gcc version 2.95.4 20010902 (Debian prerelease).
+ * Markus Storm reported the promlem.
+ *
+ * Revision 1.5  2002/03/07 07:30:44  vfrolov
+ * Fixed endless recursive call SignalChildStop(). Possible there is
+ * a bug in gcc version 2.95.4 20010902 (Debian prerelease).
+ * Markus Storm reported the promlem.
  *
  * Revision 1.4  2002/03/01 08:17:28  vfrolov
  * Added Copyright header
@@ -61,14 +67,8 @@ class ModemThread : public PThread
   /**@name Operations */
   //@{
     void SignalDataReady() { dataReadySyncPoint.Signal(); }
-    virtual void SignalChildStop() {
-      childstop = TRUE;
-      SignalDataReady();
-    }
-    virtual void SignalStop() {
-      stop = TRUE;
-      SignalDataReady();
-    }
+    void SignalChildStop();
+    virtual void SignalStop();
   //@}
 
   protected:
