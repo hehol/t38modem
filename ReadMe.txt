@@ -1,13 +1,16 @@
 /*
- * $Id: ReadMe.txt,v 1.7 2002-12-19 10:41:03 vfrolov Exp $
+ * $Id: ReadMe.txt,v 1.8 2005-02-03 13:20:01 vfrolov Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: ReadMe.txt,v $
- * Revision 1.7  2002-12-19 10:41:03  vfrolov
- * Added "Introduction" and "AT commands" sections and made some fixes
+ * Revision 1.8  2005-02-03 13:20:01  vfrolov
+ * Added comments for Windows users
+ *
+ * Revision 1.8  2005/02/03 13:20:01  vfrolov
+ * Added comments for Windows users
  *
  * Revision 1.7  2002/12/19 10:41:03  vfrolov
  * Added "Introduction" and "AT commands" sections and made some fixes
@@ -44,10 +47,17 @@ From your view point it's a gateway between a fax application and IP network.
 2. Building
 -----------
 
-2.1. Compiling
--------------
+2.1. Compiling for Unix
+-----------------------
 
 $ make opt
+
+2.2. Compiling for Windows
+--------------------------
+
+Start MSVC (v5 or v6) with t38modem.dsp file.
+Set Active Configuration to "t38modem - Win32 Release".
+Build t38modem.exe.
 
 3. Examples
 -----------
@@ -59,11 +69,18 @@ $ ./obj_linux_x86_r/t38modem -n -o trace.log -p ttyx0,ttyx1 --route 0@127.0.0.1 
 
 Creates two modems /dev/ttyx0 and /dev/ttyx1
 
-FreeBSD Users: You need to use  -p ttypa,ttypb
-               instead of  -p ttyx0,ttyx1
+FreeBSD Users: You need to use  -p ttypa,ttypb instead of -p ttyx0,ttyx1.
                Remember to replace ttyx0 with ttypa and ttyx1 with ttypb
                when following the rest of these instructions.
-               This will create two modems /dev/ttypa and /dev/ttypb
+               This will create two modems /dev/ttypa and /dev/ttypb.
+
+Windows Users: You need two COM ports connected via Null-modem cable to create one modem.
+               If your COM1 connected to COM2 and COM3 connected to COM4 you need to use
+               -p \\.\COM2,\\.\COM4 instead of  -p ttyx0,ttyx1.
+               This will create two modems COM1 and COM3.
+               Q. How to use t38modem without additional COM port hardware on Windows?
+               A. Replace a pair of physical COM ports with a pair of virtual COM ports.
+                  See http://sourceforge.net/projects/com0com/.
 
 Cisco Users:   You additionaly need to use --old-asn and --h245tunneldisable options.
 
@@ -73,6 +90,7 @@ If not then it will be routed to 172.16.33.21.
 3.2. Testing (you need two consoles)
 ------------------------------------
 (FreeBSD users - remeber to use /dev/ttypa and /dev/ttypb with 'cu -l')
+(Windows users - use COM1 and COM3 with HyperTerminal)
 
 $ cu -l /dev/ttyx0	    $ cu -l /dev/ttyx1
 Connected.		    Connected.
