@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,19 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.2  2002-01-10 06:10:03  craigs
- * Added MPL header
+ * Revision 1.3  2002-03-01 08:53:12  vfrolov
+ * Added Copyright header
+ * Some OS specific code moved from pmodemi.cxx to pty.cxx
+ * Added error code string to log
+ * Fixed race condition with fast close and open slave tty
+ * Some other changes
+ *
+ * Revision 1.3  2002/03/01 08:53:12  vfrolov
+ * Added Copyright header
+ * Some OS specific code moved from pmodemi.cxx to pty.cxx
+ * Added error code string to log
+ * Fixed race condition with fast close and open slave tty
+ * Some other changes
  *
  * Revision 1.2  2002/01/10 06:10:03  craigs
  * Added MPL header
@@ -148,17 +161,18 @@ void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, BOOL OutQ)
 
 BOOL PseudoModemBody::StartAll()
 {
-  if( OpenPty() &&
-         (inPty = new InPty(*this)) &&
-         (outPty = new OutPty(*this)) &&
-         (engine = new ModemEngine(*this)) &&
-         TRUE ) {
+  if (IsOpenPty()
+     && (inPty = new InPty(*this))
+     && (outPty = new OutPty(*this))
+     && (engine = new ModemEngine(*this))
+     ) {
     inPty->Resume();
     outPty->Resume();
     engine->Resume();
     return TRUE;
   }
   StopAll();
+  ClosePty();
   return FALSE;
 }
 
@@ -188,64 +202,19 @@ void PseudoModemBody::StopAll()
   outPtyQ.Clean();
   inPtyQ.Clean();
   childstop = FALSE;
-  ClosePty();	// ???
-}
-
-BOOL PseudoModemBody::OpenPty()
-{
-  if( IsOpenPty() ) return TRUE;
-
-  while ((hPty = ::open(ptyPath(), O_RDWR | O_NOCTTY)) < 0) {
-    if (errno == ENOENT) {
-         myPTRACE(3, "PseudoModemBody::PseudoModemBody bad file name " << ptyPath());
-         return FALSE;
-    }
-    myPTRACE(3, "PseudoModemBody::Main will try again on " << ptyPath());
-    PThread::Sleep(5000);
-  }
-  
-  struct termios Termios;
-  
-  if( ::tcgetattr(hPty, &Termios) != 0 ) {
-     myPTRACE(3, "PseudoModemBody::Main tcgetattr error on " << ptyPath());
-     ClosePty();
-     return FALSE;
-  }
-  Termios.c_lflag &= ~(ICANON | ISIG | ECHO | ECHOCTL | ECHOE | ECHOK | ECHOKE | ECHONL | ECHOPRT);
-  Termios.c_iflag |= IGNBRK;
-  //Termios.c_iflag &= ~IGNBRK;
-  //Termios.c_iflag |= BRKINT;
-  Termios.c_cc[VMIN] = 1;
-  Termios.c_cc[VTIME] = 0;
-  if( ::tcsetattr(hPty,TCSANOW,&Termios) != 0 ) {
-     myPTRACE(3, "PseudoModemBody::Main tcsetattr error on " << ptyPath());
-     ClosePty();
-     return FALSE;
-  }
-  return TRUE;
-}
-
-void PseudoModemBody::ClosePty()
-{
-  if( !IsOpenPty() ) return;
-
-  if( ::close(hPty) != 0 ) {
-     myPTRACE(3, "PseudoModemBody::ClosePty close error on " << ptyPath());
-  }
-  
-  hPty = -1;
 }
 
 void PseudoModemBody::Main()
 {
   myPTRACE(3, "PseudoModemBody::Main Started on " << ptyPath() << " for " << ttyPath());
   
-  while( !stop && StartAll() ) {
+  while( !stop && OpenPty() && StartAll() ) {
     while( !stop && !childstop ) {
       WaitDataReady();
     }
     StopAll();
   }
+  ClosePty();
 
   myPTRACE(3, "PseudoModemBody::Main stop on " << ptyPath());
 }
