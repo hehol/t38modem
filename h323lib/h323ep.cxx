@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.39  2005-02-04 10:18:48  vfrolov
- * Fixed warnings for No Trace build
+ * Revision 1.40  2005-02-24 11:21:11  vfrolov
+ * Added ability to put list to --route option
+ *
+ * Revision 1.40  2005/02/24 11:21:11  vfrolov
+ * Added ability to put list to --route option
  *
  * Revision 1.39  2005/02/04 10:18:48  vfrolov
  * Fixed warnings for No Trace build
@@ -186,14 +189,14 @@ BOOL T38Modem::Initialise()
   PConfigArgs args(GetArguments());
 
   args.Parse(
-	     "p-ptty:"
-	     "-route:"
+             "p-ptty:"
+             "-route:"
              "-redundancy:"
              "-old-asn."
 
              "F-fastenable."
              "T-h245tunneldisable."
-	     "G-g7231code."
+             "G-g7231code."
              "D-disable:"            "P-prefer:"
 
              "g-gatekeeper:"         "n-no-gatekeeper."
@@ -210,7 +213,7 @@ BOOL T38Modem::Initialise()
              "o-output:"
 #endif
              "-save."
-	     "u-username:"           "-no-username."
+             "u-username:"           "-no-username."
           , FALSE);
 
 #if PMEMORY_CHECK
@@ -240,13 +243,13 @@ BOOL T38Modem::Initialise()
         "                              for numbers with prefix num.\n"
         "                              Use none@tty to disable incoming calls.\n"
         "                              See Drivers section for supported tty's formats.\n"
-        "  --route prefix@host       : Route numbers with prefix num to host.\n"
+        "  --route prefix@host[,...] : Route numbers with prefix num to host.\n"
         "                              Can be used multiple times.\n"
         "                              Discards prefix num from numbers.\n"
         "                              Use 'all' to route all numbers.\n"
-	"                              Mandatory if not using GK.\n"
+        "                              Mandatory if not using GK.\n"
         "  --redundancy I[L[H]]      : Set redundancy for error recovery for\n"
-	"                              (I)ndication, (L)ow speed and (H)igh\n"
+        "                              (I)ndication, (L)ow speed and (H)igh\n"
         "                              speed IFP packets.\n"
         "                              'I', 'L' and 'H' are digits.\n"
         "  --old-asn                 : Use original ASN.1 sequence in T.38 (06/98)\n"
@@ -260,12 +263,12 @@ BOOL T38Modem::Initialise()
         "  --require-gatekeeper      : Exit if gatekeeper discovery fails.\n"
         "  -F --fastenable           : Enable fast start.\n"
         "  -T --h245tunneldisable    : Disable H245 tunnelling.\n"
-	"  -G --g7231enable          : Enable G.723.1 codec, rather than G.711.\n"
-	"  -D --disable codec        : Disable the specified codec.\n"
+        "  -G --g7231enable          : Enable G.723.1 codec, rather than G.711.\n"
+        "  -D --disable codec        : Disable the specified codec.\n"
         "                              Can be used multiple times.\n"
-	"  -P --prefer codec         : Prefer the specified codec.\n"
+        "  -P --prefer codec         : Prefer the specified codec.\n"
         "                              Can be used multiple times.\n"
-	"  -u --username str         : Set the local endpoint name to str.\n"
+        "  -u --username str         : Set the local endpoint name to str.\n"
 #if PTRACING
         "  -t --trace                : Enable trace, use multiple times for more detail.\n"
         "  -o --output               : File for trace output, default is stderr.\n"
@@ -377,9 +380,9 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
         PString num = request("number");
         PString remote;
 
-	if (GetGatekeeper() != NULL) {
+        if (GetGatekeeper() != NULL) {
           remote = num;
-	} else {
+        } else {
           for( PINDEX i = 0 ; i < routes.GetSize() ; i++ ) {
             PString r = routes[i];
             PStringArray rs = r.Tokenise("@", FALSE);
@@ -399,8 +402,8 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
           if (!remote.IsEmpty()) {
             num += "@" + remote;
             if ((num.Find(':') == P_MAX_INDEX) && (connectPort != H323EndPoint::DefaultTcpPort))
-	      num += psprintf(":%i", connectPort);
-	  }
+              num += psprintf(":%i", connectPort);
+          }
         }
 
         if (remote.IsEmpty()) 
@@ -520,7 +523,7 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
 
   if (args.HasOption("route")) {
     PString r = args.GetOptionString("route");
-    routes = r.Tokenise("\r\n", FALSE);
+    routes = r.Tokenise(",\r\n", FALSE);
 
     cout << "Route O/G calls:\n";
 
