@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2003 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,9 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.15  2003-01-08 16:46:28  vfrolov
- * Added cbpOutBufNoFull and isOutBufFull()
- * Added data speed tracing
+ * Revision 1.16  2003-12-04 16:10:05  vfrolov
+ * Implemented FCS generation
+ * Implemented ECM support
+ *
+ * Revision 1.16  2003/12/04 16:10:05  vfrolov
+ * Implemented FCS generation
+ * Implemented ECM support
  *
  * Revision 1.15  2003/01/08 16:46:28  vfrolov
  * Added cbpOutBufNoFull and isOutBufFull()
@@ -81,24 +85,26 @@
 
 #include "pmutils.h"
 #include <t38proto.h>
+#include "hdlc.h"
+#include "t30.h"
 
 ///////////////////////////////////////////////////////////////
 class MODPARS
 {
   public:
     MODPARS(
-          int _dataType = -1,
-          int _val = -1, 
-          unsigned _ind = unsigned(-1), 
-          int _lenInd = -1, 
-          unsigned _msgType = unsigned(-1), 
+          int _val = -1,
+          unsigned _ind = unsigned(-1),
+          int _lenInd = -1,
+          unsigned _msgType = unsigned(-1),
           int _br = -1
-    ) : dataType(_dataType), val(_val), ind(_ind), lenInd(_lenInd),
-        msgType(_msgType), br(_br) {}
-    
-    BOOL IsModValid() { return val >= 0; }
+    );
+
+    BOOL IsModValid() const { return val >= 0; }
+    BOOL IsEqual(const MODPARS &mp) const { return val == mp.val; }
 
     int dataType;
+    int dataTypeT38;
     int val;
     unsigned ind;
     int lenInd;
@@ -117,7 +123,6 @@ class T38Engine : public OpalT38Protocol
     
     enum {
       diagOutOfOrder	= 0x01,
-      diagLost		= 0x02,
       diagDiffSig	= 0x04,	// a different signal is detected
       diagBadFcs	= 0x08,
       diagNoCarrier	= 0x10,
@@ -238,10 +243,10 @@ class T38Engine : public OpalT38Protocol
     int callbackParamOut;
     DataStream bufOut;
     MODPARS ModParsOut;
-    int lastDteCharOut;
     PTime timeBeginOut;
     PINDEX countOut;
     BOOL moreFramesOut;
+    HDLC hdlcOut;
     PSyncPoint outDataReadySyncPoint;
 
     int stateIn;
@@ -251,6 +256,8 @@ class T38Engine : public OpalT38Protocol
     PTime timeBeginIn;
     PINDEX countIn;
 #endif
+
+    T30 t30;
 
     ModStream *modStreamIn;
     ModStream *modStreamInSaved;

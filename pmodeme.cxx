@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2003 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.18  2003-01-08 16:58:58  vfrolov
- * Added cbpOutBufNoFull and isOutBufFull()
+ * Revision 1.19  2003-12-04 16:09:51  vfrolov
+ * Implemented FCS generation
+ * Implemented ECM support
+ *
+ * Revision 1.19  2003/12/04 16:09:51  vfrolov
+ * Implemented FCS generation
+ * Implemented ECM support
  *
  * Revision 1.18  2003/01/08 16:58:58  vfrolov
  * Added cbpOutBufNoFull and isOutBufFull()
@@ -100,6 +105,7 @@
 #include "pmodemi.h"
 #include "pmodeme.h"
 #include "dle.h"
+#include "fcs.h"
 #include "t38engine.h"
 #include "version.h"
 
@@ -401,6 +407,7 @@ class ModemEngineBody : public PObject
     DLEData dleData;
     PINDEX dataCount;
     BOOL moreFrames;
+    FCS fcs;
 
     Profile P;
     Profile Profiles[1];
@@ -819,10 +826,12 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
                 case 122:
                 case 145:
                 case 146:
-                  if( T )
-                    return SendStart(dt, br, resp);
-                  else
-                    return RecvStart(dt, br);
+                  {
+                    BOOL res = T ? SendStart(dt, br, resp) : RecvStart(dt, br);
+                    if (!res)
+                      PThread::Sleep(100);	// workaround
+                    return res;
+                  }
                 default:
                   return FALSE;
               }
@@ -1314,7 +1323,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           }
           break;
         case '#':
-          if( strncmp(pCmd, "CID", 3) == 0 ) {		// #CID
+          if (strncmp(pCmd, "CID", 3) == 0) {		// #CID
             pCmd += 3;
             switch( *pCmd++ ) {
               case '=':
@@ -1326,7 +1335,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   default:
                     {
                       int val = ParseNum(&pCmd);
-                      switch( val ) {
+                      switch (val) {
                         case 0:
                         case 10:
                           P.CidMode(val);
@@ -1696,6 +1705,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           state = stCommand;
         }
         ResetDleData();
+        if (dataType == T38Engine::dtHdlc)
+          fcs = FCS();
       }
       break;
     case stRecv:
@@ -1709,20 +1720,32 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             break;
           }
           int count = t38engine->Recv(Buf, 1024);
-          
-          switch( count ) {
+
+          switch (count) {
             case -1:
-              dleData.SetDiag(t38engine->RecvDiag()).PutEof();
-              t38engine->RecvStop();
-              if( dataCount == 0 && dataType == T38Engine::dtHdlc ) {
-                dleData.GetDleData(Buf, 1024);	// discard <DLE><ETX>
+              {
+                int diag = t38engine->RecvDiag();
+
+                if (dataType == T38Engine::dtHdlc) {
+                  Buf[0] = fcs >> 8;
+                  Buf[1] = fcs;
+                  if (diag & T38Engine::diagBadFcs)
+                     Buf[0]++;
+                  dleData.PutData(Buf, 2);
+                }
+                dleData.SetDiag(diag).PutEof();
               }
+              t38engine->RecvStop();
+              if (dataCount == 0 && dataType == T38Engine::dtHdlc)
+                dleData.GetDleData(Buf, 1024);	// discard ...<DLE><ETX>
               break;
             case 0:
               break;
             default:
               dataCount += count;
               dleData.PutData(Buf, count);
+              if (dataType == T38Engine::dtHdlc)
+                fcs.build(Buf, count);
           }
           if( count <= 0 ) break;
         }
@@ -1737,10 +1760,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                 state = stCommand;
                 int diag = dleData.GetDiag();
                 
-                if( dataType == T38Engine::dtHdlc ) {
-                  if( diag == 0 )
+                if (dataType == T38Engine::dtHdlc) {
+                  if (diag == 0)
                     resp += "\r\nOK\r\n";
-                  else if( dataCount == 0 && (diag & ~T38Engine::diagNoCarrier) == 0 )
+                  else if (dataCount == 0 && (diag & ~T38Engine::diagNoCarrier) == 0)
                     resp += "\r\nNO CARRIER\r\n";
                   else
                     resp += "\r\nERROR\r\n";
