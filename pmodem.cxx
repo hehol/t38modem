@@ -22,8 +22,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.cxx,v $
- * Revision 1.2  2002-01-10 06:10:02  craigs
- * Added MPL header
+ * Revision 1.3  2002-02-08 12:58:22  vfrolov
+ * Defined Linux and FreeBSD patterns in ttyPattern().
+ *
+ * Revision 1.3  2002/02/08 12:58:22  vfrolov
+ * Defined Linux and FreeBSD patterns in ttyPattern().
  *
  * Revision 1.2  2002/01/10 06:10:02  craigs
  * Added MPL header
@@ -99,7 +102,17 @@ void PseudoModem::Detach(T38Engine *t38engine) const
 
 const char *PseudoModem::ttyPattern()
 {
-  return "^(/dev/)?tty[pqrstuvwxyzPQRST][0123456789abcdef]$";
+#if defined(P_LINUX)
+  #define TTY_PATTERN "^(/dev/)?tty[pqrstuvwxyzabcde][0123456789abcdef]$"
+#endif
+#if defined(P_FREEBSD)
+  #define TTY_PATTERN "^(/dev/)?tty[pqrsPQRS][0123456789abcdefghijklmnopqrstuv]$"
+#endif
+#ifndef TTY_PATTERN
+  #define TTY_PATTERN "^(/dev/)?tty..$"
+#endif
+
+  return TTY_PATTERN;
 }
 ///////////////////////////////////////////////////////////////
 void PseudoModemQ::Enqueue(PseudoModem *modem)
