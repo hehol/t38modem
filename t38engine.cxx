@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.19  2002-11-18 23:12:17  craigs
- * Removed reference to t38old.h
+ * Revision 1.20  2002-11-21 07:16:46  robertj
+ * Changed promiscuous mode to be three way. Fixes race condition in gkserver
+ *   which can cause crashes or more PDUs to be sent to the wrong place.
+ *
+ * Revision 1.20  2002/11/21 07:16:46  robertj
+ * Changed promiscuous mode to be three way. Fixes race condition in gkserver
+ *   which can cause crashes or more PDUs to be sent to the wrong place.
  *
  * Revision 1.19  2002/11/18 23:12:17  craigs
  * Removed reference to t38old.h
@@ -605,7 +610,7 @@ BOOL T38Engine::Answer()
 
   /* HACK HACK HACK -- need to figure out how to get the remote address
    * properly here */
-  transport->SetPromiscuous(TRUE);
+  transport->SetPromiscuous(H323Transport::AcceptFromAnyAutoSet);
 
   int consecutiveBadPackets = 0;
   long expectedSequenceNumber = 0;
@@ -624,7 +629,7 @@ BOOL T38Engine::Answer()
      * promiscuous listening */
     if (expectedSequenceNumber == 0) {
       PTRACE(3, "T38\tReceived first packet, remote=" << transport->GetRemoteAddress());
-      transport->SetPromiscuous(FALSE);
+      transport->SetPromiscuous(H323Transport::AcceptFromRemoteOnly);
     }
 
     T38_UDPTLPacket udptl;
