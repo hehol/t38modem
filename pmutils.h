@@ -24,8 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.8  2002-12-30 12:49:39  vfrolov
- * Added tracing thread's CPU usage (Linux only)
+ * Revision 1.9  2003-01-08 16:37:29  vfrolov
+ * Changed class DataStream:
+ *   members moved to private section and added isEof()
+ *   added threshold and isFull()
+ *
+ * Revision 1.9  2003/01/08 16:37:29  vfrolov
+ * Changed class DataStream:
+ *   members moved to private section and added isEof()
+ *   added threshold and isFull()
  *
  * Revision 1.8  2002/12/30 12:49:39  vfrolov
  * Added tracing thread's CPU usage (Linux only)
@@ -147,15 +154,16 @@ class DataStream : public PObject
 {
     PCLASSINFO(DataStream, PObject);
   public:
-    
-    DataStream() : done(0), eof(FALSE), diag(0) {}
-    
+    DataStream(PINDEX _threshold = 0) : done(0), threshold(_threshold), eof(FALSE), diag(0) {}
+
     int PutData(const void *pBuf, PINDEX count);
     int GetData(void *pBuf, PINDEX count);
     void PutEof() { eof = TRUE; }
+    BOOL isEof() const { return eof; }
     int GetDiag() const { return diag; }
     DataStream &SetDiag(int _diag) { diag = _diag; return *this; }
-    
+    BOOL isFull() const;
+
     virtual void Clean() {
       CleanData();
       eof = FALSE;
@@ -166,9 +174,10 @@ class DataStream : public PObject
       data = PBYTEArray();
       done = 0;
     }
-    
+  private:
     PBYTEArray data;
     PINDEX done;
+    PINDEX threshold;
     BOOL eof;
     int diag;
 };

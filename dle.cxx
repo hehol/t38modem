@@ -24,8 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: dle.cxx,v $
- * Revision 1.3  2002-04-19 14:29:26  vfrolov
- * Added Copyright header
+ * Revision 1.4  2003-01-08 16:37:22  vfrolov
+ * Changed class DataStream:
+ *   members moved to private section and added isEof()
+ *   added threshold and isFull()
+ *
+ * Revision 1.4  2003/01/08 16:37:22  vfrolov
+ * Changed class DataStream:
+ *   members moved to private section and added isEof()
+ *   added threshold and isFull()
  *
  * Revision 1.3  2002/04/19 14:29:26  vfrolov
  * Added Copyright header
@@ -71,8 +78,9 @@ enum {
 ///////////////////////////////////////////////////////////////
 int DLEData::PutDleData(const void *pBuf, PINDEX count)
 {
-  if( eof ) return -1;
-  
+  if (isEof())
+    return -1;
+
   PINDEX cRest = count;
   const BYTE *p = (const BYTE *)pBuf;
   

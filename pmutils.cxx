@@ -24,8 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.cxx,v $
- * Revision 1.5  2002-12-30 12:49:36  vfrolov
- * Added tracing thread's CPU usage (Linux only)
+ * Revision 1.6  2003-01-08 16:37:25  vfrolov
+ * Changed class DataStream:
+ *   members moved to private section and added isEof()
+ *   added threshold and isFull()
+ *
+ * Revision 1.6  2003/01/08 16:37:25  vfrolov
+ * Changed class DataStream:
+ *   members moved to private section and added isEof()
+ *   added threshold and isFull()
  *
  * Revision 1.5  2002/12/30 12:49:36  vfrolov
  * Added tracing thread's CPU usage (Linux only)
@@ -111,6 +118,13 @@ int DataStream::GetData(void *pBuf, PINDEX count)
     CleanData();
   
   return count;
+}
+
+BOOL DataStream::isFull() const
+{
+  if (!threshold || done >= data.GetSize())
+    return FALSE;
+  return threshold < (data.GetSize() - done);
 }
 ///////////////////////////////////////////////////////////////
 void RenameCurrentThread(const PString &newname)
