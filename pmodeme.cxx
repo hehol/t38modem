@@ -24,9 +24,21 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.14  2002-11-05 13:59:11  vfrolov
- * Implemented Local Party Number dial modifier 'L'
- * (put dial string 1234L5678 to dial 1234 from 5678)
+ * Revision 1.15  2002-12-19 10:31:33  vfrolov
+ * Changed usage multiple dial modifiers 'L' (for secure reasons)
+ *   each next 'L' overrides previous 'L'
+ *   ("ATD4444L123L456" eq "ATD4444L456", "ATD4444L123L" eq "ATD4444")
+ * Added dial modifier 'D' - continue dial number
+ *   ("ATD000L123D4444" eq "ATD0004444L123")
+ * Added mising spaces into "NMBR = " and "NDID = "
+ *
+ * Revision 1.15  2002/12/19 10:31:33  vfrolov
+ * Changed usage multiple dial modifiers 'L' (for secure reasons)
+ *   each next 'L' overrides previous 'L'
+ *   ("ATD4444L123L456" eq "ATD4444L456", "ATD4444L123L" eq "ATD4444")
+ * Added dial modifier 'D' - continue dial number
+ *   ("ATD000L123D4444" eq "ATD0004444L123")
+ * Added mising spaces into "NMBR = " and "NDID = "
  *
  * Revision 1.14  2002/11/05 13:59:11  vfrolov
  * Implemented Local Party Number dial modifier 'L'
@@ -906,7 +918,11 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                     forceFaxMode = FALSE;
                     break;
                   case 'L':
+                    LocalPartyName = "";
                     local = TRUE;
+                    break;
+                  case 'D':
+                    local = FALSE;
                     break;
                   default:
                     err = TRUE;
@@ -979,10 +995,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 resp += Manufacturer;
                 break;
               case 8:
-                resp += "\r\nNMBR=" + SrcNum();
+                resp += "\r\nNMBR = " + SrcNum();
                 break;
               case 9:
-                resp += "\r\nNDID=" + DstNum();
+                resp += "\r\nNDID = " + DstNum();
                 break;
               default:
                 if( val < 0 )
