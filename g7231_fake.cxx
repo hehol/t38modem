@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: g7231_fake.cxx,v $
- * Revision 1.1  2002-04-30 04:17:54  craigs
- * Initial version
+ * Revision 1.2  2002-07-23 01:15:24  craigs
+ * Added Capability clone function
+ *
+ * Revision 1.2  2002/07/23 01:15:24  craigs
+ * Added Capability clone function
  *
  * Revision 1.1  2002/04/30 04:17:54  craigs
  * Initial version
@@ -49,6 +52,11 @@
 G7231_Fake_Capability::G7231_Fake_Capability()
   : H323AudioCapability(8, 4)
 {
+}
+
+PObject * G7231_Fake_Capability::Clone()
+{
+  return new G7231_Fake_Capability(*this);
 }
 
 BOOL G7231_Fake_Capability::OnSendingPDU(H245_AudioCapability & cap, unsigned packetSize) const

@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: g7231_fake.h,v $
- * Revision 1.1  2002-04-30 04:17:54  craigs
- * Initial version
+ * Revision 1.2  2002-07-23 01:15:24  craigs
+ * Added Capability clone function
+ *
+ * Revision 1.2  2002/07/23 01:15:24  craigs
+ * Added Capability clone function
  *
  * Revision 1.1  2002/04/30 04:17:54  craigs
  * Initial version
@@ -64,6 +67,7 @@ class G7231_Fake_Capability : public H323AudioCapability
 
   public:
     G7231_Fake_Capability();
+    PObject * Clone();
 
     unsigned GetSubType() const { return H245_AudioCapability::e_g7231; }
     PString GetFormatName() const { return "G.723.1"; }
