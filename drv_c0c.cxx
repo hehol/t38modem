@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004 Vyacheslav Frolov
+ * Copyright (c) 2004-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.3  2004-10-20 14:00:16  vfrolov
- * Fixed race condition with SignalDataReady()/WaitDataReady()
+ * Revision 1.4  2005-02-10 15:04:57  vfrolov
+ * Disabled I/C calls for closed ports
+ *
+ * Revision 1.4  2005/02/10 15:04:57  vfrolov
+ * Disabled I/C calls for closed ports
  *
  * Revision 1.3  2004/10/20 14:00:16  vfrolov
  * Fixed race condition with SignalDataReady()/WaitDataReady()
@@ -396,7 +399,8 @@ PseudoModemC0C::PseudoModemC0C(const PString &_tty, const PString &_route, const
   : PseudoModemBody(_route, _callbackEndPoint),
     hC0C(INVALID_HANDLE_VALUE),
     inC0C(NULL),
-    outC0C(NULL)
+    outC0C(NULL),
+    ready(FALSE)
 {
   if (CheckTty(_tty)) {
     ptypath = _tty;
@@ -435,6 +439,11 @@ PStringArray PseudoModemC0C::Description()
   return description;
 }
 
+BOOL PseudoModemC0C::IsReady() const
+{
+  return ready && PseudoModemBody::IsReady();
+}
+
 const PString &PseudoModemC0C::ttyPath() const
 {
   return ptypath;
@@ -456,6 +465,7 @@ BOOL PseudoModemC0C::StartAll()
      ) {
     inC0C->Resume();
     outC0C->Resume();
+    ready = TRUE;
     return TRUE;
   }
   StopAll();
@@ -464,6 +474,8 @@ BOOL PseudoModemC0C::StartAll()
 
 void PseudoModemC0C::StopAll()
 {
+  ready = FALSE;
+
   if (inC0C) {
     inC0C->SignalStop();
     inC0C->WaitForTermination();

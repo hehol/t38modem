@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004 Vyacheslav Frolov
+ * Copyright (c) 2004-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drv_c0c.h,v $
- * Revision 1.2  2004-07-19 08:31:06  vfrolov
- * Fixed "friend declaration requires class-key"
+ * Revision 1.3  2005-02-10 15:04:58  vfrolov
+ * Disabled I/C calls for closed ports
+ *
+ * Revision 1.3  2005/02/10 15:04:58  vfrolov
+ * Disabled I/C calls for closed ports
  *
  * Revision 1.2  2004/07/19 08:31:06  vfrolov
  * Fixed "friend declaration requires class-key"
@@ -68,6 +71,8 @@ class PseudoModemC0C : public PseudoModemBody
     static PStringArray Description();
   //@}
 
+    virtual BOOL IsReady() const;
+
   protected:
   /**@name Overrides from class PseudoModemBody */
   //@{
@@ -89,6 +94,7 @@ class PseudoModemC0C : public PseudoModemBody
     InC0C *inC0C;
     OutC0C *outC0C;
     BOOL reset;
+    BOOL ready;
 
     PString ptypath;
 
