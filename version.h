@@ -23,8 +23,8 @@
  *
  * Library dependencies:
  *
- *   pwlib: v1.4.5   CVS tag: v1_4_5
- *   openh323: v1.11.0   CVS tag: v1_11_0
+ *   pwlib: v1.4.7   CVS tag: v1_4_7
+ *   openh323: v1.11.2   CVS tag: v1_11_2
  */
  
 #ifndef _T38M_VERSION_H
