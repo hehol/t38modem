@@ -5,32 +5,29 @@
 #include <ptlib/pipechan.h>
 
 #include "version.h"
-#include "h323neg.h"
 #include "h323t38.h"
 #include "t38engine.h"
 #include "pmodem.h"
 #include "main.h"
 
-PCREATE_PROCESS(OpenAm);
+PCREATE_PROCESS(T38Modem);
 
 #define new PNEW
 
-static const char local[] = "127.0.0.1";
-
 ///////////////////////////////////////////////////////////////
 
-OpenAm::OpenAm()
-  : PProcess("OpenH323 Project", "OpenAM",
+T38Modem::T38Modem()
+  : PProcess("OpenH323 Project", "T38Modem",
              MAJOR_VERSION, MINOR_VERSION, BUILD_TYPE, BUILD_NUMBER)
 {
 }
 
 
-OpenAm::~OpenAm()
+T38Modem::~T38Modem()
 {
 }
 
-void OpenAm::Main()
+void T38Modem::Main()
 {
   cout << GetName()
        << " Version " << GetVersion(TRUE)
@@ -43,7 +40,7 @@ void OpenAm::Main()
   args.Parse(
              "f-fax."
 	     "p-ptty:"
-	     "-remote:"
+	     "-route:"
 
              "g-gatekeeper:"         "n-no-gatekeeper."
              "-require-gatekeeper."  "-no-require-gatekeeper."
@@ -78,9 +75,11 @@ void OpenAm::Main()
   if (args.HasOption('h')) {
     cout << "Usage : " << GetName() << " [options]\n"
             "Options:\n"
-            "  -p --ptty tty[,tty...]  : Pseudo ttys\n"
+            "  -p --ptty tty[,tty...]  : Pseudo ttys (mandatory, multi)\n"
             "                            tty ~= |" << PseudoModem::ttyPattern() << "|\n"
-            "     --remote host    : remote host\n"
+            "     --route prefix@host  : route number with prefix to host (mandatory, multi)\n"
+            "                            discards prefix from number\n"
+            "                            prefix 'all' is all\n"
             "  -i --interface ip   : Bind to a specific interface\n"
             "  --listenport port   : Listen on a specific port\n"
             "  -g --gatekeeper host: Specify gatekeeper host.\n"
@@ -175,28 +174,43 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
       PseudoModem *modem = pmodemQ->Dequeue(modemToken);
       if( modem != NULL ) {
         PString callToken;
-        PString num = request("number") + "@";
+        PString num = request("number");
+        PString remote;
         
-        if( num[0] == '9' ) {
-          num.Delete(0, 1);
-          num += remote;
-        } else {
-          num += local;
+        for( PINDEX i = 0 ; i < routes.GetSize() ; i++ ) {
+          PString r = routes[i];
+          PStringArray rs = r.Tokenise("@", FALSE);
+          if( rs.GetSize() == 2 ) {
+            if( rs[0] == "all" ) {
+              remote = rs[1];
+              break;
+            } else if( num.Find(rs[0]) == 0 ) {
+              remote = rs[1];
+              num.Delete(0, rs[0].GetLength());
+              break;
+            }
+          }
         }
         
-        MakeCall(num, callToken);
-        request.SetAt("calltoken", callToken);
-        H323Connection * _conn = FindConnectionWithLock(callToken);
-        if( _conn != NULL ) {
-          PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
-          MyH323Connection *conn = (MyH323Connection *)_conn;
-          if( conn->Attach(modem) )
-            response = "confirm";
-          else
+        if( !remote.IsEmpty() ) {
+          num += "@" + remote;
+          myPTRACE(1, "MyH323EndPoint::OnMyCallback MakeCall(" << num << ")");
+          MakeCall(num, callToken);
+          request.SetAt("calltoken", callToken);
+          H323Connection * _conn = FindConnectionWithLock(callToken);
+          if( _conn != NULL ) {
+            PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
+            MyH323Connection *conn = (MyH323Connection *)_conn;
+            if( conn->Attach(modem) )
+              response = "confirm";
+            else
+              pmodemQ->Enqueue(modem);
+            _conn->Unlock();
+          } else {
             pmodemQ->Enqueue(modem);
-          _conn->Unlock();
+          }
         } else {
-          pmodemQ->Enqueue(modem);
+          request.SetAt("diag", "noroute");
         }
       }
     } else if( command == "answer" ) {
@@ -221,7 +235,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
   }
 }
 
-BOOL MyH323EndPoint::OnIncomingCall(H323Connection & _conn,
+BOOL MyH323EndPoint::OnIncomingCall(H323Connection & /*_conn*/,
                                     const H323SignalPDU & setupPDU,
                                     H323SignalPDU &)
 {
@@ -234,8 +248,8 @@ BOOL MyH323EndPoint::OnIncomingCall(H323Connection & _conn,
     PTRACE(1, "MyH323EndPoint::OnIncomingCall " << s);
   } // */
 
-  PAssert(_conn.IsDescendant(MyH323Connection::Class()), PInvalidCast);
-  MyH323Connection & conn = (MyH323Connection &)_conn;
+  //PAssert(_conn.IsDescendant(MyH323Connection::Class()), PInvalidCast);
+  //MyH323Connection & conn = (MyH323Connection &)_conn;
 
   // see if incoming call is to a getway address
   PString number;
@@ -249,7 +263,6 @@ BOOL MyH323EndPoint::OnIncomingCall(H323Connection & _conn,
   }
 
   if (setupPDU.GetDestinationE164(number)) {
-    conn.SetE164Number(number);
     cout << "To:   " << number << "\n";
   }
 
@@ -279,19 +292,27 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
     myPTRACE(1, "Force T38 mode !!!");
   }
 
-  if (args.HasOption("remote")) {
-    remote = args.GetOptionString("remote");
+  if (args.HasOption("route")) {
+    PString r = args.GetOptionString("route");
+    routes = r.Tokenise("\r\n", FALSE);
+
+    cout << "Route O/G calls:\n";
+
+    for( PINDEX i = 0 ; i < routes.GetSize() ; i++ ) {
+      r = routes[i];
+      PStringArray rs = r.Tokenise("@", FALSE);
+      if( rs.GetSize() == 2 ) {
+        cout << "  " << rs[0] << " --> " << rs[1] << "\n";
+        PTRACE(1, "Route " << rs[0] << " --> " << rs[1]);
+        if( rs[0] == "all" )
+          break;
+      }
+    }
   }
-  
-  myPTRACE(1, "Route O/G calls\n" <<
-    "  9<number> --> <number>@" << remote << "\n" <<
-    "  <number> --> <number>@" << local
-  );
   
   if (args.HasOption('p')) {
     PString tty = args.GetOptionString('p');
-    cout << tty << endl;
-    PStringArray ttys = tty.Tokenise(",");
+    PStringArray ttys = tty.Tokenise(",\r\n ", FALSE);
     
     for( PINDEX i = 0 ; i < ttys.GetSize() ; i++ ) {
       PseudoModem *modem = new PseudoModem(ttys[i], PCREATE_NOTIFIER(OnMyCallback));
@@ -322,21 +343,28 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
   return TRUE;
 }
 
-void MyH323EndPoint::OnConnectionEstablished(H323Connection & connection,
-                                                const PString & token)
+void MyH323EndPoint::OnConnectionEstablished(H323Connection & /*connection*/,
+                                                const PString & /*token*/)
 {
   PTRACE(2, "MyH323EndPoint::OnConnectionEstablished");
+
+  /* it's does not work here :(
+  
+  if( ForceT38Mode() && connection.HadAnsweredCall() ) {
+    connection.RequestModeChange();
+  }
+  */
 }
 
 ///////////////////////////////////////////////////////////////
 
 MyH323Connection::MyH323Connection(MyH323EndPoint & _ep, unsigned callReference)
   : H323Connection(_ep, callReference
-    , TRUE // disable 
-    ), ep(_ep), 
-    t38handler(NULL), T38TransportUDP(NULL)
+    , TRUE // disable FastStart (there are problems for FastStart & AnswerCallPending)
+    ), ep(_ep),
+    t38handler(NULL), T38TransportUDP(NULL), pmodem(NULL),
+    audioWrite(NULL), audioRead(NULL)
 {
-  pmodem = NULL;
 }
 
 MyH323Connection::~MyH323Connection()
@@ -354,8 +382,22 @@ MyH323Connection::~MyH323Connection()
   if (T38TransportUDP != NULL)
     delete T38TransportUDP;
 
-  if (pmodem != NULL)
-    ep.PMFree(pmodem);
+  if (pmodem != NULL) {
+      PStringToString request;
+      request.SetAt("command", "clearcall");
+      request.SetAt("calltoken", GetCallToken());
+      if( !pmodem->Request(request) ) {
+        myPTRACE(1, "MyH323Connection::~MyH323Connection error request={\n" << request << "}");
+      }
+    
+      ep.PMFree(pmodem);
+  }
+
+  if (audioWrite != NULL)
+    delete audioWrite;
+
+  if (audioRead != NULL)
+    delete audioRead;
 }
 
 BOOL MyH323Connection::Attach(PseudoModem *_pmodem)
@@ -372,12 +414,27 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler() const
 
   PAssert(pmodem != NULL, "pmodem is NULL");
 
+  /*
   OpalT38Protocol * t38 = new T38Engine();
   pmodem->Attach((T38Engine *)t38);
 
   return t38;
-}
+  */
 
+  PWaitAndSignal mutexWait(T38Mutex);
+  /*
+   * we can't have more then one t38handler per connection
+   * at the same time and we should delete it on connection clean
+   */
+  if( t38handler == NULL ) {
+    PTRACE(2, "MyH323Connection::CreateT38ProtocolHandler create new one");
+    ((MyH323Connection *)this)->	// workaround for const
+      t38handler = new T38Engine(pmodem->ptyName());
+    pmodem->Attach((T38Engine *)t38handler);
+  }
+  return t38handler;
+}
+/*
 H323TransportUDP * MyH323Connection::GetT38TransportUDP()
 {
   PWaitAndSignal mutexWait(T38Mutex);
@@ -405,7 +462,7 @@ H323TransportUDP * MyH323Connection::GetT38TransportUDP()
   }
   return T38TransportUDP;
 }
-
+*/
 H323Connection::AnswerCallResponse
      MyH323Connection::OnAnswerCall(const PString & caller,
                                     const H323SignalPDU & setupPDU,
@@ -486,4 +543,224 @@ BOOL MyH323Connection::OnStartLogicalChannel(H323Channel & channel)
   return TRUE;
 }
 
+void MyH323Connection::OnClosedLogicalChannel(const H323Channel & channel)
+{
+  PTRACE(2, "MyH323Connection::OnClosedLogicalChannel beg");
+  
+  H323Connection::OnClosedLogicalChannel(channel);
+
+  myPTRACE(1, "MyH323Connection::OnClosedLogicalChannel ch=" << channel << " cp=" << channel.GetCapability() << " sid=" << channel.GetSessionID() << " d=" << (int)channel.GetDirection());
+}
+
+BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize */, H323AudioCodec & codec)
+{
+  codec.SetSilenceDetectionMode(H323AudioCodec::NoSilenceDetection);
+  PStringStream codecName;
+  codecName << codec;
+  
+  PTRACE(2, "MyH323Connection::OpenAudioChannel " << codec);
+
+  PWaitAndSignal mutex(connMutex);
+
+  if (audioWrite == NULL) {
+    audioWrite = new AudioWrite(*this);
+  }
+
+  if (audioRead == NULL) {
+    audioRead = new AudioRead(*this);
+  }
+
+  if (isEncoding) {
+    codec.AttachChannel(audioRead, FALSE);
+  } else {
+    codec.AttachChannel(audioWrite, FALSE);
+  }
+
+  return TRUE;
+}
+
+///////////////////////////////////////////////////////////////
+
+AudioRead::AudioRead(MyH323Connection & _conn)
+  : conn(_conn), closed(FALSE)
+{
+  headRoom = 0;
+  WasRead = 0;
+  frameLen = frameOffs = 0;
+  frameBuffer = NULL;       // size the buffer when we know what the codec wants
+}
+
+AudioRead::~AudioRead() {
+  if (frameBuffer != NULL)
+    delete frameBuffer;
+}
+
+void AudioRead::FrameDelay(int offs)
+{
+  if (WasRead == 0)
+    WasRead++;
+  else {
+    if (WasRead == 1 && conn.ForceT38Mode() && conn.HadAnsweredCall() )
+      conn.RequestModeChange();
+
+    if (WasRead < 10000)
+      WasRead++;
+
+    // subtract actual time taken for previous frame
+    PTime now;
+    PTimeInterval interval = now - lastReadTime;
+    headRoom -= (int)interval.GetMilliSeconds();
+
+    // save time of read so we can calculate delay next time
+    lastReadTime = PTime();
+
+    // if we have acculated too much headroom, then reduce it
+    if (headRoom >= Max_Headroom) {
+      int desiredDelay = headRoom - Min_Headroom;
+      PThread::Sleep(desiredDelay);
+    }
+  }
+
+  headRoom += offs;
+}
+
+BOOL AudioRead::Read(void * buffer, PINDEX amount)
+{
+  PWaitAndSignal mutex(Mutex);
+
+  // if the channel is closed, then return error
+  if (closed)
+    return FALSE;
+
+  // Create the frame buffer using the amount of bytes the codec wants to
+  // read. Different codecs use different read sizes.
+  if (frameBuffer == NULL)
+    frameBuffer = new BYTE[amount];
+
+  // assume we are returning silence
+  BOOL doSilence = TRUE;
+  BOOL frameBoundary = FALSE;
+
+  // if still outputting a frame from last time, then keep doing it
+  if (frameOffs < frameLen) {
+    frameBoundary = AdjustFrame(buffer, amount);
+    doSilence = FALSE;
+  }
+  
+  // start silence frame if required
+  if (doSilence) {
+    CreateSilenceFrame(amount);
+    frameBoundary = AdjustFrame(buffer, amount);
+  }
+
+  // delay to synchronise to frame boundary
+  if (frameBoundary)
+    Synchronise(amount);
+
+  return TRUE;
+}
+
+BOOL AudioRead::Close()
+{
+  PWaitAndSignal mutex(Mutex);
+  closed = TRUE;
+  return TRUE;
+}
+
+BOOL AudioRead::AdjustFrame(void * buffer, PINDEX amount)
+{
+  if ((frameOffs + amount) > frameLen) {
+    cerr << "Reading past end of frame:offs=" << frameOffs << ",amt=" << amount << ",len=" << frameLen << endl;
+    return TRUE;
+  }
+  //PAssert((frameOffs + amount) <= frameLen, "Reading past end of frame");
+
+  memcpy(buffer, frameBuffer+frameOffs, amount);
+  frameOffs += amount;
+
+  lastReadCount = amount;
+
+  return frameOffs == frameLen;
+}
+
+void AudioRead::Synchronise(PINDEX amount)
+{
+  FrameDelay(amount / 16);
+}
+
+void AudioRead::CreateSilenceFrame(PINDEX amount)
+{
+  frameOffs = 0;
+  frameLen  = amount;
+  memset(frameBuffer, 0, frameLen);
+}
+///////////////////////////////////////////////////////////////
+
+AudioDelay::AudioDelay()
+{
+  firstTime = TRUE;
+  error = 0;
+}
+
+void AudioDelay::Restart()
+{
+  firstTime = TRUE;
+}
+
+BOOL AudioDelay::Delay(int frameTime)
+{
+  if (firstTime) {
+    firstTime = FALSE;
+    previousTime = PTime();
+    return TRUE;
+  }
+
+  error += frameTime;
+
+  PTime now;
+  PTimeInterval delay = now - previousTime;
+  error -= (int)delay.GetMilliSeconds();
+  previousTime = now;
+
+  if (error > 0)
+#ifdef P_LINUX
+    usleep(error * 1000);
+#else
+    PThread::Sleep(error);
+#endif
+
+  return error <= -frameTime;
+}
+///////////////////////////////////////////////////////////////
+
+AudioWrite::AudioWrite(MyH323Connection & _conn)
+  : conn(_conn), closed(FALSE)
+{
+}
+
+BOOL AudioWrite::Close()
+{
+  PWaitAndSignal mutex(Mutex);
+
+  closed = TRUE;
+  return TRUE;
+}
+
+BOOL AudioWrite::Write(const void * buf, PINDEX len)
+{
+  // Wait for the mutex, and Signal it at the end of this function
+  PWaitAndSignal mutex(Mutex);
+
+  if (closed)
+    return FALSE;
+    
+  delay.Delay(len/16);
+  return TRUE;
+}
+
+AudioWrite::~AudioWrite()
+{
+}
+
 // End of File ///////////////////////////////////////////////////////////////
+

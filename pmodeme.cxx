@@ -1,16 +1,16 @@
 /*
- * $Id: pmodeme.cxx,v 1.1 2002-01-01 23:06:54 craigs Exp $
+ * $Id: pmodeme.cxx,v 1.2 2002-01-01 23:59:52 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.1  2002-01-01 23:06:54  craigs
- * Initial version
+ * Revision 1.2  2002-01-01 23:59:52  craigs
+ * Lots of additional implementation thanks to Vyacheslav Frolov
  *
- * Revision 1.1  2002/01/01 23:06:54  craigs
- * Initial version
+ * Revision 1.2  2002/01/01 23:59:52  craigs
+ * Lots of additional implementation thanks to Vyacheslav Frolov
  *
  */
 
@@ -417,6 +417,8 @@ void ModemEngineBody::ClearCall()
 {
   if( CallToken().IsEmpty() )
     return;
+    
+  timerRing.Stop();
   
   PStringToString request;
   request.SetAt("modemtoken", parent.modemToken());
@@ -425,6 +427,7 @@ void ModemEngineBody::ClearCall()
 
   callbackEndPoint(request, 1);
   CallToken("");
+  callDirection = cdUndefined;
 }
 
 BOOL ModemEngineBody::Request(PStringToString &request)
@@ -441,7 +444,13 @@ BOOL ModemEngineBody::Request(PStringToString &request)
     timerRing.Start(6000);
     request.SetAt("response", "confirm");
     request.SetAt("answer", "pending");
-    //request.SetAt("answer", "now");	// ???
+    //request.SetAt("answer", "now");
+  } else if( command == "clearcall" ) {
+    PWaitAndSignal mutexWait(Mutex);
+    if( !CallToken().IsEmpty() ) {
+      timerRing.Stop();
+      // TODO
+    }
   } else {
     request.SetAt("response", "reject");
     myPTRACE(1, "ModemEngineBody::Request reject");
@@ -565,11 +574,29 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
       return FALSE;
   }
   
-  if( dataType == T38Engine::dtSilence ) {
-    int dms = ParseNum(ppCmd);
-    if( dms >= 0 ) {
-    } else {
-      return FALSE;
+  if( dt == T38Engine::dtSilence ) {
+    switch( *(*ppCmd)++ ) {
+      case '=':
+        switch( **ppCmd ) {
+          case '?':
+            (*ppCmd)++;
+              resp += "\r\n0-255\r\nOK\r\n";
+            break;
+          default:
+            {
+              int dms = ParseNum(ppCmd);
+              if( dms >= 0 ) {
+                // TODO
+                PThread::Sleep(dms*10);
+                resp += "\r\nOK\r\n";
+              } else {
+                return FALSE;
+              }
+            }
+        }
+        break;
+      default:
+        return FALSE;
     }
   } else {
     switch( *(*ppCmd)++ ) {
@@ -577,11 +604,18 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
         switch( **ppCmd ) {
           case '?':
             (*ppCmd)++;
-            resp += "\r\n3,24,48,72,73,74,96,97,98,121,122,145,146\r\nOK\r\n";
+            if( dt == T38Engine::dtRaw )
+              resp += "\r\n24,48,72,73,74,96,97,98,121,122,145,146\r\nOK\r\n";
+            else
+              resp += "\r\n3\r\nOK\r\n";
             break;
           default:
             {
               int br = ParseNum(ppCmd);
+              
+              if( (dt == T38Engine::dtRaw && br == 3) || (dt == T38Engine::dtHdlc && br != 3) )
+                return FALSE;
+                
               switch( br ) {
                 case 3:
                 case 24:
@@ -599,7 +633,6 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
                   if( T )
                     return SendStart(dt, br, resp);
                   else
-                    //PThread::Sleep(1050);	// testing !!!!
                     return RecvStart(dt, br);
                 default:
                   return FALSE;
@@ -671,7 +704,7 @@ void ModemEngineBody::HandleCmd(const PString &cmd, PString &resp)
               } else {
                 state = stCommand;
                 timeout.Stop();
-                resp += "\r\nNO CARRIER";
+                err = TRUE;
               }
             }
           }
@@ -709,7 +742,11 @@ void ModemEngineBody::HandleCmd(const PString &cmd, PString &resp)
               PString response = request("response");
               
               if( response == "reject" ) {
-                resp += "\r\nNO DIALTONE";
+                PString diag = request("diag");
+                if( diag == "noroute" )
+                  resp += "\r\nBUSY";
+                else
+                  resp += "\r\nNO DIALTONE";
               } else if( response == "confirm" ) {
                 CallToken(request("calltoken"));
                 crlf = FALSE;
@@ -728,8 +765,8 @@ void ModemEngineBody::HandleCmd(const PString &cmd, PString &resp)
           break;
         case 'H':	// On/Off-hook
           if( ParseNum(&pCmd, 0, 1, 0) >= 0 ) {	// ATH & ATH0
-            timerRing.Stop();
-            ClearCall();
+            if( callDirection != cdUndefined )
+              ClearCall();
           } else {
             err = TRUE;
           }
@@ -853,6 +890,8 @@ void ModemEngineBody::HandleCmd(const PString &cmd, PString &resp)
           {
             int val = ParseNum(&pCmd, 0, 1, sizeof(Profiles)/sizeof(Profiles[0]) - 1);
             if( val >= 0 ) {
+              if( callDirection != cdUndefined )
+                ClearCall();
               P = Profiles[val];
             } else {
               err = TRUE;
@@ -1023,6 +1062,11 @@ void ModemEngineBody::HandleCmd(const PString &cmd, PString &resp)
                   err = TRUE;
                 }
               }
+              break;
+            case 'F':					// &F
+              if( callDirection != cdUndefined )
+                ClearCall();
+              P = Profiles[0];
               break;
             case 'H':					// &H
               {

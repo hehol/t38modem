@@ -1,16 +1,16 @@
 /*
- * $Id: t38engine.h,v 1.1 2002-01-01 23:06:54 craigs Exp $
+ * $Id: t38engine.h,v 1.2 2002-01-01 23:59:52 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: t38engine.h,v $
- * Revision 1.1  2002-01-01 23:06:54  craigs
- * Initial version
+ * Revision 1.2  2002-01-01 23:59:52  craigs
+ * Lots of additional implementation thanks to Vyacheslav Frolov
  *
- * Revision 1.1  2002/01/01 23:06:54  craigs
- * Initial version
+ * Revision 1.2  2002/01/01 23:59:52  craigs
+ * Lots of additional implementation thanks to Vyacheslav Frolov
  *
  */
 
@@ -33,7 +33,7 @@ class MODPARS
           int _br = -1
     ) : dataType(_dataType), val(_val), ind(_ind), lenInd(_lenInd),
         msgType(_msgType), br(_br) {}
-        
+    
     BOOL IsModValid() { return val >= 0; }
 
     int dataType;
@@ -70,15 +70,38 @@ class T38Engine : public OpalT38Protocol
 
   /**@name Construction */
   //@{
-    T38Engine();
+    T38Engine(const PString &_name = "");
     ~T38Engine();
   //@}
-
+  
   /**@name Operations */
   //@{
     void CleanUpOnTermination() { SetT38Mode(FALSE); }
     void SetT38Mode(BOOL mode = TRUE);
+  //@}
   
+  /**@name Modem API */
+  //@{
+    BOOL Attach(const PNotifier &callback);
+    void Detach(const PNotifier &callback);
+    void ResetModemState();
+
+    BOOL SendStart(int _dataType, int param);
+    int Send(const void *pBuf, PINDEX count);
+    BOOL SendStop(BOOL moreFrames, int _callbackParam);
+
+    BOOL RecvWait(int _dataType, int param, int _callbackParam);
+    BOOL RecvStart(int _callbackParam);
+    int Recv(void *pBuf, PINDEX count);
+    int RecvDiag();
+    BOOL RecvStop();
+  //@}
+    
+  protected:
+  
+    virtual BOOL Originate(H323Transport & transport);
+    virtual BOOL Answer(H323Transport & transport);
+
     /**Prepare outgoing T.38 packet.
 
        If returns FALSE, then the writing loop should be terminated.
@@ -102,26 +125,9 @@ class T38Engine : public OpalT38Protocol
     virtual BOOL HandlePacketLost(
       unsigned nLost
     );
-  //@}
-  
-  /**@name Modem API */
-  //@{
-    BOOL Attach(const PNotifier &callback);
-    void Detach(const PNotifier &callback);
-    void ResetModemState();
-
-    BOOL SendStart(int _dataType, int param);
-    int Send(const void *pBuf, PINDEX count);
-    BOOL SendStop(BOOL moreFrames, int _callbackParam);
-
-    BOOL RecvWait(int _dataType, int param, int _callbackParam);
-    BOOL RecvStart(int _callbackParam);
-    int Recv(void *pBuf, PINDEX count);
-    int RecvDiag();
-    BOOL RecvStop();
-  //@}
     
-  protected:
+  private:
+  
     virtual void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }
     virtual void WaitOutDataReady() { outDataReadySyncPoint.Wait(); }
     
@@ -150,6 +156,8 @@ class T38Engine : public OpalT38Protocol
     PMutex MutexOut;
     PMutex MutexIn;
     PMutex MutexModem;
+    
+    const PString name;
 };
 ///////////////////////////////////////////////////////////////
 

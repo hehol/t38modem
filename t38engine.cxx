@@ -1,16 +1,16 @@
 /*
- * $Id: t38engine.cxx,v 1.1 2002-01-01 23:06:54 craigs Exp $
+ * $Id: t38engine.cxx,v 1.2 2002-01-01 23:59:52 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.1  2002-01-01 23:06:54  craigs
- * Initial version
+ * Revision 1.2  2002-01-01 23:59:52  craigs
+ * Lots of additional implementation thanks to Vyacheslav Frolov
  *
- * Revision 1.1  2002/01/01 23:06:54  craigs
- * Initial version
+ * Revision 1.2  2002/01/01 23:59:52  craigs
+ * Lots of additional implementation thanks to Vyacheslav Frolov
  *
  */
 
@@ -235,8 +235,8 @@ static void t38data(T38_IFPPacket &ifp, unsigned type, unsigned field_type, cons
     }
 }
 ///////////////////////////////////////////////////////////////
-T38Engine::T38Engine()
-  : OpalT38Protocol()
+T38Engine::T38Engine(const PString &_name)
+  : OpalT38Protocol(), name(_name)
 {
   PTRACE(1, "T38Engine::T38Engine");
   stateModem = stmIdle;
@@ -246,6 +246,26 @@ T38Engine::T38Engine()
   modStreamInSaved = NULL;
   
   T38Mode = TRUE;
+}
+
+BOOL T38Engine::Originate(H323Transport & transport)
+{
+  if( !name.IsEmpty() ) {
+    PString old = PThread::Current()->GetThreadName();
+    PThread::Current()->SetThreadName(name + "(tx):%0x");
+    PTRACE(2, "myT38Protocol::Originate old ThreadName=" << old);
+  }
+  return OpalT38Protocol::Originate(transport);
+}
+
+BOOL T38Engine::Answer(H323Transport & transport)
+{
+  if( !name.IsEmpty() ) {
+    PString old = PThread::Current()->GetThreadName();
+    PThread::Current()->SetThreadName(name + "(rx):%0x");
+    PTRACE(2, "myT38Protocol::Answer old ThreadName=" << old);
+  }
+  return OpalT38Protocol::Answer(transport);
 }
 
 T38Engine::~T38Engine()
