@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2002 Vyacheslav Frolov
+ * Copyright (c) 2002-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.h,v $
- * Revision 1.1  2002-04-30 10:59:10  vfrolov
- * Initial revision
+ * Revision 1.2  2004-07-07 07:52:07  vfrolov
+ * Moved ptlib.h including to *.cxx for precompiling
+ *
+ * Revision 1.2  2004/07/07 07:52:07  vfrolov
+ * Moved ptlib.h including to *.cxx for precompiling
  *
  * Revision 1.1  2002/04/30 10:59:10  vfrolov
  * Initial revision
@@ -35,8 +38,6 @@
 
 #ifndef _T30TONE_H
 #define _T30TONE_H
-
-#include <ptlib.h>
 
 ///////////////////////////////////////////////////////////////
 class T30Tone : public PObject
