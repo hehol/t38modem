@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.21  2002-04-30 04:06:06  craigs
- * Added option to set G.723.1 codec
+ * Revision 1.22  2002-04-30 11:05:24  vfrolov
+ * Implemented T.30 Calling Tone (CNG) generation
+ *
+ * Revision 1.22  2002/04/30 11:05:24  vfrolov
+ * Implemented T.30 Calling Tone (CNG) generation
  *
  * Revision 1.21  2002/04/30 04:06:06  craigs
  * Added option to set G.723.1 codec
@@ -620,7 +623,7 @@ BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize 
   }
 
   if (audioRead == NULL) {
-    audioRead = new AudioRead(*this);
+    audioRead = new AudioRead(*this, HadAnsweredCall() ? T30Tone::silence : T30Tone::cng);
   }
 
   if (isEncoding) {
@@ -634,8 +637,8 @@ BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize 
 
 ///////////////////////////////////////////////////////////////
 
-AudioRead::AudioRead(MyH323Connection & _conn)
-  : conn(_conn), closed(FALSE)
+AudioRead::AudioRead(MyH323Connection & _conn, T30Tone::Type type)
+  : conn(_conn), t30Tone(type), closed(FALSE)
 {
 }
 
@@ -646,7 +649,7 @@ BOOL AudioRead::Read(void * buffer, PINDEX amount)
   if (closed)
     return FALSE;
 
-  memset(buffer, 0, amount);
+  t30Tone.Read(buffer, amount);
 
   delay.Delay(amount/16);
 

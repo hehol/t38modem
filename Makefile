@@ -22,8 +22,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.6  2002-04-30 03:52:28  craigs
-# Added option for G.723.1 codec
+# Revision 1.7  2002-04-30 11:05:17  vfrolov
+# Implemented T.30 Calling Tone (CNG) generation
+#
+# Revision 1.7  2002/04/30 11:05:17  vfrolov
+# Implemented T.30 Calling Tone (CNG) generation
 #
 # Revision 1.6  2002/04/30 03:52:28  craigs
 # Added option for G.723.1 codec
@@ -41,7 +44,7 @@
 # 
 
 PROG		= t38modem
-SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pty.cxx pmodemi.cxx pmodeme.cxx t38engine.cxx main.cxx g7231_fake.cxx
+SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pty.cxx pmodemi.cxx pmodeme.cxx t38engine.cxx main.cxx g7231_fake.cxx t30tone.cxx
 
 ifndef PWLIBDIR
 PWLIBDIR=$(HOME)/pwlib

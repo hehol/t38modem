@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: main.h,v $
- * Revision 1.7  2002-03-22 09:39:47  vfrolov
- * Removed obsoleted option -f
+ * Revision 1.8  2002-04-30 11:05:32  vfrolov
+ * Implemented T.30 Calling Tone (CNG) generation
+ *
+ * Revision 1.8  2002/04/30 11:05:32  vfrolov
+ * Implemented T.30 Calling Tone (CNG) generation
  *
  * Revision 1.7  2002/03/22 09:39:47  vfrolov
  * Removed obsoleted option -f
@@ -53,6 +56,7 @@
 #include <h323.h>
 #include <lid.h>
 #include "pmutils.h"
+#include "t30tone.h"
 
 class T38Modem : public PProcess
 {
@@ -155,12 +159,13 @@ class AudioRead : public PChannel
   PCLASSINFO(AudioRead, PChannel);
 
   public:
-    AudioRead(MyH323Connection & conn);
+    AudioRead(MyH323Connection & conn, T30Tone::Type type);
     BOOL Read(void * buffer, PINDEX amount);
     BOOL Close();
 
   protected:
     MyH323Connection & conn;
+    T30Tone t30Tone;
     BOOL closed;
     AudioDelay delay;
     PMutex Mutex;
