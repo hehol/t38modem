@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.cxx,v $
- * Revision 1.1  2004-07-07 12:38:32  vfrolov
- * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ * Revision 1.2  2004-10-20 14:00:17  vfrolov
+ * Fixed race condition with SignalDataReady()/WaitDataReady()
+ *
+ * Revision 1.2  2004/10/20 14:00:17  vfrolov
+ * Fixed race condition with SignalDataReady()/WaitDataReady()
  *
  * Revision 1.1  2004/07/07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
@@ -180,14 +183,15 @@ void OutPty::Main()
   for (;;) {
     PrepareSelect(n, fdset, tv, 5);
 
-    while (buf == NULL) {
-      if (stop)
-        break;
-      WaitDataReady();
+    while (!buf) {
       if (stop)
         break;
       buf = Parent().FromOutPtyQ();
-      done = 0;
+      if (buf) {
+        done = 0;
+        break;
+      }
+      WaitDataReady();
     }
 
     if (stop)

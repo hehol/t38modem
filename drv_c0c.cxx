@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.2  2004-08-30 12:11:33  vfrolov
- * Enabled input XON/XOFF control
+ * Revision 1.3  2004-10-20 14:00:16  vfrolov
+ * Fixed race condition with SignalDataReady()/WaitDataReady()
+ *
+ * Revision 1.3  2004/10/20 14:00:16  vfrolov
+ * Fixed race condition with SignalDataReady()/WaitDataReady()
  *
  * Revision 1.2  2004/08/30 12:11:33  vfrolov
  * Enabled input XON/XOFF control
@@ -312,14 +315,15 @@ void OutC0C::Main()
   BOOL waitingWrite = FALSE;
 
   for(;;) {
-    while (buf == NULL) {
-      if (stop)
-        break;
-      WaitDataReady();
+    while (!buf) {
       if (stop)
         break;
       buf = Parent().FromOutPtyQ();
-      done = 0;
+      if (buf) {
+        done = 0;
+        break;
+      }
+      WaitDataReady();
     }
 
     if (stop)
