@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.17  2002-04-17 08:55:18  vfrolov
- * Utilized trace output of H323Channel::Direction enum
+ * Revision 1.18  2002-04-18 08:04:13  vfrolov
+ * Disabled the in band DTMF detection
+ *
+ * Revision 1.18  2002/04/18 08:04:13  vfrolov
+ * Disabled the in band DTMF detection
  *
  * Revision 1.17  2002/04/17 08:55:18  vfrolov
  * Utilized trace output of H323Channel::Direction enum
@@ -367,6 +370,7 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
 {
   DisableFastStart(!args.HasOption('F'));
   DisableH245Tunneling(args.HasOption('T'));
+  DisableDetectInBandDTMF(TRUE);
 
   if (args.HasOption("connectport"))
     connectPort = (WORD)args.GetOptionString("connectport").AsInteger();
