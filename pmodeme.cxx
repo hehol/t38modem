@@ -24,12 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.8  2002-03-01 10:00:26  vfrolov
- * Added Copyright header
- * Implemented connection established handling and mode change request
- * Implemented ATI8 command
- * Fixed some deadlocks
- * Added some other changes
+ * Revision 1.9  2002-03-01 14:59:48  vfrolov
+ * Get data for Revision string from version.h
+ *
+ * Revision 1.9  2002/03/01 14:59:48  vfrolov
+ * Get data for Revision string from version.h
  *
  * Revision 1.8  2002/03/01 10:00:26  vfrolov
  * Added Copyright header
@@ -64,11 +63,14 @@
 #include "pmodeme.h"
 #include "dle.h"
 #include "t38engine.h"
+#include "version.h"
 
 ///////////////////////////////////////////////////////////////
 static const char Manufacturer[] = "Vyacheslav Frolov";
 static const char Model[] = "T38FAX";
-static const char Revision[] = "0.00b";
+#define _TOSTR(s) #s
+#define TOSTR(s) _TOSTR(s)
+static const char Revision[] = TOSTR(MAJOR_VERSION) "." TOSTR(MINOR_VERSION) "." TOSTR(BUILD_NUMBER);
 ///////////////////////////////////////////////////////////////
 #define DeclareStringParam(name)	\
   public:			\
