@@ -1,4 +1,38 @@
-// DRAFT DRAFT DRAFT
+/*
+ * main.cxx
+ *
+ * T38Modem simulator - main program
+ *
+ * Open H323 Project
+ *
+ * The contents of this file are subject to the Mozilla Public License
+ * Version 1.0 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+ * the License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * The Original Code is Open H323 Library.
+ *
+ * The Initial Developer of the Original Code is Equivalence Pty Ltd
+ *
+ * Contributor(s): Vyacheslav Frolov
+ *
+ * $Log: main.cxx,v $
+ * Revision 1.10  2002-01-10 06:09:47  craigs
+ * Changed to use RequestModeChangeT38
+ * Added MPL header
+ *
+ * Revision 1.10  2002/01/10 06:09:47  craigs
+ * Changed to use RequestModeChangeT38
+ * Added MPL header
+ *
+ * 
+ */
+
 // mostly "stolen" from OpenAM
 
 #include <ptlib.h>
@@ -79,11 +113,11 @@ void T38Modem::Main()
   if (args.HasOption('h')) {
     cout << "Usage : " << GetName() << " [options]\n"
             "Options:\n"
-            "  -p --ptty tty[,tty...]  : Pseudo ttys (mandatory, multi)\n"
+            "  -p --ptty tty[,tty...]  : Pseudo ttys (mandatory). Can be used multiple times\n"
             "                            tty ~= |" << PseudoModem::ttyPattern() << "|\n"
-            "     --route prefix@host  : route number with prefix to host (mandatory, multi)\n"
-            "                            discards prefix from number\n"
-            "                            prefix 'all' is all\n"
+            "     --route prefix@host  : route number with prefix to host. Can be used multiple times\n"
+            "                            Discards prefix from number. Prefix 'all' is all numbers\n"
+	    "                            Mandatory if not using GK\n"
             "  -i --interface ip       : Bind to a specific interface\n"
             "  --listenport port       : Listen on a specific port\n"
             "  --connectport port      : Connect to a specific port\n"
@@ -362,7 +396,8 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
     }
   }
 
-  SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::ALaw, H323_G711Capability::At64k));
+  //SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::muLaw, H323_G711Capability::At64k));
+  SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::ALaw,  H323_G711Capability::At64k));
 
   SetCapability(0, 0, new H323_T38Capability(H323_T38Capability::e_UDP));
     
