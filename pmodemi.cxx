@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.5  2002-05-15 16:17:55  vfrolov
- * Implemented per modem routing for I/C calls
+ * Revision 1.6  2002-12-20 10:12:54  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
+ *
+ * Revision 1.6  2002/12/20 10:12:54  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
  *
  * Revision 1.5  2002/05/15 16:17:55  vfrolov
  * Implemented per modem routing for I/C calls
@@ -67,7 +72,6 @@ PseudoModemBody::PseudoModemBody(const PString &_tty, const PString &_route, con
     outPty(NULL),
     engine(NULL)
 {
-  SetThreadName(ptyName() + "(b):%0x");
 }
 
 PseudoModemBody::~PseudoModemBody()
@@ -196,6 +200,8 @@ void PseudoModemBody::StopAll()
 
 void PseudoModemBody::Main()
 {
+  RenameCurrentThread(ptyName() + "(b)");
+
   myPTRACE(3, "PseudoModemBody::Main Started on " << ptyPath() << " for " << ttyPath() <<
               " (accepts " << (route.IsEmpty() ? PString("all") : route) << ")");
   

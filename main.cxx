@@ -24,8 +24,13 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.28  2002-11-18 22:57:53  craigs
- * Added patches from Vyacheslav Frolov for CORRIGENDUM
+ * Revision 1.29  2002-12-20 10:12:46  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
+ *
+ * Revision 1.29  2002/12/20 10:12:46  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
  *
  * Revision 1.28  2002/11/18 22:57:53  craigs
  * Added patches from Vyacheslav Frolov for CORRIGENDUM
@@ -632,7 +637,7 @@ H323Connection::AnswerCallResponse
   }
   
   PString old = PThread::Current()->GetThreadName();
-  PThread::Current()->SetThreadName(pmodem->ptyName() + "(c):%0x");
+  RenameCurrentThread(pmodem->ptyName() + "(c)");
   PTRACE(2, "MyH323Connection::AnswerCallResponse old ThreadName=" << old);
     
   PStringToString request;

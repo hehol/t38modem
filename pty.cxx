@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pty.cxx,v $
- * Revision 1.5  2002-03-05 12:37:45  vfrolov
- * Some OS specific code moved from pmodem.cxx to pty.cxx
+ * Revision 1.6  2002-12-20 10:13:04  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
+ *
+ * Revision 1.6  2002/12/20 10:13:04  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
  *
  * Revision 1.5  2002/03/05 12:37:45  vfrolov
  * Some OS specific code moved from pmodem.cxx to pty.cxx
@@ -72,13 +77,13 @@ UniPty::UniPty(PseudoModemBody &_parent)
 InPty::InPty(PseudoModemBody &_parent)
   : UniPty(_parent)
 {
-  SetThreadName(Parent().ptyName() + "(i):%0x");
 }
 
 void InPty::Main()
 {
+    RenameCurrentThread(Parent().ptyName() + "(i)");
     myPTRACE(1, "--> Started");
-    
+
     for(;;) {
       PrepareSelect(n, fdset, tv, 5);
       
@@ -117,11 +122,11 @@ void InPty::Main()
 OutPty::OutPty(PseudoModemBody &_parent)
   : UniPty(_parent)
 {
-  SetThreadName(Parent().ptyName() + "(o):%0x");
 }
-    
+
 void OutPty::Main()
 {
+    RenameCurrentThread(Parent().ptyName() + "(o)");
     myPTRACE(1, "<-- Started");
 
     PBYTEArray *buf = NULL;

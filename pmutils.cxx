@@ -24,11 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.cxx,v $
- * Revision 1.3  2002-03-07 07:55:18  vfrolov
- * Fixed endless recursive call SignalChildStop(). Possible there is
- * a bug in gcc version 2.95.4 20010902 (Debian prerelease).
- * Markus Storm reported the promlem.
- * Added Copyright header.
+ * Revision 1.4  2002-12-20 10:12:57  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
+ *
+ * Revision 1.4  2002/12/20 10:12:57  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
  *
  * Revision 1.3  2002/03/07 07:55:18  vfrolov
  * Fixed endless recursive call SignalChildStop(). Possible there is
@@ -107,6 +109,27 @@ int DataStream::GetData(void *pBuf, PINDEX count)
     CleanData();
   
   return count;
+}
+///////////////////////////////////////////////////////////////
+void RenameCurrentThread(const PString &newname)
+{
+#if PTRACING
+  PString oldname = PThread::Current()->GetThreadName();
+#endif
+  PThread::Current()->SetThreadName(PString(newname)
+    #if defined(P_PTHREADS)
+      #if defined(P_LINUX)
+        + ":" + PString(getpid())
+      #else
+        + ":" + PString(pthread_self())
+      #endif
+    #else
+        + ":%0x"
+    #endif
+  );
+#if PTRACING
+  PTRACE(2, "RenameCurrentThread old ThreadName=" << oldname);
+#endif
 }
 ///////////////////////////////////////////////////////////////
 

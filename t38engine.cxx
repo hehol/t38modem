@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.23  2002-12-19 14:19:20  vfrolov
- * Added missing brackets (fixed all CPU usage reported by Markus Storm)
+ * Revision 1.24  2002-12-20 10:13:08  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
+ *
+ * Revision 1.24  2002/12/20 10:13:08  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
  *
  * Revision 1.23  2002/12/19 14:19:20  vfrolov
  * Added missing brackets (fixed all CPU usage reported by Markus Storm)
@@ -426,15 +431,8 @@ void T38Engine::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacke
 
 BOOL T38Engine::Originate()
 {
-#if PTRACING
-  if (!name.IsEmpty()) {
-    PString old = PThread::Current()->GetThreadName();
-    PThread::Current()->SetThreadName(name + "(tx):%0x");
-    PTRACE(2, name << " T38Engine::Originate old ThreadName=" << old);
-  }
-  
+  RenameCurrentThread(name + "(tx)");
   PTRACE(3, "T38\tOriginate, transport=" << *transport);
-#endif
 
   long seq = -1;
   int maxRedundancy = 0;
@@ -571,15 +569,8 @@ BOOL T38Engine::Originate()
 
 BOOL T38Engine::Answer()
 {
-#if PTRACING
-  if( !name.IsEmpty() ) {
-    PString old = PThread::Current()->GetThreadName();
-    PThread::Current()->SetThreadName(name + "(rx):%0x");
-    PTRACE(2, name << " T38Engine::Answer old ThreadName=" << old);
-  }
-  
+  RenameCurrentThread(name + "(rx)");
   PTRACE(3, "T38\tAnswer, transport=" << *transport);
-#endif
 
   /* HACK HACK HACK -- need to figure out how to get the remote address
    * properly here */

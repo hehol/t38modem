@@ -24,13 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.15  2002-12-19 10:31:33  vfrolov
- * Changed usage multiple dial modifiers 'L' (for secure reasons)
- *   each next 'L' overrides previous 'L'
- *   ("ATD4444L123L456" eq "ATD4444L456", "ATD4444L123L" eq "ATD4444")
- * Added dial modifier 'D' - continue dial number
- *   ("ATD000L123D4444" eq "ATD0004444L123")
- * Added mising spaces into "NMBR = " and "NDID = "
+ * Revision 1.16  2002-12-20 10:12:50  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
+ *
+ * Revision 1.16  2002/12/20 10:12:50  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
  *
  * Revision 1.15  2002/12/19 10:31:33  vfrolov
  * Changed usage multiple dial modifiers 'L' (for secure reasons)
@@ -411,7 +411,6 @@ class ModemEngineBody : public PObject
 ModemEngine::ModemEngine(PseudoModemBody &_parent)
   : ModemThreadChild(_parent)
 {
-  SetThreadName(ptyName() + "(e):%0x");
   body = new ModemEngineBody(*this, Parent().GetCallbackEndPoint());
 }
 
@@ -444,6 +443,8 @@ BOOL ModemEngine::Request(PStringToString &request) const
 
 void ModemEngine::Main()
 {
+  RenameCurrentThread(ptyName() + "(e)");
+
   myPTRACE(1, "<-> Started");
   if( !body ) {
     myPTRACE(1, "<-> no body" << ptyName());

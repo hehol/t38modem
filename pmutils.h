@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.6  2002-04-27 10:12:21  vfrolov
- * If defined MYPTRACE_LEVEL=N then myPTRACE() will output the trace with level N
+ * Revision 1.7  2002-12-20 10:13:01  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
+ *
+ * Revision 1.7  2002/12/20 10:13:01  vfrolov
+ * Implemented tracing with PID of thread (for LinuxThreads)
+ *   or ID of thread (for other POSIX Threads)
  *
  * Revision 1.6  2002/04/27 10:12:21  vfrolov
  * If defined MYPTRACE_LEVEL=N then myPTRACE() will output the trace with level N
@@ -211,6 +216,8 @@ class DataStreamQ : public _DataStreamQ
 #endif // MYPTRACE_LEVEL
 
 #define PRTHEX(data) " {\n" << setprecision(2) << hex << setfill('0') << data << dec << setfill(' ') << " }"
+///////////////////////////////////////////////////////////////
+extern void RenameCurrentThread(const PString &newname);
 ///////////////////////////////////////////////////////////////
 
 #endif  // _PMUTILS_H
