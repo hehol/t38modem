@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.cxx,v $
- * Revision 1.10  2004-07-06 16:07:24  vfrolov
- * Included ptlib.h for precompiling
+ * Revision 1.11  2004-10-20 14:15:09  vfrolov
+ * Added reset of signal counter to WaitDataReady()
+ *
+ * Revision 1.11  2004/10/20 14:15:09  vfrolov
+ * Added reset of signal counter to WaitDataReady()
  *
  * Revision 1.10  2004/07/06 16:07:24  vfrolov
  * Included ptlib.h for precompiling
@@ -90,6 +93,13 @@ void ModemThread::SignalChildStop() {
 void ModemThread::SignalStop() {
   stop = TRUE;
   SignalDataReady();
+}
+
+void ModemThread::WaitDataReady()
+{
+  do {
+    dataReadySyncPoint.Wait();
+  } while(!dataReadySyncPoint.WillBlock());
 }
 ///////////////////////////////////////////////////////////////
 ModemThreadChild::ModemThreadChild(ModemThread &_parent)

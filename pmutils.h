@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.12  2004-07-07 07:53:58  vfrolov
- * Moved ptlib.h including to *.cxx for precompiling
- * Fixed compiler warning
+ * Revision 1.13  2004-10-20 14:15:09  vfrolov
+ * Added reset of signal counter to WaitDataReady()
+ *
+ * Revision 1.13  2004/10/20 14:15:09  vfrolov
+ * Added reset of signal counter to WaitDataReady()
  *
  * Revision 1.12  2004/07/07 07:53:58  vfrolov
  * Moved ptlib.h including to *.cxx for precompiling
@@ -87,7 +89,7 @@ class ModemThread : public PThread
   //@{
     ModemThread();
   //@}
-  
+
   /**@name Operations */
   //@{
     void SignalDataReady() { dataReadySyncPoint.Signal(); }
@@ -97,8 +99,8 @@ class ModemThread : public PThread
 
   protected:
     virtual void Main() = 0;
-    void WaitDataReady() { dataReadySyncPoint.Wait(); }
-    
+    void WaitDataReady();
+
     volatile BOOL stop;		// *this was requested to stop
     volatile BOOL childstop;	// there is a child that was requested to stop
     PSyncPoint dataReadySyncPoint;
@@ -108,8 +110,6 @@ class ModemThreadChild : public ModemThread
 {
     PCLASSINFO(ModemThreadChild, ModemThread);
   public:
-  
- 
   /**@name Construction */
   //@{
     ModemThreadChild(ModemThread &_parent);
@@ -132,22 +132,22 @@ class PBYTEArrayQ : public _PBYTEArrayQ
   public:
     PBYTEArrayQ() : count(0) {}
     ~PBYTEArrayQ() { Clean(); }
-  
+
     virtual void Enqueue(PBYTEArray *buf) {
       PWaitAndSignal mutexWait(Mutex);
       count += buf->GetSize();
       _PBYTEArrayQ::Enqueue(buf);
     }
-    
+
     virtual PBYTEArray *Dequeue() {
       PWaitAndSignal mutexWait(Mutex);
       PBYTEArray *buf = _PBYTEArrayQ::Dequeue();
       if( buf ) count -= buf->GetSize();
       return buf;
     }
-    
+
     PINDEX GetCount() const { return count; }
-    
+
     void Clean() {
       PBYTEArray *buf;
       while( (buf = Dequeue()) != NULL ) {
@@ -196,7 +196,7 @@ class DataStream : public PObject
   private:
     ChunkStream *firstBuf;
     ChunkStreamQ bufQ;
-    ChunkStream *lastBuf;	// if not NULL then shold be in bufQ or firstBuf
+    ChunkStream *lastBuf;	// if not NULL then it should be in bufQ or firstBuf
     PINDEX busy;
 
     PINDEX threshold;
@@ -212,17 +212,17 @@ class DataStreamQ : public _DataStreamQ
   public:
     DataStreamQ() {}
     ~DataStreamQ() { Clean(); }
-  
+
     virtual void Enqueue(DataStream *buf) {
       PWaitAndSignal mutexWait(Mutex);
       _DataStreamQ::Enqueue(buf);
     }
-    
+
     virtual DataStream *Dequeue() {
       PWaitAndSignal mutexWait(Mutex);
       return _DataStreamQ::Dequeue();
     }
-    
+
     void Clean() {
       DataStream *buf;
       while( (buf = Dequeue()) != NULL ) {
