@@ -1,13 +1,16 @@
 /*
- * $Id: t38engine.cxx,v 1.2 2002-01-01 23:59:52 craigs Exp $
+ * $Id: t38engine.cxx,v 1.3 2002-01-02 04:50:34 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.2  2002-01-01 23:59:52  craigs
- * Lots of additional implementation thanks to Vyacheslav Frolov
+ * Revision 1.3  2002-01-02 04:50:34  craigs
+ * General formatting cleanups whilst looking for efax problem
+ *
+ * Revision 1.3  2002/01/02 04:50:34  craigs
+ * General formatting cleanups whilst looking for efax problem
  *
  * Revision 1.2  2002/01/01 23:59:52  craigs
  * Lots of additional implementation thanks to Vyacheslav Frolov
@@ -250,7 +253,7 @@ T38Engine::T38Engine(const PString &_name)
 
 BOOL T38Engine::Originate(H323Transport & transport)
 {
-  if( !name.IsEmpty() ) {
+  if (!name.IsEmpty()) {
     PString old = PThread::Current()->GetThreadName();
     PThread::Current()->SetThreadName(name + "(tx):%0x");
     PTRACE(2, "myT38Protocol::Originate old ThreadName=" << old);
@@ -313,13 +316,14 @@ void T38Engine::Detach(const PNotifier &callback)
   }
 }
 ///////////////////////////////////////////////////////////////
+//
 void T38Engine::SetT38Mode(BOOL mode)
 {
   PWaitAndSignal mutexWait(Mutex);
   T38Mode = mode;
   myPTRACE(1, "T38Engine::SetT38Mode T38Mode=" << (T38Mode ? "TRUE" : "FALSE"));
   SignalOutDataReady();
-  if( T38Mode == FALSE && !modemCallback.IsNULL() )
+  if (!T38Mode && !modemCallback.IsNULL() )
     modemCallback(*this, -1);	// reset
 }
 
@@ -341,20 +345,22 @@ void T38Engine::ResetModemState() {
 ///////////////////////////////////////////////////////////////
 BOOL T38Engine::SendStart(int _dataType, int param) {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if( !IsT38Mode() ) return FALSE;
-  if( stateModem != stmIdle ) {
+  if (!IsT38Mode())
+    return FALSE;
+
+  if (stateModem != stmIdle)  {
     myPTRACE(1, "T38Engine::SendStart stateModem(" << stateModem << ") != stmIdle");
     return FALSE;
   }
 
   PWaitAndSignal mutexWait(Mutex);
   
-  if( modStreamIn != NULL ) {
+  if (modStreamIn != NULL) {
     delete modStreamIn;
     modStreamIn = NULL;
   }
 
-  if( modStreamInSaved != NULL ) {
+  if (modStreamInSaved != NULL)  {
     delete modStreamInSaved;
     modStreamInSaved = NULL;
   }
@@ -375,7 +381,7 @@ BOOL T38Engine::SendStart(int _dataType, int param) {
     case dtHdlc:
     case dtRaw:
       ModParsOut = GetModPars(param);
-      if( !ModParsOut.IsModValid() || ModParsOut.dataType != _dataType )
+      if( !ModParsOut.IsModValid() || ModParsOut.dataType != _dataType ) 
         return FALSE;
       break;
     default:
@@ -389,26 +395,33 @@ BOOL T38Engine::SendStart(int _dataType, int param) {
 
 int T38Engine::Send(const void *pBuf, PINDEX count) {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if( !IsT38Mode() ) return -1;
-  if( stateModem != stmOutMoreData ) {
+  if (!IsT38Mode())
+    return -1;
+
+  if (stateModem != stmOutMoreData) {
     myPTRACE(1, "T38Engine::Send stateModem(" << stateModem << ") != stmOutMoreData");
     return -1;
   }
+
   PWaitAndSignal mutexWait(Mutex);
   int res = bufOut.PutData(pBuf, count);
-  if( res < 0 )
+  if (res < 0)
     myPTRACE(1, "T38Engine::Send res(" << res << ") < 0");
+
   SignalOutDataReady();
   return res;
 }
 
 BOOL T38Engine::SendStop(BOOL moreFrames, int _callbackParam) {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if( !IsT38Mode() ) return FALSE;
-  if( stateModem != stmOutMoreData ) {
+  if(!IsT38Mode())
+    return FALSE;
+
+  if (stateModem != stmOutMoreData ) {
     myPTRACE(1, "T38Engine::SendStop stateModem(" << stateModem << ") != stmOutMoreData");
     return FALSE;
   }
+
   PWaitAndSignal mutexWait(Mutex);
   bufOut.PutEof();
   stateModem = stmOutNoMoreData;
@@ -421,7 +434,9 @@ BOOL T38Engine::SendStop(BOOL moreFrames, int _callbackParam) {
 BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if( !IsT38Mode() ) return FALSE;
+  if (!IsT38Mode())
+    return FALSE;
+
   if( stateModem != stmIdle ) {
     myPTRACE(1, "T38Engine::RecvWait stateModem(" << stateModem << ") != stmIdle");
     return FALSE;
@@ -487,8 +502,10 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
 BOOL T38Engine::RecvStart(int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if( !IsT38Mode() ) return FALSE;
-  if( stateModem != stmInReadyData ) {
+  if (!IsT38Mode())
+    return FALSE;
+
+  if (stateModem != stmInReadyData ) {
     myPTRACE(1, "T38Engine::RecvStart stateModem(" << stateModem << ") != stmInReadyData");
     return FALSE;
   }
@@ -514,7 +531,9 @@ BOOL T38Engine::RecvStart(int _callbackParam)
 int T38Engine::Recv(void *pBuf, PINDEX count)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if( !IsT38Mode() ) return -1;
+  if (!IsT38Mode())
+    return -1;
+
   if( stateModem != stmInRecvData ) {
     myPTRACE(1, "T38Engine::Recv stateModem(" << stateModem << ") != stmInRecvData");
     return -1;
@@ -545,8 +564,10 @@ int T38Engine::RecvDiag()
 BOOL T38Engine::RecvStop()
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if( !IsT38Mode() ) return FALSE;
-  if( !isStateModemIn() ) {
+  if(!IsT38Mode())
+    return FALSE;
+
+  if(!isStateModemIn()) {
     myPTRACE(1, "T38Engine::RecvStop stateModem(" << stateModem << ") != stmIn");
     return FALSE;
   }
@@ -562,7 +583,9 @@ BOOL T38Engine::RecvStop()
 BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
 {
   PWaitAndSignal mutexWaitOut(MutexOut);
-  if( !IsT38Mode() ) return FALSE;
+
+  if(!IsT38Mode())
+    return FALSE;
   
   //myPTRACE(1, "T38Engine::PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
   
@@ -601,7 +624,8 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
       PThread::Sleep(outDelay);
     #endif
       
-    if( !IsT38Mode() ) return FALSE;
+    if (!IsT38Mode())
+      return FALSE;
 
     for(;;) {
       BOOL waitData = FALSE;
@@ -767,8 +791,10 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
 BOOL T38Engine::HandlePacketLost(unsigned nLost)
 {
   PWaitAndSignal mutexWaitIn(MutexIn);
-  if( !IsT38Mode() )
+
+  if (!IsT38Mode())
     return FALSE;
+
   myPTRACE(1, "T38Engine::HandlePacketLost " << nLost);
   PWaitAndSignal mutexWait(Mutex);
 
@@ -788,7 +814,7 @@ BOOL T38Engine::HandlePacketLost(unsigned nLost)
 BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
 {
   PWaitAndSignal mutexWaitIn(MutexIn);
-  if( !IsT38Mode() )
+  if (!IsT38Mode())
     return FALSE;
   
   PWaitAndSignal mutexWait(Mutex);
