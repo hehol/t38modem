@@ -7,6 +7,12 @@
  *
  */
 
+Changelog for t38modem 0.8.1
+
+* Fixed incompatibilities with some fax applications.
+* Implemented some AT commands
+* Fixed some bugs.
+
 Changelog for t38modem 0.8.0
 
 * Ported to Windows.
