@@ -24,8 +24,13 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.36  2004-10-20 13:40:03  vfrolov
- * Put date and time to trace
+ * Revision 1.37  2004-10-27 13:22:42  vfrolov
+ * Added flags to call to PTrace::Initialise()
+ * Added version message to trace
+ *
+ * Revision 1.37  2004/10/27 13:22:42  vfrolov
+ * Added flags to call to PTrace::Initialise()
+ * Added version message to trace
  *
  * Revision 1.36  2004/10/20 13:40:03  vfrolov
  * Put date and time to trace
@@ -209,9 +214,11 @@ BOOL T38Modem::Initialise()
 
 #if PTRACING
   PTrace::Initialise(args.GetOptionCount('t'),
-                     args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL);
-  PTrace::ClearOptions(PTrace::Timestamp);
-  PTrace::SetOptions(PTrace::DateAndTime);
+                     args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL,
+                     PTrace::DateAndTime | PTrace::Thread | PTrace::Blocks);
+
+  PTRACE(1, GetName() << " Version " << GetVersion(TRUE)
+      << " on " << GetOSName() << " (" << GetOSVersion() << '-' << GetOSHardware() << ")");
 #endif
 
   if (args.HasOption('h')) {
