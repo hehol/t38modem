@@ -166,48 +166,60 @@ MyH323EndPoint::MyH323EndPoint()
 void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
 {
   myPTRACE(1, "MyH323EndPoint::OnMyCallback " << from.GetClass() << " " << extra);
-  if( from.IsDescendant(PStringToString::Class()) ) {
+  if (from.IsDescendant(PStringToString::Class()) ) {
     PStringToString &request = (PStringToString &)from;
     PString command = request("command");
     PString modemToken = request("modemtoken");
     PString response = "reject";
   
-    if( command == "dial" ) {
+    if (command == "dial" ) {
       PseudoModem *modem = pmodemQ->Dequeue(modemToken);
-      if( modem != NULL ) {
+      if (modem != NULL ) {
+
         PString callToken;
         PString num = request("number");
         PString remote;
-        
-        for( PINDEX i = 0 ; i < routes.GetSize() ; i++ ) {
-          PString r = routes[i];
-          PStringArray rs = r.Tokenise("@", FALSE);
-          if( rs.GetSize() == 2 ) {
-            if( rs[0] == "all" ) {
-              remote = rs[1];
-              break;
-            } else if (num.Find(rs[0]) == 0) {
-              remote = rs[1];
-              num.Delete(0, rs[0].GetLength());
-              break;
+
+	if (GetGatekeeper() != NULL) {
+          remote = num;
+	} else {
+          for( PINDEX i = 0 ; i < routes.GetSize() ; i++ ) {
+            PString r = routes[i];
+            PStringArray rs = r.Tokenise("@", FALSE);
+            if( rs.GetSize() == 2 ) {
+              if( rs[0] == "all" ) {
+                remote = rs[1];
+                break;
+              } else if (num.Find(rs[0]) == 0) {
+                remote = rs[1];
+                num.Delete(0, rs[0].GetLength());
+                break;
+              }
             }
           }
-        }
         
-        if( !remote.IsEmpty() ) {
-          num += "@" + remote;
-          myPTRACE(1, "MyH323EndPoint::OnMyCallback MakeCall(" << num << ")");
+          // add in the route and port if required
+          if (!remote.IsEmpty()) {
+            num += "@" + remote;
+            if ((num.Find(':') == P_MAX_INDEX) && (connectPort != H323ListenerTCP::DefaultSignalPort))
+	      num += psprintf(":%i", connectPort);
+	  }
+        }
 
-	  // add in the port if required
-          if ((num.Find(':') == P_MAX_INDEX) && (connectPort != H323ListenerTCP::DefaultSignalPort))
-	    num += psprintf(":%i", connectPort);
+        if (remote.IsEmpty()) 
+          request.SetAt("diag", "noroute");
+        else {
+          myPTRACE(1, "MyH323EndPoint::OnMyCallback MakeCall(" << num << ")");
 
 	  // make the call
           MakeCall(num, callToken);
 
           request.SetAt("calltoken", callToken);
           H323Connection * _conn = FindConnectionWithLock(callToken);
-          if( _conn != NULL ) {
+
+          if (_conn == NULL ) 
+            pmodemQ->Enqueue(modem);
+          else {
             PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
             MyH323Connection *conn = (MyH323Connection *)_conn;
             if( conn->Attach(modem) )
@@ -215,11 +227,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
             else
               pmodemQ->Enqueue(modem);
             _conn->Unlock();
-          } else {
-            pmodemQ->Enqueue(modem);
           }
-        } else {
-          request.SetAt("diag", "noroute");
         }
       }
     } else if( command == "answer" ) {
