@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.21  2002-11-28 09:17:31  vfrolov
- * Added missing const
+ * Revision 1.22  2002-12-19 11:54:43  vfrolov
+ * Removed DecodeIFPPacket() and utilized HandleRawIFP()
+ *
+ * Revision 1.22  2002/12/19 11:54:43  vfrolov
+ * Removed DecodeIFPPacket() and utilized HandleRawIFP()
  *
  * Revision 1.21  2002/11/28 09:17:31  vfrolov
  * Added missing const
@@ -340,8 +343,7 @@ T38Engine::T38Engine(const PString &_name)
   in_redundancy = 0;
   ls_redundancy = 0;
   hs_redundancy = 0;
-  old_asn = FALSE;
-  
+
   T38Mode = TRUE;
   isCarrierIn = 0;
 }
@@ -406,8 +408,7 @@ void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
 
 void T38Engine::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp) const
 {
-  if (old_asn && T38_ifp.m_type_of_msg.GetTag() == T38_Type_of_msg::e_data &&
-             T38_ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
+  if (!corrigendumASN && T38_ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
     T38_IFPPacket ifp = T38_ifp;
     PINDEX count = ifp.m_data_field.GetSize();
 
@@ -418,39 +419,6 @@ void T38Engine::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacke
   } else {
     ifp_packet.EncodeSubType(T38_ifp);
   }
-}
-
-BOOL T38Engine::DecodeIFPPacket(const PASN_OctetString &ifp_packet, T38_IFPPacket &T38_ifp) const
-{
-  PASN_OctetString tmp_ifp_packet;
-  const PASN_OctetString *p_ifp_packet;
-  T38_PreCorrigendum_IFPPacket ifp;
-
-  if (old_asn) {
-    if (!ifp_packet.DecodeSubType(ifp)) {
-      PTRACE(2, "T38\tT38OLD_IFPPacket decode failure:\n  " << setprecision(2) << ifp_packet << "\n");
-      return FALSE;
-    }
-
-    if (ifp.m_type_of_msg.GetTag() == T38_Type_of_msg::e_data && ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
-      PINDEX count = ifp.m_data_field.GetSize();
-      for( PINDEX i = 0 ; i < count ; i++ ) {
-        ifp.m_data_field[i].m_field_type.SetExtendable(TRUE);
-      }
-    }
-
-    tmp_ifp_packet.EncodeSubType(ifp);
-    p_ifp_packet = &tmp_ifp_packet;
-  } else {
-    p_ifp_packet = &ifp_packet;
-  }
-
-  if (!p_ifp_packet->DecodeSubType(T38_ifp)) {
-    PTRACE(2, "T38\tT38_IFPPacket decode failure:\n  " << setprecision(2) << *p_ifp_packet << "\n");
-    return FALSE;
-  }
-
-  return TRUE;
 }
 
 BOOL T38Engine::Originate()
@@ -670,8 +638,6 @@ BOOL T38Engine::Answer()
     }
 #endif
 
-    T38_IFPPacket ifp;
-
     if (lost < 0) {
       PTRACE(3, "T38\tRepeated packet");
       repeated++;
@@ -692,19 +658,13 @@ BOOL T38Engine::Answer()
           nRedundancy = lost;
 
         receivedSequenceNumber -= lost;
-        
+
         for (int i = nRedundancy - 1 ; i >= 0 ; i--) {
-          if (!DecodeIFPPacket(secondary[i], ifp))
-            continue;
-          
-          PTRACE(2, "T38\tReceived ifp seq=" << receivedSequenceNumber << " (secondary)\n  "
-                 << setprecision(2) << ifp);
-                 
-          if (!HandlePacket(ifp))
+          PTRACE(2, "T38\tReceived ifp seq=" << receivedSequenceNumber << " (secondary)");
+
+          if (!HandleRawIFP(secondary[i]))
             goto done;
-            
-          ifp = T38_IFPPacket();
-            
+
           totalrecovered++;
           lost--;
           receivedSequenceNumber++;
@@ -722,28 +682,15 @@ BOOL T38Engine::Answer()
       } 
     }
 
-    if (!DecodeIFPPacket(udptl.m_primary_ifp_packet, ifp))
-      continue;
-
 #if 0
     // recovery test
     expectedSequenceNumber = receivedSequenceNumber;
     continue;
 #endif
 
-#if PTRACING
-    if (PTrace::CanTrace(4)) {
-      PTRACE(4, "T38\tReceived ifp seq=" << receivedSequenceNumber << "\n  "
-             << setprecision(2) << ifp);
-    }
-    else {
-      PTRACE(3, "T38\tReceived PDU:"
-                " seq=" << receivedSequenceNumber <<
-                " type=" << ifp.m_type_of_msg.GetTagName());
-    }
-#endif
+    PTRACE(4, "T38\tReceived ifp seq=" << receivedSequenceNumber);
 
-    if (!HandlePacket(ifp))
+    if (!HandleRawIFP(udptl.m_primary_ifp_packet))
       break;
 
     expectedSequenceNumber = receivedSequenceNumber + 1;
@@ -1350,12 +1297,22 @@ BOOL T38Engine::HandlePacketLost(unsigned nLost)
 ///////////////////////////////////////////////////////////////
 BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
 {
+#if PTRACING
+  if (PTrace::CanTrace(4)) {
+    PTRACE(4, "T38\tReceived ifp\n  "
+             << setprecision(2) << ifp);
+  }
+  else {
+    PTRACE(3, "T38\tReceived ifp type=" << ifp.m_type_of_msg.GetTagName());
+  }
+#endif
+
   PWaitAndSignal mutexWaitIn(MutexIn);
   if (!IsT38Mode())
     return FALSE;
-  
+
   PWaitAndSignal mutexWait(Mutex);
-  
+
   switch( ifp.m_type_of_msg.GetTag() ) {
     case T38_Type_of_msg::e_t30_indicator:
       if( modStreamIn != NULL && modStreamIn->PutEof(diagOutOfOrder) )
@@ -1366,7 +1323,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
         delete modStreamInSaved;
         modStreamInSaved = NULL;
       }
-      
+
       switch( (T38_Type_of_msg_t30_indicator)ifp.m_type_of_msg ) {
         case T38I(e_no_signal):
         case T38I(e_cng):

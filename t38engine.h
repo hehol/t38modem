@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.13  2002-11-28 09:17:36  vfrolov
- * Added missing const
+ * Revision 1.14  2002-12-19 11:54:47  vfrolov
+ * Removed DecodeIFPPacket() and utilized HandleRawIFP()
+ *
+ * Revision 1.14  2002/12/19 11:54:47  vfrolov
+ * Removed DecodeIFPPacket() and utilized HandleRawIFP()
  *
  * Revision 1.13  2002/11/28 09:17:36  vfrolov
  * Added missing const
@@ -152,7 +155,7 @@ class T38Engine : public OpalT38Protocol
            -   ...
            +  t4-non-ecm-sig-end
      */
-    void SetOldASN() { old_asn = TRUE; }
+    void SetOldASN() { corrigendumASN = FALSE; }
   //@}
   
   /**@name Modem API */
@@ -176,7 +179,6 @@ class T38Engine : public OpalT38Protocol
   protected:
   
     void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp) const;
-    BOOL DecodeIFPPacket(const PASN_OctetString &ifp_packet, T38_IFPPacket &T38_ifp) const;
 
     BOOL Originate();
     BOOL Answer();
@@ -211,8 +213,7 @@ class T38Engine : public OpalT38Protocol
     int in_redundancy;
     int ls_redundancy;
     int hs_redundancy;
-    BOOL old_asn;
-    
+
   private:
   
     void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }
