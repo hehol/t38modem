@@ -1,0 +1,17 @@
+/*
+ * CHANGES
+ *
+ * T38FAX Pseudo Modem
+ *
+ * Original author: Vyacheslav Frolov
+ *
+ */
+
+Changelog for t38modem 0.7.0
+
+* Implemented FCS generation. The DCE transfers FCS octets after
+  the HDLC data to the DTE (as it should be).
+  HylaFax Users: the config parameter "Class1FrameOverhead: 2"
+  should be discarded if it was used.
+* Implemented ECM support.
+
