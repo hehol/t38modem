@@ -22,8 +22,13 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.4  2002-02-11 08:35:08  vfrolov
-# myPTRACE() outputs trace to cout only if defined COUT_TRACE
+# Revision 1.5  2002-04-27 10:17:20  vfrolov
+# Added checking if COUT_TRACE or MYPTRACE_LEVEL defined
+# Do not add -DCOUT_TRACE by default
+#
+# Revision 1.5  2002/04/27 10:17:20  vfrolov
+# Added checking if COUT_TRACE or MYPTRACE_LEVEL defined
+# Do not add -DCOUT_TRACE by default
 #
 # Revision 1.4  2002/02/11 08:35:08  vfrolov
 # myPTRACE() outputs trace to cout only if defined COUT_TRACE
@@ -57,5 +62,19 @@ endif
 # ???
 STDCCFLAGS += -Wall
 
+#
+# If defined COUT_TRACE then enable duplicate the
+# output of myPTRACE() to cout
+#
+ifdef COUT_TRACE
 STDCCFLAGS += -DCOUT_TRACE
+endif
+
+#
+# If defined MYPTRACE_LEVEL=N then myPTRACE() will
+# output the trace with level N
+#
+ifdef MYPTRACE_LEVEL
+STDCCFLAGS += -DMYPTRACE_LEVEL=$(MYPTRACE_LEVEL)
+endif
 
