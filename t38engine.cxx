@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.24  2002-12-20 10:13:08  vfrolov
- * Implemented tracing with PID of thread (for LinuxThreads)
- *   or ID of thread (for other POSIX Threads)
+ * Revision 1.25  2002-12-30 12:49:46  vfrolov
+ * Added tracing thread's CPU usage (Linux only)
+ *
+ * Revision 1.25  2002/12/30 12:49:46  vfrolov
+ * Added tracing thread's CPU usage (Linux only)
  *
  * Revision 1.24  2002/12/20 10:13:08  vfrolov
  * Implemented tracing with PID of thread (for LinuxThreads)
@@ -561,8 +563,9 @@ BOOL T38Engine::Originate()
     }
   }
 
-  PTRACE(2, "T38\tSend statistics: sequence=" << seq
-      << " repeated=" << repeated);
+  myPTRACE(2, "T38\tSend statistics: sequence=" << seq
+      << " repeated=" << repeated
+      << GetThreadTimes(", CPU usage: "));
 
   return FALSE;
 }
@@ -692,10 +695,11 @@ BOOL T38Engine::Answer()
 
 done:
 
-  PTRACE(2, "T38\tReceive statistics: sequence=" << expectedSequenceNumber
+  myPTRACE(2, "T38\tReceive statistics: sequence=" << expectedSequenceNumber
       << " repeated=" << repeated
       << " recovered=" << totalrecovered
-      << " lost=" << totallost);
+      << " lost=" << totallost
+      << GetThreadTimes(", CPU usage: "));
   return FALSE;
 }
 ///////////////////////////////////////////////////////////////

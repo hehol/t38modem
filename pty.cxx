@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pty.cxx,v $
- * Revision 1.6  2002-12-20 10:13:04  vfrolov
- * Implemented tracing with PID of thread (for LinuxThreads)
- *   or ID of thread (for other POSIX Threads)
+ * Revision 1.7  2002-12-30 12:49:42  vfrolov
+ * Added tracing thread's CPU usage (Linux only)
+ *
+ * Revision 1.7  2002/12/30 12:49:42  vfrolov
+ * Added tracing thread's CPU usage (Linux only)
  *
  * Revision 1.6  2002/12/20 10:13:04  vfrolov
  * Implemented tracing with PID of thread (for LinuxThreads)
@@ -116,7 +118,8 @@ void InPty::Main()
         }
       }
     }
-    myPTRACE(1, "--> Stopped");
+
+    myPTRACE(1, "--> Stopped" << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
 OutPty::OutPty(PseudoModemBody &_parent)
@@ -180,7 +183,7 @@ void OutPty::Main()
       delete buf;
     }
 
-    myPTRACE(1, "<-- Stopped");
+    myPTRACE(1, "<-- Stopped" << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
 BOOL PseudoModemBody::OpenPty()
