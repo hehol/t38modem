@@ -382,7 +382,7 @@ void MyH323EndPoint::OnConnectionEstablished(H323Connection & /*connection*/,
   /* it's does not work here :(
   
   if( ForceT38Mode() && connection.HadAnsweredCall() ) {
-    connection.RequestModeChange();
+    connection.RequestModeChangeT38();
   }
   */
 }
