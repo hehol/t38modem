@@ -24,9 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.13  2002-05-15 16:10:52  vfrolov
- * Reimplemented AT+FTS and AT+FRS
- * Added workaround "Reset state stSendAckWait"
+ * Revision 1.14  2002-11-05 13:59:11  vfrolov
+ * Implemented Local Party Number dial modifier 'L'
+ * (put dial string 1234L5678 to dial 1234 from 5678)
+ *
+ * Revision 1.14  2002/11/05 13:59:11  vfrolov
+ * Implemented Local Party Number dial modifier 'L'
+ * (put dial string 1234L5678 to dial 1234 from 5678)
  *
  * Revision 1.13  2002/05/15 16:10:52  vfrolov
  * Reimplemented AT+FTS and AT+FRS
@@ -878,10 +882,15 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           forceFaxMode = FALSE;
           {
             PString num;
+            PString LocalPartyName;
+            BOOL local = FALSE;
           
             for( char ch ; (ch = *pCmd) != 0 && !err ; pCmd++ ) {
               if( isdigit(ch) ) {
-                num += ch;
+                if (local)
+                  LocalPartyName += ch;
+                else
+                  num += ch;
               } else {
                 switch( ch ) {
                   case '.':
@@ -895,6 +904,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                     break;
                   case 'V':
                     forceFaxMode = FALSE;
+                    break;
+                  case 'L':
+                    local = TRUE;
                     break;
                   default:
                     err = TRUE;
@@ -913,6 +925,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               request.SetAt("modemtoken", parent.modemToken());
               request.SetAt("command", "dial");
               request.SetAt("number", num);
+              request.SetAt("localpartyname", LocalPartyName);
             
               Mutex.Signal();
               callbackEndPoint(request, 3);
