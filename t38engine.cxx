@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.30  2004-07-06 16:07:24  vfrolov
- * Included ptlib.h for precompiling
+ * Revision 1.31  2004-08-24 16:12:10  vfrolov
+ * Fixed bit counter overflow
+ *
+ * Revision 1.31  2004/08/24 16:12:10  vfrolov
+ * Fixed bit counter overflow
  *
  * Revision 1.30  2004/07/06 16:07:24  vfrolov
  * Included ptlib.h for precompiling
@@ -1136,8 +1139,8 @@ int T38Engine::PreparePacket(T38_IFPPacket & ifp, BOOL enableTimeout)
 
         case stOutData:
         case stOutHdlcFcs:
-          outDelay = (hdlcOut.getRawCount()*8*1000)/ModParsOut.br +
-                     msPerOut - (PTime() - timeBeginOut).GetMilliSeconds();
+          outDelay = int((PInt64(hdlcOut.getRawCount()) * 8 * 1000)/ModParsOut.br +
+                     msPerOut - (PTime() - timeBeginOut).GetMilliSeconds());
           break;
 
         case stOutDataNoSig:		outDelay = msPerOut; break;
@@ -1375,9 +1378,9 @@ int T38Engine::PreparePacket(T38_IFPPacket & ifp, BOOL enableTimeout)
             case stOutDataNoSig:
 #if PTRACING
               if (myCanTrace(3) || (myCanTrace(2) && ModParsOut.dataType == dtRaw)) {
-                long msTime = (PTime() - timeBeginOut).GetMilliSeconds();
+                PInt64 msTime = (PTime() - timeBeginOut).GetMilliSeconds();
                 myPTRACE(2, "Sent " << hdlcOut.getRawCount() << " bytes in " << msTime << " ms ("
-                  << (hdlcOut.getRawCount() * 8 * 1000)/(msTime ? msTime : 1) << " bits/s)");
+                  << (PInt64(hdlcOut.getRawCount()) * 8 * 1000)/(msTime ? msTime : 1) << " bits/s)");
               }
 #endif
               if( stateModem != stmOutNoMoreData ) {
@@ -1627,8 +1630,9 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
                   case T38F(e_t4_non_ecm_sig_end):
 #if PTRACING
                     if (myCanTrace(2)) {
-                      long msTime = (PTime() - timeBeginIn).GetMilliSeconds();
-                      myPTRACE(2, "Received " << countIn << " bytes in " << msTime << " ms (" << (countIn * 8 * 1000)/(msTime ? msTime : 1) << " bits/s)");
+                      PInt64 msTime = (PTime() - timeBeginIn).GetMilliSeconds();
+                      myPTRACE(2, "Received " << countIn << " bytes in " << msTime << " ms ("
+                        << (PInt64(countIn) * 8 * 1000)/(msTime ? msTime : 1) << " bits/s)");
                     }
 #endif
                   case T38F(e_hdlc_fcs_OK_sig_end):
