@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.12  2002-11-18 22:57:53  craigs
- * Added patches from Vyacheslav Frolov for CORRIGENDUM
+ * Revision 1.13  2002-11-28 09:17:36  vfrolov
+ * Added missing const
+ *
+ * Revision 1.13  2002/11/28 09:17:36  vfrolov
+ * Added missing const
  *
  * Revision 1.12  2002/11/18 22:57:53  craigs
  * Added patches from Vyacheslav Frolov for CORRIGENDUM
@@ -172,8 +175,8 @@ class T38Engine : public OpalT38Protocol
     
   protected:
   
-    void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp);
-    BOOL DecodeIFPPacket(PASN_OctetString &ifp_packet, T38_IFPPacket &T38_ifp);
+    void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp) const;
+    BOOL DecodeIFPPacket(const PASN_OctetString &ifp_packet, T38_IFPPacket &T38_ifp) const;
 
     BOOL Originate();
     BOOL Answer();

@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.20  2002-11-21 07:16:46  robertj
- * Changed promiscuous mode to be three way. Fixes race condition in gkserver
- *   which can cause crashes or more PDUs to be sent to the wrong place.
+ * Revision 1.21  2002-11-28 09:17:31  vfrolov
+ * Added missing const
+ *
+ * Revision 1.21  2002/11/28 09:17:31  vfrolov
+ * Added missing const
  *
  * Revision 1.20  2002/11/21 07:16:46  robertj
  * Changed promiscuous mode to be three way. Fixes race condition in gkserver
@@ -402,7 +404,7 @@ void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
                                             << " high_speed=" << hs_redundancy);
 }
 
-void T38Engine::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp)
+void T38Engine::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp) const
 {
   if (old_asn && T38_ifp.m_type_of_msg.GetTag() == T38_Type_of_msg::e_data &&
              T38_ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
@@ -418,10 +420,10 @@ void T38Engine::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacke
   }
 }
 
-BOOL T38Engine::DecodeIFPPacket(PASN_OctetString &ifp_packet, T38_IFPPacket &T38_ifp)
+BOOL T38Engine::DecodeIFPPacket(const PASN_OctetString &ifp_packet, T38_IFPPacket &T38_ifp) const
 {
   PASN_OctetString tmp_ifp_packet;
-  PASN_OctetString *p_ifp_packet;
+  const PASN_OctetString *p_ifp_packet;
   T38_PreCorrigendum_IFPPacket ifp;
 
   if (old_asn) {
