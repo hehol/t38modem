@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2003 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,10 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.9  2003-01-08 16:37:29  vfrolov
- * Changed class DataStream:
- *   members moved to private section and added isEof()
- *   added threshold and isFull()
+ * Revision 1.10  2003-12-04 13:22:35  vfrolov
+ * Removed ambiguous isEof()
+ * Improved memory usage in DataStream
+ * Fixed myPTRACE
+ *
+ * Revision 1.10  2003/12/04 13:22:35  vfrolov
+ * Removed ambiguous isEof()
+ * Improved memory usage in DataStream
+ * Fixed myPTRACE
  *
  * Revision 1.9  2003/01/08 16:37:29  vfrolov
  * Changed class DataStream:
@@ -150,33 +155,46 @@ class PBYTEArrayQ : public _PBYTEArrayQ
     PMutex Mutex;
 };
 ///////////////////////////////////////////////////////////////
+class ChunkStream : public PObject
+{
+    PCLASSINFO(ChunkStream, PObject);
+  public:
+    ChunkStream() : first(0), last(0) {}
+
+    int write(const void *pBuf, PINDEX count);
+    int read(void *pBuf, PINDEX count);
+
+  private:
+    BYTE data[256];
+    PINDEX first;
+    PINDEX last;
+};
+
+PQUEUE(ChunkStreamQ, ChunkStream);
+///////////////////////////////////////////////////////////////
 class DataStream : public PObject
 {
     PCLASSINFO(DataStream, PObject);
   public:
-    DataStream(PINDEX _threshold = 0) : done(0), threshold(_threshold), eof(FALSE), diag(0) {}
+    DataStream(PINDEX _threshold = 0)
+      : firstBuf(NULL), lastBuf(NULL), busy(0),
+        threshold(_threshold), eof(FALSE), diag(0) {}
+    ~DataStream() { DataStream::Clean(); }
 
     int PutData(const void *pBuf, PINDEX count);
     int GetData(void *pBuf, PINDEX count);
     void PutEof() { eof = TRUE; }
-    BOOL isEof() const { return eof; }
     int GetDiag() const { return diag; }
     DataStream &SetDiag(int _diag) { diag = _diag; return *this; }
-    BOOL isFull() const;
+    BOOL isFull() const { return threshold && threshold < busy; }
+    virtual void Clean();
 
-    virtual void Clean() {
-      CleanData();
-      eof = FALSE;
-      diag = 0;
-    }
-  protected:
-    void CleanData() {
-      data = PBYTEArray();
-      done = 0;
-    }
   private:
-    PBYTEArray data;
-    PINDEX done;
+    ChunkStream *firstBuf;
+    ChunkStreamQ bufQ;
+    ChunkStream *lastBuf;	// if not NULL then shold be in bufQ or firstBuf
+    PINDEX busy;
+
     PINDEX threshold;
     BOOL eof;
     int diag;
@@ -212,12 +230,14 @@ class DataStreamQ : public _DataStreamQ
 };
 ///////////////////////////////////////////////////////////////
 #ifdef COUT_TRACE
-#define _myPTRACE(level, args) {	\
-  PTRACE(level, args);		\
-  cout << PThread::Current()->GetThreadName() << ": " << args << endl;		\
-}
+#define _myPTRACE(level, args) do { \
+  PTRACE(level, args); \
+  cout << PThread::Current()->GetThreadName() << ": " << args << endl; \
+} while(0)
+#define myCanTrace(level) TRUE
 #else
-#define _myPTRACE(level, args) { PTRACE(level, args); }
+#define _myPTRACE(level, args) do { PTRACE(level, args); } while(0)
+#define myCanTrace(level) PTrace::CanTrace(level)
 #endif // COUT_TRACE
 
 #ifdef MYPTRACE_LEVEL

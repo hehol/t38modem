@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2003 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,10 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.cxx,v $
- * Revision 1.6  2003-01-08 16:37:25  vfrolov
- * Changed class DataStream:
- *   members moved to private section and added isEof()
- *   added threshold and isFull()
+ * Revision 1.7  2003-12-04 13:22:28  vfrolov
+ * Removed ambiguous isEof()
+ * Improved memory usage in DataStream
+ * Fixed myPTRACE
+ *
+ * Revision 1.7  2003/12/04 13:22:28  vfrolov
+ * Removed ambiguous isEof()
+ * Improved memory usage in DataStream
+ * Fixed myPTRACE
  *
  * Revision 1.6  2003/01/08 16:37:25  vfrolov
  * Changed class DataStream:
@@ -90,41 +95,117 @@ void ModemThreadChild::SignalStop()
   parent.SignalChildStop();
 }
 ///////////////////////////////////////////////////////////////
+int ChunkStream::write(const void *pBuf, PINDEX count)
+{
+  int len = sizeof(data) - last;
+
+  if (!len)
+    return -1;
+
+  if (len > count)
+    len = count;
+
+  memcpy(data + last, pBuf, len);
+  last += len;
+
+  return len;
+}
+
+int ChunkStream::read(void *pBuf, PINDEX count)
+{
+  if (sizeof(data) == first)
+    return -1;
+
+  int len = last - first;
+
+  if (len > count)
+    len = count;
+
+  memcpy(pBuf, data + first, len);
+  first += len;
+
+  return len;
+}
+///////////////////////////////////////////////////////////////
 int DataStream::PutData(const void *pBuf, PINDEX count)
 {
-  if( eof ) return -1;
-  data.Concatenate(PBYTEArray((const BYTE *)pBuf, count));
-  return count;
+  if (eof)
+    return -1;
+
+  int done = 0;
+
+  while (count) {
+    if (!lastBuf) {
+      lastBuf = new ChunkStream();
+      bufQ.Enqueue(lastBuf);
+    }
+
+    int len = lastBuf->write(pBuf, count);
+
+    if (len < 0) {
+      lastBuf = NULL;
+    } else {
+      (const BYTE *)pBuf += len;
+      count -= len;
+      done += len;
+    }
+  }
+
+  busy += done;
+
+  return done;
 }
 
 int DataStream::GetData(void *pBuf, PINDEX count)
 {
-  if( done >= data.GetSize() ) {
-    if( eof )
+  if (!busy) {
+    if (eof)
       return -1;
     else
       return 0;
   }
-  
-  PINDEX rest = data.GetSize() - done;
-  if( count > rest )
-    count = rest;
-  
-  memcpy(pBuf, (const BYTE *)data + done, count);
-  
-  done += count;
-  
-  if( done >= data.GetSize() )
-    CleanData();
-  
-  return count;
+
+  int done = 0;
+
+  while (count) {
+    if (!firstBuf) {
+      firstBuf = bufQ.Dequeue();
+      if (!firstBuf) {
+        lastBuf = NULL;
+        break;
+      }
+    }
+
+    int len = firstBuf->read(pBuf, count);
+
+    if (len < 0) {
+      delete firstBuf;
+      firstBuf = NULL;
+    } else {
+      if (!len)
+        break;
+      (const BYTE *)pBuf += len;
+      count -= len;
+      done += len;
+    }
+  }
+
+  busy -= done;
+
+  return done;
 }
 
-BOOL DataStream::isFull() const
+void DataStream::Clean()
 {
-  if (!threshold || done >= data.GetSize())
-    return FALSE;
-  return threshold < (data.GetSize() - done);
+  ChunkStream *buf;
+  while ((buf = bufQ.Dequeue()))
+    delete buf;
+  if (firstBuf)
+    delete firstBuf;
+  firstBuf = lastBuf = NULL;
+  busy = 0;
+  eof = FALSE;
+  diag = 0;
 }
 ///////////////////////////////////////////////////////////////
 void RenameCurrentThread(const PString &newname)

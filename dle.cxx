@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2003 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,10 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: dle.cxx,v $
- * Revision 1.4  2003-01-08 16:37:22  vfrolov
- * Changed class DataStream:
- *   members moved to private section and added isEof()
- *   added threshold and isFull()
+ * Revision 1.5  2003-12-04 13:22:22  vfrolov
+ * Removed ambiguous isEof()
+ * Improved memory usage in DataStream
+ * Fixed myPTRACE
+ *
+ * Revision 1.5  2003/12/04 13:22:22  vfrolov
+ * Removed ambiguous isEof()
+ * Improved memory usage in DataStream
+ * Fixed myPTRACE
  *
  * Revision 1.4  2003/01/08 16:37:22  vfrolov
  * Changed class DataStream:
@@ -78,7 +83,7 @@ enum {
 ///////////////////////////////////////////////////////////////
 int DLEData::PutDleData(const void *pBuf, PINDEX count)
 {
-  if (isEof())
+  if (PutData(NULL, 0) < 0)
     return -1;
 
   PINDEX cRest = count;
