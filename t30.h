@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30.h,v $
- * Revision 1.1  2003-12-04 13:38:52  vfrolov
- * Initial revision
+ * Revision 1.2  2003-12-04 15:51:54  vfrolov
+ * Removed unused DIS member
+ *
+ * Revision 1.2  2003/12/04 15:51:54  vfrolov
+ * Removed unused DIS member
  *
  * Revision 1.1  2003/12/04 13:38:52  vfrolov
  * Initial revision
@@ -49,7 +52,6 @@ class T30
 
   private:
     PBYTEArray v21frame;
-    PBYTEArray DIS;
     BOOL cfr;
     BOOL ecm;
 };
