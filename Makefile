@@ -1,8 +1,6 @@
 
-PROG		= pmodem
+PROG		= t38modem
 SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pty.cxx pmodemi.cxx pmodeme.cxx t38engine.cxx main.cxx
-
-#		myt38.cxx myt38proto.cxx
 
 ifndef PWLIBDIR
 PWLIBDIR=$(HOME)/pwlib
@@ -22,5 +20,5 @@ else
 STDCCFLAGS += -DPTRACING
 endif
 
-LDLIBS		+= -ldl
-
+# ???
+STDCCFLAGS += -Wall
