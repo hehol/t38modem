@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,19 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.h,v $
- * Revision 1.2  2002-01-10 06:10:02  craigs
- * Added MPL header
+ * Revision 1.3  2002-03-05 12:31:58  vfrolov
+ * Added Copyright header
+ * Changed class hierarchy
+ *   PseudoModem is abstract
+ *   PseudoModemBody is child of PseudoModem
+ *   Added PseudoModemQ::CreateModem() to create instances
+ *
+ * Revision 1.3  2002/03/05 12:31:58  vfrolov
+ * Added Copyright header
+ * Changed class hierarchy
+ *   PseudoModem is abstract
+ *   PseudoModemBody is child of PseudoModem
+ *   Added PseudoModemQ::CreateModem() to create instances
  *
  * Revision 1.2  2002/01/10 06:10:02  craigs
  * Added MPL header
@@ -36,45 +49,43 @@
 #ifndef _PMODEM_H
 #define _PMODEM_H
 
-#include <ptlib.h>
+#include "pmutils.h"
 
 ///////////////////////////////////////////////////////////////
-class H323EndPoint;
-class PseudoModemBody;
 class T38Engine;
 
-class PseudoModem : public PObject
+class PseudoModem : public ModemThread
 {
-    PCLASSINFO(PseudoModem, PObject);
+    PCLASSINFO(PseudoModem, ModemThread);
   public:
   
   /**@name Construction */
   //@{
-    PseudoModem(const PString &_tty, const PNotifier &callbackEndPoint);
-    ~PseudoModem();
+    PseudoModem(const PString &_tty);
   //@}
 
   /**@name Operations */
-    BOOL IsReady() const;
-    BOOL Request(PStringToString &request) const;
-    BOOL Attach(T38Engine *t38engine) const;
-    void Detach(T38Engine *t38engine) const;
+    virtual BOOL IsReady() const = 0;
+    virtual BOOL Request(PStringToString &request) const = 0;
+    virtual BOOL Attach(T38Engine *t38engine) const = 0;
+    virtual void Detach(T38Engine *t38engine) const = 0;
 
     static const char *ttyPattern();
     const PString &ptyName() const { return ptyname; }
     const PString &ptyPath() const { return ptypath; }
     const PString &ttyPath() const { return ttypath; }
     const PString &modemToken() const { return ttypath; }
-    BOOL IsValid() const { return body != NULL; }
+    BOOL IsValid() const { return valid; }
   //@}
 
   protected:
     Comparison Compare(const PObject & obj) const;
+    BOOL ttySet(const PString &_tty);
     
     PString ptyname;
     PString ptypath;
     PString ttypath;
-    PseudoModemBody *body;
+    BOOL valid;
 };
 ///////////////////////////////////////////////////////////////
 PQUEUE(_PseudoModemQ, PseudoModem);
@@ -83,6 +94,7 @@ class PseudoModemQ : public _PseudoModemQ
 {
     PCLASSINFO(PseudoModemQ, _PseudoModemQ);
   public:
+    BOOL CreateModem(const PString &tty, const PNotifier &callbackEndPoint);
     void Enqueue(PseudoModem *modem);
     PseudoModem *Dequeue();
     PseudoModem *Dequeue(const PString &modemToken);

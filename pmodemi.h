@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,19 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.h,v $
- * Revision 1.2  2002-01-10 06:10:03  craigs
- * Added MPL header
+ * Revision 1.3  2002-03-05 12:32:02  vfrolov
+ * Added Copyright header
+ * Changed class hierarchy
+ *   PseudoModem is abstract
+ *   PseudoModemBody is child of PseudoModem
+ *   Added PseudoModemQ::CreateModem() to create instances
+ *
+ * Revision 1.3  2002/03/05 12:32:02  vfrolov
+ * Added Copyright header
+ * Changed class hierarchy
+ *   PseudoModem is abstract
+ *   PseudoModemBody is child of PseudoModem
+ *   Added PseudoModemQ::CreateModem() to create instances
  *
  * Revision 1.2  2002/01/10 06:10:03  craigs
  * Added MPL header
@@ -36,24 +49,22 @@
 #ifndef _PMODEMI_H
 #define _PMODEMI_H
 
-#include "pmutils.h"
+#include "pmodem.h"
 
 ///////////////////////////////////////////////////////////////
-class PseudoModem;
 class InPty;
 class OutPty;
 class ModemEngine;
-class T38Engine;
 
-class PseudoModemBody : public ModemThread
+class PseudoModemBody : public PseudoModem
 {
-    PCLASSINFO(PseudoModemBody, ModemThread);
+    PCLASSINFO(PseudoModemBody, PseudoModem);
   public:
   
  
   /**@name Construction */
   //@{
-    PseudoModemBody(const PseudoModem &_parent, const PNotifier &callbackEndPoint);
+    PseudoModemBody(const PString &_tty, const PNotifier &callbackEndPoint);
     ~PseudoModemBody();
   //@}
 
@@ -71,10 +82,6 @@ class PseudoModemBody : public ModemThread
     
     const PNotifier &GetCallbackEndPoint() const { return callbackEndPoint; }
 
-    const PString &ptyName() const;
-    const PString &ptyPath() const;
-    const PString &ttyPath() const;
-    const PString &modemToken() const;
     int handlePty() const { return hPty; }
 
     PMutex ptyMutex;
@@ -87,7 +94,6 @@ class PseudoModemBody : public ModemThread
     virtual void ClosePty();
     virtual void Main();
 
-    const PseudoModem &parent;
     const PNotifier callbackEndPoint;
     int hPty;
     InPty *inPty;
