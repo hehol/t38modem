@@ -24,8 +24,13 @@
  * Contributor(s): 
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.4  2005-02-10 15:04:57  vfrolov
- * Disabled I/C calls for closed ports
+ * Revision 1.5  2005-03-03 16:12:46  vfrolov
+ * Fixed potential handle leak
+ * Fixed compiler warnings
+ *
+ * Revision 1.5  2005/03/03 16:12:46  vfrolov
+ * Fixed potential handle leak
+ * Fixed compiler warnings
  *
  * Revision 1.4  2005/02/10 15:04:57  vfrolov
  * Disabled I/C calls for closed ports
@@ -84,40 +89,53 @@ UniC0C::UniC0C(PseudoModemC0C &_parent, HANDLE _hC0C)
 {
 }
 ///////////////////////////////////////////////////////////////
+#if PTRACING
 static PString strError(DWORD err)
 {
   return PString(strerror(err)) + " (" + PString(err) + ")";
 }
+
+static void TraceLastError(const PString &head)
+{
+  DWORD err = ::GetLastError();
+  myPTRACE(1, head << " ERROR " << strError(err));
+}
+#else
+#define TraceLastError(head)
+#endif
 ///////////////////////////////////////////////////////////////
+static void CloseEvents(int num, HANDLE *hEvents)
+{
+  for (int i = 0 ; i < num ; i++) {
+    if (hEvents[i]) {
+      if (!::CloseHandle(hEvents[i])) {
+        TraceLastError("CloseEvents() CloseHandle()");
+      }
+      hEvents[i] = NULL;
+    }
+  }
+}
+
 static BOOL PrepareEvents(int num, HANDLE *hEvents, OVERLAPPED *overlaps)
 {
   memset(hEvents, 0, num * sizeof(HANDLE));
   memset(overlaps, 0, num * sizeof(OVERLAPPED));
 
   for (int i = 0 ; i < num ; i++) {
-    overlaps[i].hEvent = hEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL);
+    overlaps[i].hEvent = hEvents[i] = ::CreateEvent(NULL, TRUE, FALSE, NULL);
     if (!hEvents[i]) {
-      DWORD err = ::GetLastError();
-      myPTRACE(1, "PrepareEvents() CreateEvent() ERROR " << strError(err));
+      TraceLastError("PrepareEvents() CreateEvent()");
+      CloseEvents(i, hEvents);
       return FALSE;
     }
   }
   return TRUE;
 }
 
-static void CloseEvents(int num, HANDLE *hEvents)
-{
-  for (int i = 0 ; i < num ; i++) {
-    if (hEvents[i])
-      CloseHandle(hEvents[i]);
-  }
-}
-
 static BOOL myClearCommError(HANDLE hC0C, DWORD *pErrors)
 {
   if (!ClearCommError(hC0C, pErrors, NULL)) {
-    DWORD err = ::GetLastError();
-    myPTRACE(1, "ClearCommError() ERROR " << strError(err));
+    TraceLastError("ClearCommError()");
     return FALSE;
   }
   return TRUE;
@@ -128,8 +146,7 @@ static BOOL myGetCommState(HANDLE hC0C, DCB *dcb)
   dcb->DCBlength = sizeof(*dcb);
 
   if (!GetCommState(hC0C, dcb)) {
-    DWORD err = ::GetLastError();
-    myPTRACE(1, "GetCommState() ERROR " << strError(err));
+    TraceLastError("GetCommState()");
     return FALSE;
   }
   return TRUE;
@@ -138,8 +155,7 @@ static BOOL myGetCommState(HANDLE hC0C, DCB *dcb)
 static BOOL mySetCommState(HANDLE hC0C, DCB *dcb)
 {
   if (!SetCommState(hC0C, dcb)) {
-    DWORD err = ::GetLastError();
-    myPTRACE(1, "SetCommState() ERROR " << strError(err));
+    TraceLastError("SetCommState()");
     return FALSE;
   }
   return TRUE;
@@ -168,8 +184,7 @@ void InC0C::Main()
     SignalStop();
 
   if (!SetCommMask(hC0C, EV_CTS|EV_DSR|EV_BREAK)) {
-    DWORD err = ::GetLastError();
-    myPTRACE(1, "SetCommMask() ERROR " << strError(err));
+    TraceLastError("SetCommMask()");
     SignalStop();
   }
 
@@ -213,8 +228,7 @@ void InC0C::Main()
       DWORD stat;
 
       if (!GetCommModemStatus(hC0C, &stat)) {
-        DWORD err = ::GetLastError();
-        myPTRACE(1, "GetCommModemStatus() ERROR " << strError(err));
+        TraceLastError("GetCommModemStatus()");
         SignalStop();
         break;
       }
@@ -251,16 +265,14 @@ void InC0C::Main()
       switch (WaitForMultipleObjects(EVENT_NUM, hEvents, FALSE, 5000)) {
       case WAIT_OBJECT_0 + EVENT_READ:
         if (!GetOverlappedResult(hC0C, &overlaps[EVENT_READ], &cbufRead, FALSE)) {
-          DWORD err = ::GetLastError();
-          myPTRACE(1, "GetOverlappedResult(EVENT_READ) ERROR " << strError(err));
+          TraceLastError("GetOverlappedResult(EVENT_READ)");
           SignalStop();
         }
         waitingRead = FALSE;
         break;
       case WAIT_OBJECT_0 + EVENT_STAT:
         if (!GetOverlappedResult(hC0C, &overlaps[EVENT_STAT], &undef, FALSE)) {
-          DWORD err = ::GetLastError();
-          myPTRACE(1, "GetOverlappedResult(EVENT_STAT) ERROR " << strError(err));
+          TraceLastError("GetOverlappedResult(EVENT_STAT)");
           SignalStop();
         }
         waitingStat = FALSE;
@@ -269,8 +281,7 @@ void InC0C::Main()
       case WAIT_TIMEOUT:
         break;                       
       default:
-        DWORD err = ::GetLastError();
-        myPTRACE(1, "WaitForMultipleObjects() ERROR " << strError(err));
+        TraceLastError("WaitForMultipleObjects()");
         SignalStop();
       }
       if (stop)
@@ -348,8 +359,7 @@ void OutC0C::Main()
       switch (WaitForMultipleObjects(EVENT_NUM, hEvents, FALSE, 5000)) {
       case WAIT_OBJECT_0 + EVENT_WRITE:
         if (!GetOverlappedResult(hC0C, &overlaps[EVENT_WRITE], &written, FALSE)) {
-          DWORD err = ::GetLastError();
-          myPTRACE(1, "GetOverlappedResult() ERROR " << strError(err));
+          TraceLastError("GetOverlappedResult()");
           SignalStop();
         }
         waitingWrite = FALSE;
@@ -358,8 +368,7 @@ void OutC0C::Main()
         myPTRACE(6, "TIMEOUT");
         break;                       
       default:
-        DWORD err = ::GetLastError();
-        myPTRACE(1, "WaitForMultipleObjects() ERROR " << strError(err));
+        TraceLastError("WaitForMultipleObjects()");
         SignalStop();
       }
       if (stop)
@@ -511,15 +520,16 @@ BOOL PseudoModemC0C::OpenC0C()
                     NULL);
 
   if (hC0C == INVALID_HANDLE_VALUE) {
-    DWORD err = ::GetLastError();
-    myPTRACE(1, "PseudoModemBody::OpenC0C CreateFile(" << ptypath << ") ERROR " << strError(err));
+    TraceLastError(PString("PseudoModemBody::OpenC0C CreateFile(") + ptypath + ")");
     return FALSE;
   }
 
   DCB dcb;
 
-  if (!myGetCommState(hC0C, &dcb))
+  if (!myGetCommState(hC0C, &dcb)) {
+    CloseC0C();
     return FALSE;
+  }
 
   dcb.BaudRate = CBR_19200;
   dcb.ByteSize = 8;
@@ -540,14 +550,16 @@ BOOL PseudoModemC0C::OpenC0C()
   dcb.fParity = FALSE;
   dcb.fNull = FALSE;
 
-  if (!mySetCommState(hC0C, &dcb))
+  if (!mySetCommState(hC0C, &dcb)) {
+    CloseC0C();
     return FALSE;
+  }
 
   COMMTIMEOUTS timeouts;
 
   if (!GetCommTimeouts(hC0C, &timeouts)) {
-    DWORD err = ::GetLastError();
-    myPTRACE(1, "PseudoModemBody::OpenC0C GetCommTimeouts() ERROR " << strError(err));
+    TraceLastError("PseudoModemBody::OpenC0C GetCommTimeouts()");
+    CloseC0C();
     return FALSE;
   }
 
@@ -560,8 +572,8 @@ BOOL PseudoModemC0C::OpenC0C()
   timeouts.WriteTotalTimeoutConstant = 0;
 
   if (!SetCommTimeouts(hC0C, &timeouts)) {
-    DWORD err = ::GetLastError();
-    myPTRACE(1, "PseudoModemBody::OpenC0C SetCommTimeouts() ERROR " << strError(err));
+    TraceLastError("PseudoModemBody::OpenC0C SetCommTimeouts()");
+    CloseC0C();
     return FALSE;
   }
 
@@ -576,8 +588,7 @@ void PseudoModemC0C::CloseC0C()
     return;
 
   if (!::CloseHandle(hC0C)) {
-    DWORD err = ::GetLastError();
-    myPTRACE(1, "PseudoModemC0C::CloseC0C close " << " ERROR:" << strError(err));
+    TraceLastError("PseudoModemC0C::CloseC0C() CloseHandle()");
   }
 
   hC0C = INVALID_HANDLE_VALUE;
@@ -648,10 +659,11 @@ BOOL PseudoModemC0C::OutPnpId()
   if (!waitingWrite) {
     if (!WriteFile(hC0C, (const BYTE *)*buf + done, buf->GetSize() - done, &written, &overlaps[EVENT_WRITE])) {
       DWORD err = ::GetLastError();
-      if (err != ERROR_IO_PENDING) {
+      if (err == ERROR_IO_PENDING) {
+        waitingWrite = TRUE;
+      } else {
         myPTRACE(1, "WriteFile() ERROR " << strError(err));
       }
-      waitingWrite = TRUE;
     }
   }
 
@@ -659,8 +671,7 @@ BOOL PseudoModemC0C::OutPnpId()
     switch (WaitForMultipleObjects(EVENT_NUM, hEvents, FALSE, 5000)) {
     case WAIT_OBJECT_0 + EVENT_WRITE:
       if (!GetOverlappedResult(hC0C, &overlaps[EVENT_WRITE], &written, FALSE)) {
-        DWORD err = ::GetLastError();
-        myPTRACE(1, "GetOverlappedResult() ERROR " << strError(err));
+        TraceLastError("GetOverlappedResult()");
       }
       waitingWrite = FALSE;
     break;
@@ -668,8 +679,7 @@ BOOL PseudoModemC0C::OutPnpId()
       myPTRACE(6, "TIMEOUT");
       break;                       
     default:
-      DWORD err = ::GetLastError();
-      myPTRACE(1, "WaitForMultipleObjects() ERROR " << strError(err));
+      TraceLastError("WaitForMultipleObjects()");
     }
   }
 
@@ -718,20 +728,23 @@ BOOL PseudoModemC0C::WaitReady()
   if (!PrepareEvents(EVENT_NUM, hEvents, overlaps))
     return FALSE;
 
+  BOOL fault = FALSE;
+
   if (!SetCommMask(hC0C, EV_CTS|EV_DSR)) {
-    DWORD err = ::GetLastError();
-    myPTRACE(1, "--> SetCommMask() ERROR " << strError(err));
-    SignalStop();
+    TraceLastError("SetCommMask()");
+    fault = TRUE;
   }
 
   DWORD maskStat = 0;
   BOOL waitingStat = FALSE;
   DWORD lastStat = 0;
-  BOOL fault = FALSE;
   BOOL enumerator = FALSE;
   PTime TimeDSR;
 
   for (;;) {
+    if (fault)
+      break;
+
     if (!waitingStat) {
       if (!WaitCommEvent(hC0C, &maskStat, &overlaps[EVENT_STAT])) {
         DWORD err = ::GetLastError();
@@ -746,8 +759,7 @@ BOOL PseudoModemC0C::WaitReady()
       DWORD stat;
 
       if (!GetCommModemStatus(hC0C, &stat)) {
-        DWORD err = ::GetLastError();
-        myPTRACE(1, "GetCommModemStatus() ERROR " << strError(err));
+        TraceLastError("GetCommModemStatus()");
         fault = TRUE;
         break;
       }
@@ -778,8 +790,7 @@ BOOL PseudoModemC0C::WaitReady()
       switch (WaitForMultipleObjects(EVENT_NUM, hEvents, FALSE, 5000)) {
       case WAIT_OBJECT_0 + EVENT_STAT:
         if (!GetOverlappedResult(hC0C, &overlaps[EVENT_STAT], &undef, FALSE)) {
-          DWORD err = ::GetLastError();
-          myPTRACE(1, "GetOverlappedResult(EVENT_STAT) ERROR " << strError(err));
+          TraceLastError("GetOverlappedResult(EVENT_STAT)");
           fault = TRUE;
         }
         waitingStat = FALSE;
@@ -788,12 +799,9 @@ BOOL PseudoModemC0C::WaitReady()
       case WAIT_TIMEOUT:
         break;                       
       default:
-        DWORD err = ::GetLastError();
-        myPTRACE(1, "WaitForMultipleObjects() ERROR " << strError(err));
+        TraceLastError("WaitForMultipleObjects()");
         fault = TRUE;
       }
-      if (fault)
-        break;
     }
   }
 
