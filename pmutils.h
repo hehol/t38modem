@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.13  2004-10-20 14:15:09  vfrolov
- * Added reset of signal counter to WaitDataReady()
+ * Revision 1.14  2005-02-03 11:32:12  vfrolov
+ * Fixed MSVC compile warnings
+ *
+ * Revision 1.14  2005/02/03 11:32:12  vfrolov
+ * Fixed MSVC compile warnings
  *
  * Revision 1.13  2004/10/20 14:15:09  vfrolov
  * Added reset of signal counter to WaitDataReady()
@@ -233,6 +236,11 @@ class DataStreamQ : public _DataStreamQ
     PMutex Mutex;
 };
 ///////////////////////////////////////////////////////////////
+#ifdef _MSC_VER
+// warning C4127: conditional expression is constant
+#pragma warning(disable:4127)
+#endif // _MSC_VER
+
 #ifdef COUT_TRACE
 #define _myPTRACE(level, args) do { \
   PTRACE(level, args); \

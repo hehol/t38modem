@@ -3,7 +3,7 @@
  *
  * Fake G.723.1 codec for T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: g7231_fake.cxx,v $
- * Revision 1.3  2003-12-18 13:16:46  vfrolov
- * Fixed all CPU usage
+ * Revision 1.4  2005-02-03 11:32:11  vfrolov
+ * Fixed MSVC compile warnings
+ *
+ * Revision 1.4  2005/02/03 11:32:11  vfrolov
+ * Fixed MSVC compile warnings
  *
  * Revision 1.3  2003/12/18 13:16:46  vfrolov
  * Fixed all CPU usage
@@ -119,7 +122,7 @@ BOOL G7231_Fake_Codec::Read(BYTE * /*buffer*/, unsigned & length, RTP_DataFrame 
   return TRUE;
 }
 
-BOOL G7231_Fake_Codec::Write(const BYTE * buffer, unsigned length, const RTP_DataFrame & /* rtp */, unsigned & writtenLength)
+BOOL G7231_Fake_Codec::Write(const BYTE * /* buffer */, unsigned length, const RTP_DataFrame & /* rtp */, unsigned & writtenLength)
 {
   writtenLength = length;
 

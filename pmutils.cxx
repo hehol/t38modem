@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.cxx,v $
- * Revision 1.11  2004-10-20 14:15:09  vfrolov
- * Added reset of signal counter to WaitDataReady()
+ * Revision 1.12  2005-02-03 11:32:12  vfrolov
+ * Fixed MSVC compile warnings
+ *
+ * Revision 1.12  2005/02/03 11:32:12  vfrolov
+ * Fixed MSVC compile warnings
  *
  * Revision 1.11  2004/10/20 14:15:09  vfrolov
  * Added reset of signal counter to WaitDataReady()
@@ -218,7 +221,7 @@ int DataStream::GetData(void *_pBuf, PINDEX count)
 void DataStream::Clean()
 {
   ChunkStream *buf;
-  while ((buf = bufQ.Dequeue()))
+  while ((buf = bufQ.Dequeue()) != NULL)
     delete buf;
   if (firstBuf)
     delete firstBuf;

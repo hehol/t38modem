@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.11  2004-07-07 12:38:32  vfrolov
- * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ * Revision 1.12  2005-02-03 11:32:12  vfrolov
+ * Fixed MSVC compile warnings
+ *
+ * Revision 1.12  2005/02/03 11:32:12  vfrolov
+ * Fixed MSVC compile warnings
  *
  * Revision 1.11  2004/07/07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
@@ -172,7 +175,7 @@ BOOL PseudoModemBody::StartAll()
   if (engine)
     return TRUE;
 
-  if ((engine = new ModemEngine(*this))) {
+  if ((engine = new ModemEngine(*this)) != NULL) {
     engine->Resume();
     return TRUE;
   }

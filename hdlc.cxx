@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2003-2004 Vyacheslav Frolov
+ * Copyright (c) 2003-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: hdlc.cxx,v $
- * Revision 1.4  2004-07-06 16:07:24  vfrolov
- * Included ptlib.h for precompiling
+ * Revision 1.5  2005-02-03 11:32:11  vfrolov
+ * Fixed MSVC compile warnings
+ *
+ * Revision 1.5  2005/02/03 11:32:11  vfrolov
+ * Fixed MSVC compile warnings
  *
  * Revision 1.4  2004/07/06 16:07:24  vfrolov
  * Included ptlib.h for precompiling
@@ -53,7 +56,7 @@
 ///////////////////////////////////////////////////////////////
 void HDLC::pack(const void *_pBuf, PINDEX count, BOOL flag)
 {
-  WORD w = (WORD)rawByte << 8;
+  WORD w = WORD((WORD)rawByte << 8);
   const BYTE *pBuf = (const BYTE *)_pBuf;
 
   for (PINDEX i = 0 ; i < count ; i++) {
@@ -62,7 +65,7 @@ void HDLC::pack(const void *_pBuf, PINDEX count, BOOL flag)
       w <<= 1;
 
       if (++rawByteLen == 8) {
-        rawByte = w >> 8;
+        rawByte = BYTE(w >> 8);
         outData.PutData(&rawByte, 1);
         rawByteLen = 0;
       }
@@ -70,10 +73,10 @@ void HDLC::pack(const void *_pBuf, PINDEX count, BOOL flag)
       if (!flag) {
         if (w & 0x100) {
           if (++rawOnes == 5) {
-            w = (w & 0xFF00) << 1 | (w & 0xFF);
+            w = WORD((w & 0xFF00) << 1 | (w & 0xFF));
 
             if (++rawByteLen == 8) {
-              rawByte = w >> 8;
+              rawByte = BYTE(w >> 8);
               outData.PutData(&rawByte, 1);
               rawByteLen = 0;
             }
@@ -85,38 +88,38 @@ void HDLC::pack(const void *_pBuf, PINDEX count, BOOL flag)
       }
     }
   }
-  rawByte = w >> 8;
+  rawByte = BYTE(w >> 8);
   if (flag)
     rawOnes = 0;
 }
 
 BOOL HDLC::sync(BYTE b)
 {
-  WORD w = ((WORD)rawByte << 8) | (b & 0xFF);
+  WORD w = WORD(((WORD)rawByte << 8) | (b & 0xFF));
   PINDEX j = 8 - rawByteLen;
 
   w <<= j;
 
   for ( ; j <= 8 ; j++, w <<= 1) {
     if ((w >> 8) == 0x7E) {
-      rawByte = w >> j;
+      rawByte = BYTE(w >> j);
       rawByteLen = 8 - j;
       return TRUE;
     }
   }
-  rawByte = w >> j;
+  rawByte = BYTE(w >> j);
   rawByteLen = 7;
   return FALSE;
 }
 
 BOOL HDLC::skipFlag(BYTE b)
 {
-  WORD w = ((WORD)rawByte << 8) | (b & 0xFF);
+  WORD w = WORD(((WORD)rawByte << 8) | (b & 0xFF));
   PINDEX j = 8 - rawByteLen;
 
   w <<= j;
   if ((w >> 8) == 0x7E) {
-    rawByte = w >> j;
+    rawByte = BYTE(w >> j);
     return TRUE;
   }
 
@@ -126,14 +129,14 @@ BOOL HDLC::skipFlag(BYTE b)
 BOOL HDLC::unpack(BYTE b)
 {
   //myPTRACE(1, "unpack det " << hex << (WORD)b);
-  WORD w = ((WORD)rawByte << 8) | (b & 0xFF);
+  WORD w = WORD(((WORD)rawByte << 8) | (b & 0xFF));
   PINDEX j = 8 - rawByteLen;
 
   w <<= j;
 
   for ( ; j <= 8 ; j++, w <<= 1) {
     if ((w >> 8) == 0x7E) {
-      rawByte = w >> j;
+      rawByte = BYTE(w >> j);
       rawByteLen = 8 - j;
       return FALSE;
     }
@@ -158,7 +161,7 @@ BOOL HDLC::unpack(BYTE b)
       hdlcChunkLen = 16;
     }
   }
-  rawByte = w >> j;
+  rawByte = BYTE(w >> j);
   rawByteLen = 7;
   return TRUE;
 }
@@ -213,8 +216,8 @@ int HDLC::GetRawData(void *_pBuf, PINDEX count)
       int inLen = inData->GetData(Buf, sizeof(Buf));
 
       if (inLen < 0) {
-        Buf[0] = fcs >> 8;
-        Buf[1] = fcs & 0xFF;
+        Buf[0] = BYTE(fcs >> 8);
+        Buf[1] = BYTE(fcs & 0xFF);
         if (inData->GetDiag() & T38Engine::diagBadFcs)
           Buf[0]++;
         pack(Buf, 2);
@@ -285,7 +288,7 @@ int HDLC::GetHdlcData(void *_pBuf, PINDEX count)
     int res;
     len = 0;
 
-    for ( ; (res = inData->GetData(&b, 1)) ; ) {
+    for ( ; (res = inData->GetData(&b, 1)) != 0 ; ) {
       if (res < 0) {
         outData.PutEof();
         inData = NULL;

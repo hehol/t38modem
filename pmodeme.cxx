@@ -24,11 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.25  2005-02-01 11:43:46  vfrolov
- * Implemented ATV0 command (numeric format for result codes)
- * Implemented AT+FMI?, AT+FMM? and AT+FMR? commands
- * Added stubs for ATBn, ATX3 and AT+FCLASS=0 commands
- * Added stub for AT+FLO command
+ * Revision 1.26  2005-02-03 11:32:11  vfrolov
+ * Fixed MSVC compile warnings
+ *
+ * Revision 1.26  2005/02/03 11:32:11  vfrolov
+ * Fixed MSVC compile warnings
  *
  * Revision 1.25  2005/02/01 11:43:46  vfrolov
  * Implemented ATV0 command (numeric format for result codes)
@@ -217,7 +217,10 @@ class Profile
       return TRUE;
     }
     BOOL GetBit(PINDEX r, PINDEX b, BOOL &val) const {
-      if( !ChkRB(r, b) ) return FALSE;
+      if (!ChkRB(r, b)) {
+        val = 0;
+        return FALSE;
+      }
       BYTE msk = MaskB(b);
       val = (S[r] & msk) ? TRUE : FALSE;
       return TRUE;
@@ -228,7 +231,10 @@ class Profile
       return TRUE;
     }
     BOOL GetReg(PINDEX r, BYTE &val) const {
-      if( !ChkR(r) ) return FALSE;
+      if (!ChkR(r)) {
+        val = 0;
+        return FALSE;
+      }
       val = S[r];
       return TRUE;
     }
@@ -240,7 +246,10 @@ class Profile
       return TRUE;
     }
     BOOL GetBits(PINDEX r, PINDEX bl, PINDEX bh, BYTE &val) const {
-      if( !ChkRBB(r, bl, bh) ) return FALSE;
+      if (!ChkRBB(r, bl, bh)) {
+        val = 0;
+        return FALSE;
+      }
       BYTE msk = MaskBB(bl, bh);
       val = BYTE((S[r] & msk) >> bl);
       return TRUE;

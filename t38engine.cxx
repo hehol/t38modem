@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.31  2004-08-24 16:12:10  vfrolov
- * Fixed bit counter overflow
+ * Revision 1.32  2005-02-03 11:32:12  vfrolov
+ * Fixed MSVC compile warnings
+ *
+ * Revision 1.32  2005/02/03 11:32:12  vfrolov
+ * Fixed MSVC compile warnings
  *
  * Revision 1.31  2004/08/24 16:12:10  vfrolov
  * Fixed bit counter overflow
@@ -262,7 +265,7 @@ int ModStream::GetData(void *pBuf, PINDEX count)
 
     while ((len = hdlc.GetData(pBuf, count)) < 0) {
       DataStream *_firstBuf;
-      if ((_firstBuf = bufQ.Dequeue())) {
+      if ((_firstBuf = bufQ.Dequeue()) != NULL) {
         DeleteFirstBuf();
         firstBuf = _firstBuf;
         hdlc.PutHdlcData(firstBuf);
@@ -808,8 +811,9 @@ void T38Engine::ResetModemState() {
 }
 
 void T38Engine::_ResetModemState() {
-  if (modStreamIn && modStreamIn->DeleteFirstBuf())
+  if (modStreamIn && modStreamIn->DeleteFirstBuf()) {
     PTRACE(1, name << " T38Engine::ResetModemState modStreamIn->DeleteFirstBuf(), clean");
+  }
 
   bufOut.PutEof();
   if (stateModem != stmIdle) {
@@ -963,8 +967,9 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
   callbackParamIn = _callbackParam;
 
   if (modStreamIn != NULL) {
-    if (modStreamIn->DeleteFirstBuf())
+    if (modStreamIn->DeleteFirstBuf()) {
       PTRACE(1, name << " T38Engine::RecvWait modStreamIn->DeleteFirstBuf(), clean");
+    }
   
     if (modStreamIn->bufQ.GetSize() > 0) {
       PTRACE(1, name << " T38Engine::RecvWait modStreamIn->bufQ.GetSize()=" << modStreamIn->bufQ.GetSize());

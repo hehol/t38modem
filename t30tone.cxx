@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2002-2004 Vyacheslav Frolov
+ * Copyright (c) 2002-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.cxx,v $
- * Revision 1.3  2004-07-06 16:07:24  vfrolov
- * Included ptlib.h for precompiling
+ * Revision 1.4  2005-02-03 11:32:12  vfrolov
+ * Fixed MSVC compile warnings
+ *
+ * Revision 1.4  2005/02/03 11:32:12  vfrolov
+ * Fixed MSVC compile warnings
  *
  * Revision 1.3  2004/07/06 16:07:24  vfrolov
  * Included ptlib.h for precompiling
@@ -69,7 +72,7 @@ static BYTE CngTone[CNG_SIMPLES_PER_REPEATE*BYTES_PER_SIMPLE];
 static BOOL initCngTone()
 {
   for( size_t i = 0 ; i < sizeof(CngTone)/BYTES_PER_SIMPLE ; i++ ) {
-    double Sin = sin((CNG_HZ*TWO_PI*i)/SIMPLES_PER_SEC);
+    double Sin = sin(double((CNG_HZ*TWO_PI*i)/SIMPLES_PER_SEC));
     ((SIMPLE_TYPE *)CngTone)[i] = (SIMPLE_TYPE)(Sin * CNG_AMPLITUDE);
   }
   return TRUE;
