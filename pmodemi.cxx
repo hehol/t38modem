@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2003 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.7  2002-12-30 12:49:33  vfrolov
- * Added tracing thread's CPU usage (Linux only)
+ * Revision 1.8  2003-12-04 12:10:16  vfrolov
+ * Tuned max delay for buffer full condition
+ *
+ * Revision 1.8  2003/12/04 12:10:16  vfrolov
+ * Tuned max delay for buffer full condition
  *
  * Revision 1.7  2002/12/30 12:49:33  vfrolov
  * Added tracing thread's CPU usage (Linux only)
@@ -120,8 +123,10 @@ void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, BOOL OutQ)
   PBYTEArrayQ &PtyQ = OutQ ? outPtyQ : inPtyQ;
   
   for( int delay = 10 ;; delay *= 2 ) {
-    const PINDEX MAX_qBUF = 1024;
+    static const PINDEX MAX_qBUF = 1024;
+    static const int MAX_delay = (MAX_qBUF*8*1000)/14400;
     PINDEX busy = PtyQ.GetCount();
+
     if( busy < MAX_qBUF ) {
       PINDEX free = MAX_qBUF - busy;
       PINDEX len = count;
@@ -131,7 +136,7 @@ void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, BOOL OutQ)
       buf = (const BYTE *)buf + len;
       count -= len;
     }
-    
+
     {
       PWaitAndSignal mutexWait(Mutex);
       ModemThreadChild *notify = OutQ ? (ModemThreadChild *)outPty : (ModemThreadChild *)engine;
@@ -144,11 +149,14 @@ void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, BOOL OutQ)
     }
     if( count == 0 )
       return;
-  
-    if( stop ) break;
-    if( delay > 1000 ) {
-      delay = 1000;
-      myPTRACE(1, "PseudoModemBody::ToPtyQ busy=" << busy << " count=" << count);
+
+    if (stop)
+      break;
+
+    if (delay > MAX_delay) {
+      delay = MAX_delay;
+      myPTRACE(2, "PseudoModemBody::ToPtyQ(" << (OutQ ? "outPtyQ" : "inPtyQ") << ")"
+        << " busy=" << busy << " count=" << count << " delay=" << delay);
     }
     PThread::Sleep(delay);
     if( stop ) break;
@@ -204,7 +212,7 @@ void PseudoModemBody::Main()
 {
   RenameCurrentThread(ptyName() + "(b)");
 
-  myPTRACE(3, "Started for " << ttyPath() <<
+  myPTRACE(2, "Started for " << ttyPath() <<
               " (accepts " << (route.IsEmpty() ? PString("all") : route) << ")");
   
   while( !stop && OpenPty() && StartAll() ) {
@@ -215,7 +223,7 @@ void PseudoModemBody::Main()
   }
   ClosePty();
 
-  myPTRACE(3, "Stopped " << GetThreadTimes(", CPU usage: "));
+  myPTRACE(2, "Stopped " << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
 
