@@ -1,0 +1,13 @@
+#
+# HylaFAX configuration for a T38FAX Pseudo Modem
+#
+
+SessionTracing:         0x2FFF
+RingsBeforeAnswer:	1
+
+ModemType:		Class1		# use class 1 interface
+ModemFlowControl:	rtscts		# default
+
+ModemRevQueryCmd:	AT+FREV?
+Class1FrameOverhead:	2		# does not include FCS
+
