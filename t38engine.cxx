@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.17  2002-11-18 22:57:53  craigs
- * Added patches from Vyacheslav Frolov for CORRIGENDUM
+ * Revision 1.18  2002-11-18 23:01:58  craigs
+ * Changed name of pre CORRIGENDUM ASN
+ *
+ * Revision 1.18  2002/11/18 23:01:58  craigs
+ * Changed name of pre CORRIGENDUM ASN
  *
  * Revision 1.17  2002/11/18 22:57:53  craigs
  * Added patches from Vyacheslav Frolov for CORRIGENDUM
@@ -412,7 +415,7 @@ BOOL T38Engine::DecodeIFPPacket(PASN_OctetString &ifp_packet, T38_IFPPacket &T38
 {
   PASN_OctetString tmp_ifp_packet;
   PASN_OctetString *p_ifp_packet;
-  T38OLD_IFPPacket ifp;
+  T38_PreCorrigendum_IFPPacket ifp;
 
   if (old_asn) {
     if (!ifp_packet.DecodeSubType(ifp)) {
