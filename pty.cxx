@@ -1,13 +1,16 @@
 /*
- * $Id: pty.cxx,v 1.1 2002-01-01 23:06:54 craigs Exp $
+ * $Id: pty.cxx,v 1.2 2002-01-01 23:43:57 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: pty.cxx,v $
- * Revision 1.1  2002-01-01 23:06:54  craigs
- * Initial version
+ * Revision 1.2  2002-01-01 23:43:57  craigs
+ * Added fix from Vyacheslav Frolov
+ *
+ * Revision 1.2  2002/01/01 23:43:57  craigs
+ * Added fix from Vyacheslav Frolov
  *
  * Revision 1.1  2002/01/01 23:06:54  craigs
  * Initial version
@@ -89,7 +92,7 @@ void OutPty::Main()
     myPTRACE(1, "<-- Started");
 
     PBYTEArray *buf = NULL;
-    PINDEX done;
+    PINDEX done = 0;
 
     for(;;) {
       PrepareSelect(n, fdset, tv);
