@@ -1,13 +1,16 @@
 /*
- * $Id: ReadMe.txt,v 1.5 2002-03-22 09:40:57 vfrolov Exp $
+ * $Id: ReadMe.txt,v 1.6 2002-11-18 22:57:53 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: ReadMe.txt,v $
- * Revision 1.5  2002-03-22 09:40:57  vfrolov
- * Removed obsoleted option -f
+ * Revision 1.6  2002-11-18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
+ *
+ * Revision 1.6  2002/11/18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
  *
  * Revision 1.5  2002/03/22 09:40:57  vfrolov
  * Removed obsoleted option -f
@@ -49,6 +52,8 @@ FreeBSD Users: You need to use  -p ttypa,ttypb
                Remember to replace ttyx0 with ttypa and ttyx1 with ttypb
                when following the rest of these instructions.
                This will create two modems /dev/ttypa and /dev/ttypb
+
+Cisco Users:   You additionaly need to use --old-asn and --h245tunneldisable options.
 
 If dialed number begins with '0' then it will be routed to local host ('0' will be discarded).
 If not then it will be routed to 172.16.33.21.
@@ -120,7 +125,8 @@ dial-peer voice 3343 voip
  fax protocol t38 ls-redundancy 0 hs-redundancy 0
 exit
 
-2.4. Example of HylaFAX modem config filas
+2.4. Example of HylaFAX modem config files
+------------------------------------------
 
 Copy HylaFAX/etc/config.ttyx to HylaFAX's etc directory
 

@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.16  2002-11-15 07:43:52  vfrolov
- * Do not wait no-signal if received *-sig-end
- * Fixed compiler warnings
+ * Revision 1.17  2002-11-18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
+ *
+ * Revision 1.17  2002/11/18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
  *
  * Revision 1.16  2002/11/15 07:43:52  vfrolov
  * Do not wait no-signal if received *-sig-end
@@ -84,6 +86,7 @@
 
 #include "t38engine.h"
 #include "t38.h"
+#include "t38old.h"
 #include "transports.h"
 
 #define new PNEW
@@ -325,6 +328,7 @@ T38Engine::T38Engine(const PString &_name)
   in_redundancy = 0;
   ls_redundancy = 0;
   hs_redundancy = 0;
+  old_asn = FALSE;
   
   T38Mode = TRUE;
   isCarrierIn = 0;
@@ -388,6 +392,55 @@ void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
                                             << " high_speed=" << hs_redundancy);
 }
 
+void T38Engine::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp)
+{
+  if (old_asn && T38_ifp.m_type_of_msg.GetTag() == T38_Type_of_msg::e_data &&
+             T38_ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
+    T38_IFPPacket ifp = T38_ifp;
+    PINDEX count = ifp.m_data_field.GetSize();
+
+    for( PINDEX i = 0 ; i < count ; i++ ) {
+      ifp.m_data_field[i].m_field_type.SetExtendable(FALSE);
+    }
+    ifp_packet.EncodeSubType(ifp);
+  } else {
+    ifp_packet.EncodeSubType(T38_ifp);
+  }
+}
+
+BOOL T38Engine::DecodeIFPPacket(PASN_OctetString &ifp_packet, T38_IFPPacket &T38_ifp)
+{
+  PASN_OctetString tmp_ifp_packet;
+  PASN_OctetString *p_ifp_packet;
+  T38OLD_IFPPacket ifp;
+
+  if (old_asn) {
+    if (!ifp_packet.DecodeSubType(ifp)) {
+      PTRACE(2, "T38\tT38OLD_IFPPacket decode failure:\n  " << setprecision(2) << ifp_packet << "\n");
+      return FALSE;
+    }
+
+    if (ifp.m_type_of_msg.GetTag() == T38_Type_of_msg::e_data && ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
+      PINDEX count = ifp.m_data_field.GetSize();
+      for( PINDEX i = 0 ; i < count ; i++ ) {
+        ifp.m_data_field[i].m_field_type.SetExtendable(TRUE);
+      }
+    }
+
+    tmp_ifp_packet.EncodeSubType(ifp);
+    p_ifp_packet = &tmp_ifp_packet;
+  } else {
+    p_ifp_packet = &ifp_packet;
+  }
+
+  if (!p_ifp_packet->DecodeSubType(T38_ifp)) {
+    PTRACE(2, "T38\tT38_IFPPacket decode failure:\n  " << setprecision(2) << *p_ifp_packet << "\n");
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
 BOOL T38Engine::Originate()
 {
 #if PTRACING
@@ -436,7 +489,8 @@ BOOL T38Engine::Originate()
         }
 
       udptl.m_seq_number = ++seq & 0xFFFF;
-      udptl.m_primary_ifp_packet.EncodeSubType(ifp);
+
+      EncodeIFPPacket(udptl.m_primary_ifp_packet, ifp);
 
       /*
        * Calculate maxRedundancy for current ifp packet
@@ -569,6 +623,7 @@ BOOL T38Engine::Answer()
     }
 
     T38_UDPTLPacket udptl;
+
     if (udptl.Decode(rawData))
       consecutiveBadPackets = 0;
     else {
@@ -627,12 +682,9 @@ BOOL T38Engine::Answer()
         receivedSequenceNumber -= lost;
         
         for (int i = nRedundancy - 1 ; i >= 0 ; i--) {
-          if (!secondary[i].DecodeSubType(ifp)) {
-            PTRACE(2, "T38\tUDPTLPacket decode failure:\n  "
-                   << setprecision(2) << rawData << "\n  UDPTL = "
-                   << setprecision(2) << udptl);
-            break;
-          }
+          if (!DecodeIFPPacket(secondary[i], ifp))
+            continue;
+          
           PTRACE(2, "T38\tReceived ifp seq=" << receivedSequenceNumber << " (secondary)\n  "
                  << setprecision(2) << ifp);
                  
@@ -658,12 +710,8 @@ BOOL T38Engine::Answer()
       } 
     }
 
-    if (!udptl.m_primary_ifp_packet.DecodeSubType(ifp)) {
-      PTRACE(2, "T38\tUDPTLPacket decode failure:\n  "
-             << setprecision(2) << rawData << "\n  UDPTL = "
-             << setprecision(2) << udptl);
+    if (!DecodeIFPPacket(udptl.m_primary_ifp_packet, ifp))
       continue;
-    }
 
 #if 0
     // recovery test

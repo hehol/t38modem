@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.11  2002-05-22 12:01:50  vfrolov
- * Implemented redundancy error protection scheme
+ * Revision 1.12  2002-11-18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
+ *
+ * Revision 1.12  2002/11/18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
  *
  * Revision 1.11  2002/05/22 12:01:50  vfrolov
  * Implemented redundancy error protection scheme
@@ -93,6 +96,7 @@ class MODPARS
 };
 ///////////////////////////////////////////////////////////////
 
+class PASN_OctetString;
 class ModStream;
 
 class T38Engine : public OpalT38Protocol
@@ -139,6 +143,13 @@ class T38Engine : public OpalT38Protocol
       int low_speed,
       int high_speed
     );
+    /**The calling SetOldASN() is aquivalent to the following change of the t38.asn:
+
+           -  t4-non-ecm-sig-end,
+           -   ...
+           +  t4-non-ecm-sig-end
+     */
+    void SetOldASN() { old_asn = TRUE; }
   //@}
   
   /**@name Modem API */
@@ -161,6 +172,9 @@ class T38Engine : public OpalT38Protocol
     
   protected:
   
+    void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp);
+    BOOL DecodeIFPPacket(PASN_OctetString &ifp_packet, T38_IFPPacket &T38_ifp);
+
     BOOL Originate();
     BOOL Answer();
 
@@ -194,6 +208,7 @@ class T38Engine : public OpalT38Protocol
     int in_redundancy;
     int ls_redundancy;
     int hs_redundancy;
+    BOOL old_asn;
     
   private:
   

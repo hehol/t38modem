@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.27  2002-11-10 09:22:47  robertj
- * Moved constants for "well known" ports to better place (OPAL change).
+ * Revision 1.28  2002-11-18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
+ *
+ * Revision 1.28  2002/11/18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
  *
  * Revision 1.27  2002/11/10 09:22:47  robertj
  * Moved constants for "well known" ports to better place (OPAL change).
@@ -137,6 +140,7 @@ void T38Modem::Main()
 	     "p-ptty:"
 	     "-route:"
              "-redundancy:"
+             "-old-asn."
 
              "F-fastenable."
              "T-h245tunneldisable."
@@ -194,6 +198,8 @@ void T38Modem::Main()
 	"                              (I)ndication, (L)ow speed and (H)igh\n"
         "                              speed IFP packets.\n"
         "                              'I', 'L' and 'H' are digits.\n"
+        "  --old-asn                 : Use original ASN.1 sequence in T.38 (06/98) Annex A\n"
+        "                              (w/o CORRIGENDUM No. 1 fix).\n"
         "  -i --interface ip         : Bind to a specific interface.\n"
         "  --no-listenport           : Disable listen for incoming calls.\n"
         "  --listenport port         : Listen on a specific port.\n"
@@ -286,6 +292,7 @@ MyH323EndPoint::MyH323EndPoint()
   in_redundancy = -1;
   ls_redundancy = -1;
   hs_redundancy = -1;
+  old_asn = FALSE;
 }
 
 void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
@@ -418,13 +425,15 @@ void MyH323EndPoint::PMFree(PseudoModem *pmodem) const
     pmodemQ->Enqueue(pmodem);
 }
 
-void MyH323EndPoint::SetRedundancy(MyH323Connection &/*conn*/, OpalT38Protocol *t38handler) const
+void MyH323EndPoint::SetOptions(MyH323Connection &/*conn*/, OpalT38Protocol *t38handler) const
 {
-  // TODO: per host redundancy
+  // TODO: make it per host
 
   if (t38handler != NULL) {
     PAssert(t38handler->IsDescendant(T38Engine::Class()), PInvalidCast);
     ((T38Engine *)t38handler)->SetRedundancy(in_redundancy, ls_redundancy, hs_redundancy);
+    if (old_asn)
+      ((T38Engine *)t38handler)->SetOldASN();
   }
 }
 
@@ -489,6 +498,9 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
       }
     }
   }
+
+  if (args.HasOption("old-asn"))
+    old_asn = TRUE;
 
   if (args.HasOption('G')) 
     SetCapability(0, 0, new G7231_Fake_Capability());
@@ -579,7 +591,7 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler()
   if( t38handler == NULL ) {
     PTRACE(2, "MyH323Connection::CreateT38ProtocolHandler create new one");
     t38handler = new T38Engine(pmodem->ptyName());
-    ep.SetRedundancy(*this, t38handler);
+    ep.SetOptions(*this, t38handler);
     pmodem->Attach((T38Engine *)t38handler);
   }
   return t38handler;

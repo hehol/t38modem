@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.12  2002-11-05 13:46:51  vfrolov
- * Added missed --username option to help
- * Utilized "localpartyname" option from "dial" request
+ * Revision 1.13  2002-11-18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
+ *
+ * Revision 1.13  2002/11/18 22:57:53  craigs
+ * Added patches from Vyacheslav Frolov for CORRIGENDUM
  *
  * Revision 1.12  2002/11/05 13:46:51  vfrolov
  * Added missed --username option to help
@@ -107,7 +109,7 @@ class MyH323EndPoint : public H323EndPoint
 
     PseudoModem * PMAlloc(const PString &number) const;
     void PMFree(PseudoModem *pmodem) const;
-    void SetRedundancy(MyH323Connection &conn, OpalT38Protocol *t38handler) const;
+    void SetOptions(MyH323Connection &conn, OpalT38Protocol *t38handler) const;
 
   protected:
     PseudoModemQ *pmodemQ;
@@ -117,6 +119,7 @@ class MyH323EndPoint : public H323EndPoint
     int in_redundancy;
     int ls_redundancy;
     int hs_redundancy;
+    BOOL old_asn;
 
     PDECLARE_NOTIFIER(PObject, MyH323EndPoint, OnMyCallback);
 };
