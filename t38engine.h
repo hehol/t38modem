@@ -22,9 +22,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.6  2002-02-11 16:46:21  vfrolov
- * Discarded transport arg from Originate() and Answer()
- * Thanks to Christopher Curtis
+ * Revision 1.7  2002-04-19 13:59:04  vfrolov
+ * Added SendOnIdle()
+ *
+ * Revision 1.7  2002/04/19 13:59:04  vfrolov
+ * Added SendOnIdle()
  *
  * Revision 1.6  2002/02/11 16:46:21  vfrolov
  * Discarded transport arg from Originate() and Answer()
@@ -94,7 +96,9 @@ class T38Engine : public OpalT38Protocol
     };
 
     enum {
+      dtNone,
       dtCed,
+      dtCng,
       dtSilence,
       dtHdlc,
       dtRaw,
@@ -114,7 +118,7 @@ class T38Engine : public OpalT38Protocol
   
   /**@name Operations */
   //@{
-    void CleanUpOnTermination() { SetT38Mode(FALSE); }
+    void CleanUpOnTermination();
     void SetT38Mode(BOOL mode = TRUE);
   //@}
   
@@ -124,6 +128,7 @@ class T38Engine : public OpalT38Protocol
     void Detach(const PNotifier &callback);
     void ResetModemState();
 
+    void SendOnIdle(int _dataType);
     BOOL SendStart(int _dataType, int param);
     int Send(const void *pBuf, PINDEX count);
     BOOL SendStop(BOOL moreFrames, int _callbackParam);
@@ -172,6 +177,7 @@ class T38Engine : public OpalT38Protocol
     BOOL IsT38Mode() const { return T38Mode; }
 
     int stateOut;
+    int onIdleOut;
     int callbackParamOut;
     DataStream bufOut;
     MODPARS ModParsOut;

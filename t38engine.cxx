@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.8  2002-03-01 09:02:04  vfrolov
- * Added Copyright header
- * Added name name to trace messages
+ * Revision 1.9  2002-04-19 13:58:59  vfrolov
+ * Added SendOnIdle()
+ *
+ * Revision 1.9  2002/04/19 13:58:59  vfrolov
+ * Added SendOnIdle()
  *
  * Revision 1.8  2002/03/01 09:02:04  vfrolov
  * Added Copyright header
@@ -282,6 +284,7 @@ T38Engine::T38Engine(const PString &_name)
   PTRACE(3, name << " T38Engine::T38Engine");
   stateModem = stmIdle;
   stateOut = stOutNoSig;
+  onIdleOut = dtNone;
   
   modStreamIn = NULL;
   modStreamInSaved = NULL;
@@ -297,7 +300,9 @@ BOOL T38Engine::Originate()
     PThread::Current()->SetThreadName(name + "(tx):%0x");
     PTRACE(2, name << " T38Engine::Originate old ThreadName=" << old);
   }
-  return OpalT38Protocol::Originate();
+  BOOL res = OpalT38Protocol::Originate();
+  PTRACE(3, name << " T38Engine::Originate end");
+  return res;
 }
 
 BOOL T38Engine::Answer()
@@ -307,7 +312,9 @@ BOOL T38Engine::Answer()
     PThread::Current()->SetThreadName(name + "(rx):%0x");
     PTRACE(2, name << " T38Engine::Answer old ThreadName=" << old);
   }
-  return OpalT38Protocol::Answer();
+  BOOL res = OpalT38Protocol::Answer();
+  PTRACE(2, name << " T38Engine::Answer end");
+  return res;
 }
 
 T38Engine::~T38Engine()
@@ -356,6 +363,13 @@ void T38Engine::Detach(const PNotifier &callback)
 }
 ///////////////////////////////////////////////////////////////
 //
+void T38Engine::CleanUpOnTermination()
+{
+  myPTRACE(1, name << " T38Engine::CleanUpOnTermination");
+  OpalT38Protocol::CleanUpOnTermination();
+  SetT38Mode(FALSE);
+}
+
 void T38Engine::SetT38Mode(BOOL mode)
 {
   PWaitAndSignal mutexWait(Mutex);
@@ -382,6 +396,12 @@ void T38Engine::ResetModemState() {
   callbackParamOut = -1;
 }
 ///////////////////////////////////////////////////////////////
+void T38Engine::SendOnIdle(int _dataType)
+{
+  onIdleOut = _dataType;
+  SignalOutDataReady();
+}
+
 BOOL T38Engine::SendStart(int _dataType, int param) {
   PWaitAndSignal mutexWaitModem(MutexModem);
   if (!IsT38Mode())
@@ -830,13 +850,23 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
               return FALSE;
           }
         } else {
-          waitData = TRUE;
+          switch( onIdleOut ) {
+            case dtCng:
+              t38indicator(ifp, T38I(e_cng));
+              break;
+            case dtSilence:
+              t38indicator(ifp, T38I(e_no_signal));
+              break;
+            default:
+              waitData = TRUE;
+          }
+          onIdleOut = dtNone;
         }
       }
-      if( !waitData ) 
+      if (!waitData)
         break;
       WaitOutDataReady();
-      if( !IsT38Mode() )
+      if (!IsT38Mode())
         return FALSE;
 
       {
