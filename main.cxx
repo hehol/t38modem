@@ -22,8 +22,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.12  2002-02-11 08:48:43  vfrolov
- * Changed some trace and cout messages
+ * Revision 1.13  2002-02-12 11:25:23  vfrolov
+ * Removed obsoleted code
+ *
+ * Revision 1.13  2002/02/12 11:25:23  vfrolov
+ * Removed obsoleted code
  *
  * Revision 1.12  2002/02/11 08:48:43  vfrolov
  * Changed some trace and cout messages
@@ -44,6 +47,7 @@
 #include <ptlib/pipechan.h>
 
 #include "version.h"
+#include <h323pdu.h>
 #include "h323t38.h"
 #include "t38engine.h"
 #include "pmodem.h"
@@ -414,7 +418,7 @@ void MyH323EndPoint::OnConnectionEstablished(H323Connection & /*connection*/,
 
 MyH323Connection::MyH323Connection(MyH323EndPoint & _ep, unsigned callReference)
   : H323Connection(_ep, callReference), ep(_ep),
-    t38handler(NULL), T38TransportUDP(NULL), pmodem(NULL),
+    pmodem(NULL), t38handler(NULL),
     audioWrite(NULL), audioRead(NULL)
 {
 }
@@ -430,9 +434,6 @@ MyH323Connection::~MyH323Connection()
     }
     delete t38handler;
   }
-
-  if (T38TransportUDP != NULL)
-    delete T38TransportUDP;
 
   if (pmodem != NULL) {
       PStringToString request;
@@ -466,13 +467,6 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler() const
 
   PAssert(pmodem != NULL, "pmodem is NULL");
 
-  /*
-  OpalT38Protocol * t38 = new T38Engine();
-  pmodem->Attach((T38Engine *)t38);
-
-  return t38;
-  */
-
   PWaitAndSignal mutexWait(T38Mutex);
   /*
    * we can't have more then one t38handler per connection
@@ -486,35 +480,7 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler() const
   }
   return t38handler;
 }
-/*
-H323TransportUDP * MyH323Connection::GetT38TransportUDP()
-{
-  PWaitAndSignal mutexWait(T38Mutex);
-  if( T38TransportUDP == NULL ) {
-      PIPSocket::Address ip;
-      WORD port;
-      if (!GetControlChannel().GetLocalAddress().GetIpAndPort(ip, port)) {
-        PTRACE(2, "H323T38\tTrying to use UDP when base transport is not TCP/IP");
-        PIPSocket::GetHostAddress(ip);
-      }
-    
-      for( WORD localDataPort = 5000 ; localDataPort < 6000 ; localDataPort += 2 ) {
-        T38TransportUDP = new H323TransportUDP(GetEndPoint(), ip, localDataPort);
-        if( T38TransportUDP->IsOpen() ) {
-          break;
-        }
-        myPTRACE(2, "myH323_T38Channel::CreateTransport transport=" << T38TransportUDP->GetLocalAddress() <<
-            " Error: " << T38TransportUDP->GetErrorText());
-            delete T38TransportUDP;
-        T38TransportUDP = NULL;
-      }
-    myPTRACE(2, "myH323_T38Channel::CreateTransport transport=" << T38TransportUDP->GetLocalAddress());
-    //  transportControl = new H323TransportUDP(connection.GetEndPoint(), ip, 0);  // ?????
-    //  myPTRACE(2, "myH323_T38Channel::CreateTransport transportControl=" << transportControl->GetLocalAddress());
-  }
-  return T38TransportUDP;
-}
-*/
+
 H323Connection::AnswerCallResponse
      MyH323Connection::OnAnswerCall(const PString & caller,
                                     const H323SignalPDU & setupPDU,

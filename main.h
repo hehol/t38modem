@@ -22,8 +22,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: main.h,v $
- * Revision 1.4  2002-01-10 06:10:02  craigs
- * Added MPL header
+ * Revision 1.5  2002-02-12 11:25:29  vfrolov
+ * Removed obsoleted code
+ *
+ * Revision 1.5  2002/02/12 11:25:29  vfrolov
+ * Removed obsoleted code
  *
  * Revision 1.4  2002/01/10 06:10:02  craigs
  * Added MPL header
@@ -36,7 +39,6 @@
 #define _PM_MAIN_H
 
 #include <h323.h>
-#include <h323pdu.h>
 #include <lid.h>
 #include "pmutils.h"
 
@@ -99,8 +101,6 @@ class MyH323Connection : public H323Connection
     MyH323Connection(MyH323EndPoint &, unsigned);
     ~MyH323Connection();
 
-    //OpalT38Protocol * GetT38ProtocolHandler();
-    //H323TransportUDP * GetT38TransportUDP();
     BOOL Attach(PseudoModem *_pmodem);
 
     // overrides from H323Connection
@@ -114,12 +114,10 @@ class MyH323Connection : public H323Connection
 
   protected:
     const MyH323EndPoint & ep;
-    PString e164Number;
     
-    OpalT38Protocol *t38handler;
-    H323TransportUDP *T38TransportUDP;
-    PMutex T38Mutex;
     PseudoModem *pmodem;
+    OpalT38Protocol *t38handler;
+    PMutex T38Mutex;
     
     PMutex  connMutex;
 
