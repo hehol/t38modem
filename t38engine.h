@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.17  2004-03-01 17:10:39  vfrolov
- * Fixed duplicated mutexes
- * Added volatile to T38Mode
+ * Revision 1.18  2004-06-18 15:06:29  vfrolov
+ * Fixed race condition by adding mutex for modemCallback
+ *
+ * Revision 1.18  2004/06/18 15:06:29  vfrolov
+ * Fixed race condition by adding mutex for modemCallback
  *
  * Revision 1.17  2004/03/01 17:10:39  vfrolov
  * Fixed duplicated mutexes
@@ -158,7 +160,6 @@ class T38Engine : public OpalT38Protocol
   /**@name Operations */
   //@{
     void CleanUpOnTermination();
-    void SetT38Mode(BOOL mode = TRUE);
     void SetRedundancy(
       int indication,
       int low_speed,
@@ -237,7 +238,7 @@ class T38Engine : public OpalT38Protocol
     BOOL WaitOutDataReady(const PTimeInterval & timeout) {
       return outDataReadySyncPoint.Wait(timeout);
     }
-    
+
     BOOL IsT38Mode() const { return T38Mode; }
     void ModemCallbackWithUnlock(INT extra);
     void _ResetModemState();
@@ -275,7 +276,8 @@ class T38Engine : public OpalT38Protocol
     PMutex MutexOut;
     PMutex MutexIn;
     PMutex MutexModem;
-    
+    PMutex MutexModemCallback;
+
     const PString name;
 };
 ///////////////////////////////////////////////////////////////

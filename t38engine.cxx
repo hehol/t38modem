@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.28  2004-03-01 17:10:32  vfrolov
- * Fixed duplicated mutexes
- * Added volatile to T38Mode
+ * Revision 1.29  2004-06-18 15:06:29  vfrolov
+ * Fixed race condition by adding mutex for modemCallback
+ *
+ * Revision 1.29  2004/06/18 15:06:29  vfrolov
+ * Fixed race condition by adding mutex for modemCallback
  *
  * Revision 1.28  2004/03/01 17:10:32  vfrolov
  * Fixed duplicated mutexes
@@ -439,6 +441,7 @@ BOOL T38Engine::Attach(const PNotifier &callback)
 {
   PTRACE(1, name << " T38Engine::Attach");
   PWaitAndSignal mutexWaitModem(MutexModem);
+  PWaitAndSignal mutexWaitModemCallback(MutexModemCallback);
   PWaitAndSignal mutexWait(Mutex);
   if( !modemCallback.IsNULL() ) {
     myPTRACE(1, name << " T38Engine::Attach !modemCallback.IsNULL()");
@@ -451,8 +454,9 @@ BOOL T38Engine::Attach(const PNotifier &callback)
 
 void T38Engine::Detach(const PNotifier &callback)
 {
-  PWaitAndSignal mutexWaitModem(MutexModem);
   PTRACE(1, name << " T38Engine::Detach");
+  PWaitAndSignal mutexWaitModem(MutexModem);
+  PWaitAndSignal mutexWaitModemCallback(MutexModemCallback);
   PWaitAndSignal mutexWait(Mutex);
   if( modemCallback == callback ) {
     modemCallback = NULL;
@@ -769,30 +773,24 @@ done:
 //
 void T38Engine::ModemCallbackWithUnlock(INT extra)
 {
-  PNotifier callback = modemCallback;
-  
-  if (!callback.IsNULL()) {
-    Mutex.Signal();
-    callback(*this, extra);
-    Mutex.Wait();
+  Mutex.Signal();
+  {
+    PWaitAndSignal mutexWaitModemCallback(MutexModemCallback);
+    if (!modemCallback.IsNULL())
+      modemCallback(*this, extra);
   }
+  Mutex.Wait();
 }
 
 void T38Engine::CleanUpOnTermination()
 {
   myPTRACE(1, name << " T38Engine::CleanUpOnTermination");
   OpalT38Protocol::CleanUpOnTermination();
-  SetT38Mode(FALSE);
-}
 
-void T38Engine::SetT38Mode(BOOL mode)
-{
   PWaitAndSignal mutexWait(Mutex);
-  T38Mode = mode;
-  myPTRACE(1, name << " T38Engine::SetT38Mode T38Mode=" << (T38Mode ? "TRUE" : "FALSE"));
+  T38Mode = FALSE;
   SignalOutDataReady();
-  if (!T38Mode)
-    ModemCallbackWithUnlock(cbpReset);
+  ModemCallbackWithUnlock(cbpReset);
 }
 
 void T38Engine::ResetModemState() {
