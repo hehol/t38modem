@@ -24,9 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.12  2002-05-07 10:36:16  vfrolov
- * Added more code for case stResetHandle
- * Changed duration of CED (T.30 requires 2.6...4.0 secs)
+ * Revision 1.13  2002-05-15 16:10:52  vfrolov
+ * Reimplemented AT+FTS and AT+FRS
+ * Added workaround "Reset state stSendAckWait"
+ *
+ * Revision 1.13  2002/05/15 16:10:52  vfrolov
+ * Reimplemented AT+FTS and AT+FRS
+ * Added workaround "Reset state stSendAckWait"
  *
  * Revision 1.12  2002/05/07 10:36:16  vfrolov
  * Added more code for case stResetHandle
@@ -726,9 +730,19 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
             {
               int dms = ParseNum(ppCmd);
               if( dms >= 0 ) {
-                // TODO
-                PThread::Sleep(dms*10);
-                resp += "\r\nOK\r\n";
+                PWaitAndSignal mutexWait(Mutex);
+                dataType = dt;
+                state = stSend;
+                if (t38engine && t38engine->SendStart(dataType, dms*10)) {
+                  state = stSendAckWait;
+                  if (!t38engine->SendStop(FALSE, NextSeq())) {
+                    state = stCommand;
+                    return FALSE;
+                  }
+                } else {
+                  state = stCommand;
+                  return FALSE;
+                }
               } else {
                 return FALSE;
               }
@@ -1395,6 +1409,16 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             }
           }
           break;
+        case stSendAckWait:
+          myPTRACE(1, "Reset state stSendAckWait");
+          {
+            PWaitAndSignal mutexWait(Mutex);
+            state = stCommand;
+            timeout.Stop();
+            if (t38engine)
+              t38engine->ResetModemState();
+          }
+          break;
         default:
           myPTRACE(1, "Reset state " << state);
           if( Echo() )
@@ -1584,6 +1608,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         case T38Engine::dtCed:
           if( !SendStart(T38Engine::dtHdlc, 3, resp) )
             resp += "\r\nERROR\r\n";
+          break;
+        case T38Engine::dtSilence:
+            resp += "\r\nOK\r\n";
+            state = stCommand;
           break;
         case T38Engine::dtHdlc:
         case T38Engine::dtRaw:
