@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2003 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.8  2003-12-04 12:10:16  vfrolov
- * Tuned max delay for buffer full condition
+ * Revision 1.9  2004-03-01 17:18:46  vfrolov
+ * Increased MAX_qBUF
+ *
+ * Revision 1.9  2004/03/01 17:18:46  vfrolov
+ * Increased MAX_qBUF
  *
  * Revision 1.8  2003/12/04 12:10:16  vfrolov
  * Tuned max delay for buffer full condition
@@ -123,8 +126,8 @@ void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, BOOL OutQ)
   PBYTEArrayQ &PtyQ = OutQ ? outPtyQ : inPtyQ;
   
   for( int delay = 10 ;; delay *= 2 ) {
-    static const PINDEX MAX_qBUF = 1024;
-    static const int MAX_delay = (MAX_qBUF*8*1000)/14400;
+    static const PINDEX MAX_qBUF = 1024*2;
+    static const int MAX_delay = ((MAX_qBUF/2)*8*1000)/14400;
     PINDEX busy = PtyQ.GetCount();
 
     if( busy < MAX_qBUF ) {
