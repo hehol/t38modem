@@ -383,6 +383,7 @@ void MyH323EndPoint::OnConnectionEstablished(H323Connection & /*connection*/,
 MyH323Connection::MyH323Connection(MyH323EndPoint & _ep, unsigned callReference)
   : H323Connection(_ep, callReference
     , TRUE // disable FastStart (there are problems for FastStart & AnswerCallPending)
+    , FALSE
     ), ep(_ep),
     t38handler(NULL), T38TransportUDP(NULL), pmodem(NULL),
     audioWrite(NULL), audioRead(NULL)
@@ -576,7 +577,8 @@ void MyH323Connection::OnClosedLogicalChannel(const H323Channel & channel)
 
 BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize */, H323AudioCodec & codec)
 {
-  codec.SetSilenceDetectionMode(H323AudioCodec::NoSilenceDetection);
+  //codec.SetSilenceDetectionMode(H323AudioCodec::NoSilenceDetection);
+  
   PStringStream codecName;
   codecName << codec;
   
