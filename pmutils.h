@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.3  2002-02-11 08:35:12  vfrolov
- * myPTRACE() outputs trace to cout only if defined COUT_TRACE
+ * Revision 1.4  2002-03-01 08:17:28  vfrolov
+ * Added Copyright header
+ * Removed virtual modifiers
+ *
+ * Revision 1.4  2002/03/01 08:17:28  vfrolov
+ * Added Copyright header
+ * Removed virtual modifiers
  *
  * Revision 1.3  2002/02/11 08:35:12  vfrolov
  * myPTRACE() outputs trace to cout only if defined COUT_TRACE
@@ -53,7 +60,7 @@ class ModemThread : public PThread
   
   /**@name Operations */
   //@{
-    virtual void SignalDataReady() { dataReadySyncPoint.Signal(); }
+    void SignalDataReady() { dataReadySyncPoint.Signal(); }
     virtual void SignalChildStop() {
       childstop = TRUE;
       SignalDataReady();
@@ -66,7 +73,7 @@ class ModemThread : public PThread
 
   protected:
     virtual void Main() = 0;
-    virtual void WaitDataReady() { dataReadySyncPoint.Wait(); }
+    void WaitDataReady() { dataReadySyncPoint.Wait(); }
     
     volatile BOOL stop;		// *this was requested to stop
     volatile BOOL childstop;	// there is a child that was requested to stop
