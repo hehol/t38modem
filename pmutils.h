@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.11  2004-03-09 17:23:19  vfrolov
- * Added PROCESS_PER_THREAD ifdef
+ * Revision 1.12  2004-07-07 07:53:58  vfrolov
+ * Moved ptlib.h including to *.cxx for precompiling
+ * Fixed compiler warning
+ *
+ * Revision 1.12  2004/07/07 07:53:58  vfrolov
+ * Moved ptlib.h including to *.cxx for precompiling
+ * Fixed compiler warning
  *
  * Revision 1.11  2004/03/09 17:23:19  vfrolov
  * Added PROCESS_PER_THREAD ifdef
@@ -72,8 +77,6 @@
 
 #ifndef _PMUTILS_H
 #define _PMUTILS_H
-
-#include <ptlib.h>
 
 ///////////////////////////////////////////////////////////////
 class ModemThread : public PThread
@@ -254,7 +257,9 @@ extern void RenameCurrentThread(const PString &newname);
 #ifdef PROCESS_PER_THREAD
 extern const PString GetThreadTimes(const char *head = "", const char *tail = "");
 #else
-inline const PString GetThreadTimes(const char *head = "", const char *tail = "")
+inline const PString GetThreadTimes(const char *head = "", const char *tail = "");
+
+inline const PString GetThreadTimes(const char *, const char *)
 {
   return "";
 }
