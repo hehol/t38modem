@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: dle.cxx,v $
- * Revision 1.6  2004-07-06 16:07:24  vfrolov
- * Included ptlib.h for precompiling
+ * Revision 1.7  2004-10-22 13:34:20  vfrolov
+ * Fixed buffer overflow
+ *
+ * Revision 1.7  2004/10/22 13:34:20  vfrolov
+ * Fixed buffer overflow
  *
  * Revision 1.6  2004/07/06 16:07:24  vfrolov
  * Included ptlib.h for precompiling
@@ -143,17 +146,19 @@ int DLEData::PutDleData(const void *pBuf, PINDEX count)
 
 int DLEData::GetDleData(void *pBuf, PINDEX count)
 {
-  if( recvEtx ) return -1;
+  if (recvEtx)
+    return -1;
 
   BYTE *p = (BYTE *)pBuf;
-  
-  while( (count - (p - (BYTE *)pBuf)) >= 4 ) {
-    PINDEX cGet = (count - 2) / 2;
-    if( cGet > 1024 )
-      cGet = 1024;
-    
+  PINDEX done;
+
+  for (done = 0 ; (count - done) >= 4 ; done = p - (BYTE *)pBuf ) {
+    PINDEX cGet = (count - done - 2) / 2;
     BYTE tmp[1024];
-    
+
+    if (cGet > sizeof(tmp))
+      cGet = sizeof(tmp);
+
     switch( cGet = GetData(tmp, cGet) ) {
       case -1:
         *p++ = DLE;
@@ -171,7 +176,7 @@ int DLEData::GetDleData(void *pBuf, PINDEX count)
         }
     }
   }
-  return p - (BYTE *)pBuf;
+  return done;
 }
 ///////////////////////////////////////////////////////////////
 
