@@ -1,14 +1,32 @@
 /*
- * $Id: t38engine.h,v 1.4 2002-01-06 03:48:45 craigs Exp $
+ * t38engine.h
  *
  * T38FAX Pseudo Modem
  *
- * Original author: Vyacheslav Frolov
+ * Open H323 Project
+ *
+ * The contents of this file are subject to the Mozilla Public License
+ * Version 1.0 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+ * the License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * The Original Code is Open H323 Library.
+ *
+ * The Initial Developer of the Original Code is Vyacheslav Frolov
+ *
+ * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.4  2002-01-06 03:48:45  craigs
- * Added changes to support efax 0.9
- * Thanks to Vyacheslav Frolov
+ * Revision 1.5  2002-01-10 06:10:03  craigs
+ * Added MPL header
+ *
+ * Revision 1.5  2002/01/10 06:10:03  craigs
+ * Added MPL header
  *
  * Revision 1.4  2002/01/06 03:48:45  craigs
  * Added changes to support efax 0.9
