@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.9  2002-05-15 16:17:34  vfrolov
- * Implemented per modem routing for I/C calls
+ * Revision 1.10  2002-05-16 00:11:02  robertj
+ * Changed t38 handler creation function for new API
+ *
+ * Revision 1.10  2002/05/16 00:11:02  robertj
+ * Changed t38 handler creation function for new API
  *
  * Revision 1.9  2002/05/15 16:17:34  vfrolov
  * Implemented per modem routing for I/C calls
@@ -124,19 +127,16 @@ class MyH323Connection : public H323Connection
     BOOL OnStartLogicalChannel(H323Channel & channel);
     void OnClosedLogicalChannel(const H323Channel & channel);
 
-    OpalT38Protocol * CreateT38ProtocolHandler() const;
+    OpalT38Protocol * CreateT38ProtocolHandler();
     BOOL OpenAudioChannel(BOOL, unsigned, H323AudioCodec & codec);
 
   protected:
     const MyH323EndPoint & ep;
     
-    PseudoModem *pmodem;
-    OpalT38Protocol *t38handler;
-    
-    PMutex  connMutex;
-
-    AudioWrite * audioWrite;
-    AudioRead * audioRead;
+    PMutex        connMutex;
+    PseudoModem * pmodem;
+    AudioWrite  * audioWrite;
+    AudioRead   * audioRead;
 };
 
 ///////////////////////////////////////////////////////////////

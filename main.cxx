@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.23  2002-05-15 16:17:29  vfrolov
- * Implemented per modem routing for I/C calls
+ * Revision 1.24  2002-05-16 00:11:02  robertj
+ * Changed t38 handler creation function for new API
+ *
+ * Revision 1.24  2002/05/16 00:11:02  robertj
+ * Changed t38 handler creation function for new API
  *
  * Revision 1.23  2002/05/15 16:17:29  vfrolov
  * Implemented per modem routing for I/C calls
@@ -454,7 +457,7 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
 
 MyH323Connection::MyH323Connection(MyH323EndPoint & _ep, unsigned callReference)
   : H323Connection(_ep, callReference), ep(_ep),
-    pmodem(NULL), t38handler(NULL),
+    pmodem(NULL),
     audioWrite(NULL), audioRead(NULL)
 {
 }
@@ -463,23 +466,20 @@ MyH323Connection::~MyH323Connection()
 {
   cout << "Closing connection" << endl;
 
-  if (t38handler != NULL) {
-    if (pmodem != NULL) {
+  if (pmodem != NULL) {
+    if (t38handler != NULL) {
       PAssert(t38handler->IsDescendant(T38Engine::Class()), PInvalidCast);
       pmodem->Detach((T38Engine *)t38handler);
     }
-    delete t38handler;
-  }
 
-  if (pmodem != NULL) {
-      PStringToString request;
-      request.SetAt("command", "clearcall");
-      request.SetAt("calltoken", GetCallToken());
-      if( !pmodem->Request(request) ) {
-        myPTRACE(1, "MyH323Connection::~MyH323Connection error request={\n" << request << "}");
-      }
-    
-      ep.PMFree(pmodem);
+    PStringToString request;
+    request.SetAt("command", "clearcall");
+    request.SetAt("calltoken", GetCallToken());
+    if( !pmodem->Request(request) ) {
+      myPTRACE(1, "MyH323Connection::~MyH323Connection error request={\n" << request << "}");
+    }
+
+    ep.PMFree(pmodem);
   }
 
   if (audioWrite != NULL)
@@ -510,7 +510,7 @@ BOOL MyH323Connection::Attach(PseudoModem *_pmodem)
   return TRUE;
 }
 
-OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler() const
+OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler()
 {
   PTRACE(2, "MyH323Connection::CreateT38ProtocolHandler");
 
@@ -523,8 +523,7 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler() const
    */
   if( t38handler == NULL ) {
     PTRACE(2, "MyH323Connection::CreateT38ProtocolHandler create new one");
-    ((MyH323Connection *)this)->	// workaround for const
-      t38handler = new T38Engine(pmodem->ptyName());
+    t38handler = new T38Engine(pmodem->ptyName());
     pmodem->Attach((T38Engine *)t38handler);
   }
   return t38handler;
