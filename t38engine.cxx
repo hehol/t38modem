@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.13  2002-05-15 16:05:17  vfrolov
- * Changed algorithm of handling isCarrierIn
- * Removed delay after sending dtSilence
+ * Revision 1.14  2002-05-22 12:01:45  vfrolov
+ * Implemented redundancy error protection scheme
+ *
+ * Revision 1.14  2002/05/22 12:01:45  vfrolov
+ * Implemented redundancy error protection scheme
  *
  * Revision 1.13  2002/05/15 16:05:17  vfrolov
  * Changed algorithm of handling isCarrierIn
@@ -73,6 +75,7 @@
 
 #include "t38engine.h"
 #include "t38.h"
+#include "transports.h"
 
 #define new PNEW
 
@@ -80,7 +83,13 @@
 #define T38D(msg_data) T38_Type_of_msg_data::msg_data
 #define T38F(field_type) T38_Data_Field_subtype_field_type::field_type
 #define msPerOut 30
+#define msTimeout ((msPerOut) * 3)
 
+#ifdef P_LINUX
+  #define mySleep(ms) usleep((ms) * 1000L)
+#else
+  #define mySleep(ms) PThread::Sleep(ms)
+#endif
 ///////////////////////////////////////////////////////////////
 enum StateOut {
   stOutIdle,
@@ -299,36 +308,17 @@ T38Engine::T38Engine(const PString &_name)
   stateModem = stmIdle;
   stateOut = stOutNoSig;
   onIdleOut = dtNone;
+  delayRestOut = 0;
   
   modStreamIn = NULL;
   modStreamInSaved = NULL;
   
+  in_redundancy = 0;
+  ls_redundancy = 0;
+  hs_redundancy = 0;
+  
   T38Mode = TRUE;
   isCarrierIn = 0;
-}
-
-BOOL T38Engine::Originate()
-{
-  if (!name.IsEmpty()) {
-    PString old = PThread::Current()->GetThreadName();
-    PThread::Current()->SetThreadName(name + "(tx):%0x");
-    PTRACE(2, name << " T38Engine::Originate old ThreadName=" << old);
-  }
-  BOOL res = OpalT38Protocol::Originate();
-  PTRACE(2, name << " T38Engine::Originate end");
-  return res;
-}
-
-BOOL T38Engine::Answer()
-{
-  if( !name.IsEmpty() ) {
-    PString old = PThread::Current()->GetThreadName();
-    PThread::Current()->SetThreadName(name + "(rx):%0x");
-    PTRACE(2, name << " T38Engine::Answer old ThreadName=" << old);
-  }
-  BOOL res = OpalT38Protocol::Answer();
-  PTRACE(2, name << " T38Engine::Answer end");
-  return res;
 }
 
 T38Engine::~T38Engine()
@@ -374,6 +364,312 @@ void T38Engine::Detach(const PNotifier &callback)
   } else {
     myPTRACE(1, name << " T38Engine::Detach modemCallback != callback");
   }
+}
+///////////////////////////////////////////////////////////////
+void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
+  if (indication >= 0)
+    in_redundancy = indication;
+  if (low_speed >= 0)
+    ls_redundancy = low_speed;
+  if (high_speed >= 0)
+    hs_redundancy = high_speed;
+
+  myPTRACE(3, name << " T38Engine::SetRedundancy indication=" << in_redundancy
+                                            << " low_speed=" << ls_redundancy
+                                            << " high_speed=" << hs_redundancy);
+}
+
+BOOL T38Engine::Originate()
+{
+  if (!name.IsEmpty()) {
+    PString old = PThread::Current()->GetThreadName();
+    PThread::Current()->SetThreadName(name + "(tx):%0x");
+    PTRACE(2, name << " T38Engine::Originate old ThreadName=" << old);
+  }
+  
+  PTRACE(3, "T38\tOriginate, transport=" << *transport);
+
+  long seq = -1;
+  int maxRedundancy = 0;
+  int repeated = 0;
+
+  T38_UDPTLPacket udptl;
+  udptl.m_error_recovery.SetTag(T38_UDPTLPacket_error_recovery::e_secondary_ifp_packets);
+
+  for (;;) {
+    T38_IFPPacket ifp;
+
+    int res = PreparePacket(ifp, maxRedundancy > 0);
+
+    if (res > 0) {
+      T38_UDPTLPacket_error_recovery &recovery = udptl.m_error_recovery;
+      if (recovery.GetTag() == T38_UDPTLPacket_error_recovery::e_secondary_ifp_packets) {
+        T38_UDPTLPacket_error_recovery_secondary_ifp_packets &secondary = recovery;
+        int nRedundancy = secondary.GetSize() + 1;
+        if (nRedundancy > maxRedundancy)
+          nRedundancy = maxRedundancy;
+        if (nRedundancy < 0)
+          nRedundancy = 0;
+        secondary.SetSize(nRedundancy);
+    
+        if (nRedundancy > 0) {
+          for (int i = nRedundancy - 1 ; i > 0 ; i--) {
+            secondary[i] = secondary[i - 1];
+          }
+          secondary[0].SetValue(udptl.m_primary_ifp_packet.GetValue());
+        }
+      }
+      else
+        if (maxRedundancy > 0) {
+          PTRACE(4, "T38\tNot implemented yet " << recovery.GetTagName());
+        }
+
+      udptl.m_seq_number = ++seq & 0xFFFF;
+      udptl.m_primary_ifp_packet.EncodeSubType(ifp);
+
+      /*
+       * Calculate maxRedundancy for current ifp packet
+       */
+      maxRedundancy = hs_redundancy;
+  
+      switch( ifp.m_type_of_msg.GetTag() ) {
+        case T38_Type_of_msg::e_t30_indicator:
+          maxRedundancy = in_redundancy;
+          break;
+        case T38_Type_of_msg::e_data:
+          switch( (const T38_Type_of_msg_data &)ifp.m_type_of_msg ) {
+            case T38D(e_v21):
+              maxRedundancy = ls_redundancy;
+              break;
+          }
+          break;
+      }
+
+#if 0
+      // recovery test
+      if (seq % 2)
+        continue;
+#endif
+    }
+    else if (res < 0) {
+      if (maxRedundancy <= 0)
+        continue;
+      maxRedundancy--;
+#if 1
+      /*
+       * Optimise repeated packet each time
+       */
+      T38_UDPTLPacket_error_recovery &recovery = udptl.m_error_recovery;
+      if (recovery.GetTag() == T38_UDPTLPacket_error_recovery::e_secondary_ifp_packets) {
+        T38_UDPTLPacket_error_recovery_secondary_ifp_packets &secondary = recovery;
+        int nRedundancy = secondary.GetSize();
+        if (nRedundancy > maxRedundancy)
+          nRedundancy = maxRedundancy;
+        if (nRedundancy < 0)
+          nRedundancy = 0;
+        secondary.SetSize(nRedundancy);
+      }
+      else {
+        PTRACE(4, "T38\tNot implemented yet " << recovery.GetTagName());
+        continue;
+      }
+#endif
+      repeated++;
+    }
+    else
+      break;
+
+    PPER_Stream rawData;
+    udptl.Encode(rawData);
+
+#if PTRACING
+    if (PTrace::CanTrace(4)) {
+      PTRACE(4, "T38\tSending PDU:\n  ifp = "
+             << setprecision(2) << ifp << "\n  UDPTL = "
+             << setprecision(2) << udptl << "\n  "
+             << setprecision(2) << rawData);
+    }
+    else {
+      PTRACE(3, "T38\tSending PDU:"
+                " seq=" << seq <<
+                " type=" << ifp.m_type_of_msg.GetTagName());
+    }
+#endif
+
+    if (!transport->WritePDU(rawData)) {
+      PTRACE(1, "T38\tOriginate - WritePDU ERROR: " << transport->GetErrorText());
+      break;
+    }
+  }
+
+  PTRACE(2, "T38\tSend statistics: sequence=" << seq
+      << " repeated=" << repeated);
+
+  return FALSE;
+}
+
+BOOL T38Engine::Answer()
+{
+  if( !name.IsEmpty() ) {
+    PString old = PThread::Current()->GetThreadName();
+    PThread::Current()->SetThreadName(name + "(rx):%0x");
+    PTRACE(2, name << " T38Engine::Answer old ThreadName=" << old);
+  }
+  
+  PTRACE(3, "T38\tAnswer, transport=" << *transport);
+
+  /* HACK HACK HACK -- need to figure out how to get the remote address
+   * properly here */
+  transport->SetPromiscuous(TRUE);
+
+  int consecutiveBadPackets = 0;
+  long expectedSequenceNumber = 0;
+  int totalrecovered = 0;
+  int totallost = 0;
+  int repeated = 0;
+
+  for (;;) {
+    PPER_Stream rawData;
+    if (!transport->ReadPDU(rawData)) {
+      PTRACE(1, "T38\tError reading PDU: " << transport->GetErrorText(PChannel::LastReadError));
+      break;
+    }
+
+    /* when we get the first packet, set the RemoteAddress and then turn off
+     * promiscuous listening */
+    if (expectedSequenceNumber == 0) {
+      PTRACE(3, "T38\tReceived first packet, remote=" << transport->GetRemoteAddress());
+      transport->SetPromiscuous(FALSE);
+    }
+
+    T38_UDPTLPacket udptl;
+    if (udptl.Decode(rawData))
+      consecutiveBadPackets = 0;
+    else {
+      consecutiveBadPackets++;
+      PTRACE(2, "T38\tRaw data decode failure:\n  "
+             << setprecision(2) << rawData << "\n  UDPTL = "
+             << setprecision(2) << udptl);
+      if (consecutiveBadPackets > 3) {
+        PTRACE(1, "T38\tRaw data decode failed multiple times, aborting!");
+        break;
+      }
+      continue;
+    }
+
+    long receivedSequenceNumber = (udptl.m_seq_number & 0xFFFF) + (expectedSequenceNumber & ~0xFFFFL);
+    long lost = receivedSequenceNumber - expectedSequenceNumber;
+    
+    if (lost < -0x10000L/2) {
+      lost += 0x10000L;
+      receivedSequenceNumber += 0x10000L;
+    }
+    else if (lost > 0x10000L/2) {
+      lost -= 0x10000L;
+      receivedSequenceNumber -= 0x10000L;
+    }
+    
+#if PTRACING
+    if (PTrace::CanTrace(4)) {
+      PTRACE(4, "T38\tReceived PDU:\n  "
+             << setprecision(2) << rawData << "\n  UDPTL = "
+             << setprecision(2) << udptl);
+    }
+#endif
+
+    T38_IFPPacket ifp;
+
+    if (lost < 0) {
+      PTRACE(3, "T38\tRepeated packet");
+      repeated++;
+      continue;
+    }
+    else if(lost > 0) {
+      const T38_UDPTLPacket_error_recovery &recovery = udptl.m_error_recovery;
+      if (recovery.GetTag() == T38_UDPTLPacket_error_recovery::e_secondary_ifp_packets) {
+        const T38_UDPTLPacket_error_recovery_secondary_ifp_packets &secondary = recovery;
+        int nRedundancy = secondary.GetSize();
+        if (lost > nRedundancy) {
+          if (!HandlePacketLost(lost - nRedundancy))
+            break;
+          totallost += lost - nRedundancy;
+          lost = nRedundancy;
+        }
+        else
+          nRedundancy = lost;
+
+        receivedSequenceNumber -= lost;
+        
+        for (int i = nRedundancy - 1 ; i >= 0 ; i--) {
+          if (!secondary[i].DecodeSubType(ifp)) {
+            PTRACE(2, "T38\tUDPTLPacket decode failure:\n  "
+                   << setprecision(2) << rawData << "\n  UDPTL = "
+                   << setprecision(2) << udptl);
+            break;
+          }
+          PTRACE(2, "T38\tReceived recovery ifp seq=" << receivedSequenceNumber << "\n  "
+                 << setprecision(2) << ifp);
+                 
+          if (!HandlePacket(ifp))
+            goto done;
+            
+          ifp = T38_IFPPacket();
+            
+          totalrecovered++;
+          lost--;
+          receivedSequenceNumber++;
+        }
+        receivedSequenceNumber += lost;
+      }
+      else {
+        PTRACE(4, "T38\tNot implemented yet " << recovery.GetTagName());
+      }
+
+      if (lost) {
+        if (!HandlePacketLost(lost))
+          break;
+        totallost += lost;
+      } 
+    }
+
+    if (!udptl.m_primary_ifp_packet.DecodeSubType(ifp)) {
+      PTRACE(2, "T38\tUDPTLPacket decode failure:\n  "
+             << setprecision(2) << rawData << "\n  UDPTL = "
+             << setprecision(2) << udptl);
+      continue;
+    }
+
+#if 0
+    // recovery test
+    expectedSequenceNumber = receivedSequenceNumber;
+    continue;
+#endif
+
+#if PTRACING
+    if (PTrace::CanTrace(4)) {
+      PTRACE(4, "T38\tReceived ifp seq=" << receivedSequenceNumber << "\n  "
+             << setprecision(2) << ifp);
+    }
+    else {
+      PTRACE(3, "T38\tReceived PDU:"
+                " seq=" << receivedSequenceNumber <<
+                " type=" << ifp.m_type_of_msg.GetTagName());
+    }
+#endif
+
+    if (!HandlePacket(ifp))
+      break;
+
+    expectedSequenceNumber = receivedSequenceNumber + 1;
+  }
+
+done:
+
+  PTRACE(2, "T38\tReceive statistics: sequence=" << expectedSequenceNumber
+      << " repeated=" << repeated
+      << " recovered=" << totalrecovered
+      << " lost=" << totallost);
+  return FALSE;
 }
 ///////////////////////////////////////////////////////////////
 //
@@ -662,12 +958,12 @@ BOOL T38Engine::RecvStop()
   return FALSE;
 }
 ///////////////////////////////////////////////////////////////
-BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
+int T38Engine::PreparePacket(T38_IFPPacket & ifp, BOOL enableTimeout)
 {
   PWaitAndSignal mutexWaitOut(MutexOut);
 
   if(!IsT38Mode())
-    return FALSE;
+    return 0;
   
   //myPTRACE(1, name << " T38Engine::PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
   
@@ -679,9 +975,11 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
     BOOL redo = FALSE;
     
     if (doDalay) {
-      PTimeInterval outDelay;
-
-      switch( stateOut ) {
+      int outDelay;
+      
+      if (delayRestOut > 0)
+        outDelay = delayRestOut;
+      else switch( stateOut ) {
         case stOutIdle:			outDelay = msPerOut; break;
 
         case stOutCedWait:		outDelay = ModParsOut.lenInd; break;
@@ -689,7 +987,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
         case stOutIndWait:		outDelay = ModParsOut.lenInd; break;
 
         case stOutData:
-          outDelay = PTimeInterval((countOut*8*1000)/ModParsOut.br + msPerOut) - (PTime() - timeBeginOut);
+          outDelay = (countOut*8*1000)/ModParsOut.br + msPerOut - (PTime() - timeBeginOut).GetMilliSeconds();
           break;
 
         case stOutHdlcFcs:		outDelay = msPerOut; break;
@@ -703,17 +1001,23 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
 
       //myPTRACE(1, name << " T38Engine::PreparePacket outDelay=" << outDelay);
 
-      if( outDelay > 0 )
-      #ifdef P_LINUX
-        usleep(outDelay.GetMilliSeconds() * 1000);
-      #else
-        PThread::Sleep(outDelay);
-      #endif
+      if (outDelay > 0) {
+        if (outDelay > msTimeout) {
+          delayRestOut = outDelay - msTimeout;
+          outDelay = msTimeout;
+          mySleep(outDelay);
+          return -1;
+        }
+        else
+          mySleep(outDelay);
+      }
     } else
       doDalay = TRUE;
+      
+    delayRestOut = 0;
 
     if (!IsT38Mode())
-      return FALSE;
+      return 0;
 
     for(;;) {
       BOOL waitData = FALSE;
@@ -770,7 +1074,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
                   break;
                 default:
                   myPTRACE(1, name << " T38Engine::PreparePacket bad dataType=" << ModParsOut.dataType);
-                  return FALSE;
+                  return 0;
               }
               break;
             ////////////////////////////////////////////////////
@@ -816,7 +1120,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
                         break;
                       default:
                         myPTRACE(1, name << " T38Engine::PreparePacket stOutData bad dataType=" << ModParsOut.dataType);
-                        return FALSE;
+                        return 0;
                     }
                     redo = TRUE;
                     break;
@@ -836,7 +1140,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
                         break;
                       default:
                         myPTRACE(1, name << " T38Engine::PreparePacket stOutData bad dataType=" << ModParsOut.dataType);
-                        return FALSE;
+                        return 0;
                     }
                     lastDteCharOut = b[count - 1] & 0xFF;
                     countOut += count;
@@ -847,7 +1151,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
             case stOutHdlcFcs:
               if( stateModem != stmOutNoMoreData ) {
                 myPTRACE(1, name << " T38Engine::PreparePacket stOutHdlcFcs stateModem(" << stateModem << ") != stmOutNoMoreData");
-                return FALSE;
+                return 0;
               }
               t38data(ifp, ModParsOut.msgType, T38F(e_hdlc_fcs_OK));
               if( moreFramesOut ) {
@@ -870,7 +1174,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
             case stOutDataNoSig:
               if( stateModem != stmOutNoMoreData ) {
                 myPTRACE(1, name << " T38Engine::PreparePacket stOutDataNoSig stateModem(" << stateModem << ") != stmOutNoMoreData");
-                return FALSE;
+                return 0;
               }
               switch( ModParsOut.dataType ) {
                 case dtHdlc:
@@ -881,7 +1185,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
                   break;
                 default:
                   myPTRACE(1, name << " T38Engine::PreparePacket stOutDataNoSig bad dataType=" << ModParsOut.dataType);
-                  return FALSE;
+                  return 0;
               }
               stateOut = stOutNoSig;
               stateModem = stmIdle;
@@ -894,7 +1198,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
               break;
             default:
               myPTRACE(1, name << " T38Engine::PreparePacket bad stateOut=" << stateOut);
-              return FALSE;
+              return 0;
           }
         } else {
           switch( onIdleOut ) {
@@ -912,9 +1216,13 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
       }
       if (!waitData)
         break;
-      WaitOutDataReady();
+      if (enableTimeout)
+        if (!WaitOutDataReady(msTimeout))
+          return -1;
+      else
+        WaitOutDataReady();
       if (!IsT38Mode())
-        return FALSE;
+        return 0;
 
       {
         PWaitAndSignal mutexWait(Mutex);
@@ -928,7 +1236,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
     }
     if( !redo ) break;
   }
-  return TRUE;
+  return 1;
 }
 ///////////////////////////////////////////////////////////////
 BOOL T38Engine::HandlePacketLost(unsigned nLost)

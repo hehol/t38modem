@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.10  2002-05-07 11:06:18  vfrolov
- * Discarded const from ModemCallbackWithUnlock()
+ * Revision 1.11  2002-05-22 12:01:50  vfrolov
+ * Implemented redundancy error protection scheme
+ *
+ * Revision 1.11  2002/05/22 12:01:50  vfrolov
+ * Implemented redundancy error protection scheme
  *
  * Revision 1.10  2002/05/07 11:06:18  vfrolov
  * Discarded const from ModemCallbackWithUnlock()
@@ -131,6 +134,11 @@ class T38Engine : public OpalT38Protocol
   //@{
     void CleanUpOnTermination();
     void SetT38Mode(BOOL mode = TRUE);
+    void SetRedundancy(
+      int indication,
+      int low_speed,
+      int high_speed
+    );
   //@}
   
   /**@name Modem API */
@@ -153,22 +161,25 @@ class T38Engine : public OpalT38Protocol
     
   protected:
   
-    virtual BOOL Originate();
-    virtual BOOL Answer();
+    BOOL Originate();
+    BOOL Answer();
 
     /**Prepare outgoing T.38 packet.
 
-       If returns FALSE, then the writing loop should be terminated.
+       If returns  0, then the writing loop should be terminated.
+       If returns >0, then the ifp packet is correct and should be sent.
+       If returns <0, then the ifp packet is not correct.
       */
-    virtual BOOL PreparePacket(
-      T38_IFPPacket & ifp
+    int PreparePacket(
+      T38_IFPPacket & ifp,
+      BOOL enableTimeout
     );
 
     /**Handle incoming T.38 packet.
 
        If returns FALSE, then the reading loop should be terminated.
       */
-    virtual BOOL HandlePacket(
+    BOOL HandlePacket(
       const T38_IFPPacket & ifp
     );
 
@@ -176,19 +187,27 @@ class T38Engine : public OpalT38Protocol
 
        If returns FALSE, then the reading loop should be terminated.
       */
-    virtual BOOL HandlePacketLost(
+    BOOL HandlePacketLost(
       unsigned nLost
     );
+    
+    int in_redundancy;
+    int ls_redundancy;
+    int hs_redundancy;
     
   private:
   
     void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }
     void WaitOutDataReady() { outDataReadySyncPoint.Wait(); }
+    BOOL WaitOutDataReady(const PTimeInterval & timeout) {
+      return outDataReadySyncPoint.Wait(timeout);
+    }
     
     BOOL IsT38Mode() const { return T38Mode; }
     void ModemCallbackWithUnlock(INT extra);
 
     int stateOut;
+    int delayRestOut;
     int onIdleOut;
     int callbackParamOut;
     DataStream bufOut;

@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.24  2002-05-16 00:11:02  robertj
- * Changed t38 handler creation function for new API
+ * Revision 1.25  2002-05-22 12:01:36  vfrolov
+ * Implemented redundancy error protection scheme
+ *
+ * Revision 1.25  2002/05/22 12:01:36  vfrolov
+ * Implemented redundancy error protection scheme
  *
  * Revision 1.24  2002/05/16 00:11:02  robertj
  * Changed t38 handler creation function for new API
@@ -126,6 +129,7 @@ void T38Modem::Main()
   args.Parse(
 	     "p-ptty:"
 	     "-route:"
+             "-redundancy:"
 
              "F-fastenable."
              "T-h245tunneldisable."
@@ -163,32 +167,42 @@ void T38Modem::Main()
 #endif
 
   if (args.HasOption('h')) {
-    cout << "Usage : " << GetName() << " [options]\n"
-            "Options:\n"
-            "  -p --ptty tty[,tty...]  : Pseudo ttys (mandatory). Can be used multiple times\n"
-            "                            tty ~= |" << PseudoModem::ttyPattern() << "|\n"
-            "                            Each tty can be prefixed by prefix@, In last case the tty\n"
-            "                            will accept I/C calls only for numbers that begin with prefix\n"
-            "                            Use none@tty to disable I/C calls\n"
-            "  --route prefix@host     : route number with prefix to host. Can be used multiple times\n"
-            "                            Discards prefix from number. Prefix 'all' is all numbers\n"
-	    "                            Mandatory if not using GK\n"
-            "  -i --interface ip       : Bind to a specific interface\n"
-            "  --no-listenport         : Disable listen for incoming calls\n"
-            "  --listenport port       : Listen on a specific port\n"
-            "  --connectport port      : Connect to a specific port\n"
-            "  -g --gatekeeper host    : Specify gatekeeper host.\n"
-            "  -n --no-gatekeeper      : Disable gatekeeper discovery.\n"
-            "  --require-gatekeeper    : Exit if gatekeeper discovery fails.\n"
-            "  -F --fastenable         : Enable fast start\n"
-            "  -T --h245tunneldisable  : Disable H245 tunnelling.\n"
-	    "  -G --g7231enable        : Enable G.723.1 codec, rather than G.711\n"
+    cout << 
+        "Usage : " << GetName() << " [options]\n"
+        "Options:\n"
+        "  -p --ptty [num@]tty[,...] : Pseudo ttys (mandatory).\n"
+        "                              Can be used multiple times.\n"
+        "                              The tty should match to regexp\n"
+        "                                '" << PseudoModem::ttyPattern() << "'\n"
+        "                              If tty prefixed by num@ then tty will\n"
+        "                              accept incoming calls only\n"
+        "                              for numbers with prefix num.\n"
+        "                              Use none@tty to disable incoming calls.\n"
+        "  --route prefix@host       : Route numbers with prefix num to host.\n"
+        "                              Can be used multiple times.\n"
+        "                              Discards prefix num from numbers.\n"
+        "                              Use 'all' to route all numbers.\n"
+	"                              Mandatory if not using GK.\n"
+        "  --redundancy I[L[H]]      : Set redundancy for error recovery for\n"
+	"                              (I)ndication, (L)ow speed and (H)igh\n"
+        "                              speed IFP packets.\n"
+        "                              'I', 'L' and 'H' are digits.\n"
+        "  -i --interface ip         : Bind to a specific interface.\n"
+        "  --no-listenport           : Disable listen for incoming calls.\n"
+        "  --listenport port         : Listen on a specific port.\n"
+        "  --connectport port        : Connect to a specific port.\n"
+        "  -g --gatekeeper host      : Specify gatekeeper host.\n"
+        "  -n --no-gatekeeper        : Disable gatekeeper discovery.\n"
+        "  --require-gatekeeper      : Exit if gatekeeper discovery fails.\n"
+        "  -F --fastenable           : Enable fast start.\n"
+        "  -T --h245tunneldisable    : Disable H245 tunnelling.\n"
+	"  -G --g7231enable          : Enable G.723.1 codec, rather than G.711.\n"
 #if PTRACING
-            "  -t --trace              : Enable trace, use multiple times for more detail\n"
-            "  -o --output             : File for trace output, default is stderr\n"
+        "  -t --trace                : Enable trace, use multiple times for more detail.\n"
+        "  -o --output               : File for trace output, default is stderr.\n"
 #endif
-            "     --save               : Save arguments in configuration file\n"
-            "  -h --help               : Display this help message\n";
+        "     --save                 : Save arguments in configuration file.\n"
+        "  -h --help                 : Display this help message.\n";
     return;
   }
 
@@ -260,6 +274,10 @@ MyH323EndPoint::MyH323EndPoint()
 {
   pmodemQ = new PseudoModemQ();
   //autoStartTransmitFax = TRUE;
+
+  in_redundancy = -1;
+  ls_redundancy = -1;
+  hs_redundancy = -1;
 }
 
 void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
@@ -386,6 +404,16 @@ void MyH323EndPoint::PMFree(PseudoModem *pmodem) const
     pmodemQ->Enqueue(pmodem);
 }
 
+void MyH323EndPoint::SetRedundancy(MyH323Connection &/*conn*/, OpalT38Protocol *t38handler) const
+{
+  // TODO: per host redundancy
+
+  if (t38handler != NULL) {
+    PAssert(t38handler->IsDescendant(T38Engine::Class()), PInvalidCast);
+    ((T38Engine *)t38handler)->SetRedundancy(in_redundancy, ls_redundancy, hs_redundancy);
+  }
+}
+
 BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
 {
   DisableFastStart(!args.HasOption('F'));
@@ -432,6 +460,19 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
 
       if (!pmodemQ->CreateModem(tty, r, PCREATE_NOTIFIER(OnMyCallback)))
         cout << "Can't create modem for " << tty << endl;
+    }
+  }
+  
+  if (args.HasOption("redundancy")) {
+    const char *r = args.GetOptionString("redundancy");
+    if (isdigit(r[0])) {
+      in_redundancy = r[0] - '0';
+      if (isdigit(r[1])) {
+        ls_redundancy = r[1] - '0';
+        if (isdigit(r[2])) {
+          hs_redundancy = r[2] - '0';
+        }
+      }
     }
   }
 
@@ -524,6 +565,7 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler()
   if( t38handler == NULL ) {
     PTRACE(2, "MyH323Connection::CreateT38ProtocolHandler create new one");
     t38handler = new T38Engine(pmodem->ptyName());
+    ep.SetRedundancy(*this, t38handler);
     pmodem->Attach((T38Engine *)t38handler);
   }
   return t38handler;

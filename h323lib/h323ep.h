@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.10  2002-05-16 00:11:02  robertj
- * Changed t38 handler creation function for new API
+ * Revision 1.11  2002-05-22 12:01:39  vfrolov
+ * Implemented redundancy error protection scheme
+ *
+ * Revision 1.11  2002/05/22 12:01:39  vfrolov
+ * Implemented redundancy error protection scheme
  *
  * Revision 1.10  2002/05/16 00:11:02  robertj
  * Changed t38 handler creation function for new API
@@ -82,6 +85,7 @@ class T38Modem : public PProcess
 
 class PseudoModem;
 class PseudoModemQ;
+class MyH323Connection;
 
 class MyH323EndPoint : public H323EndPoint
 {
@@ -98,11 +102,16 @@ class MyH323EndPoint : public H323EndPoint
 
     PseudoModem * PMAlloc(const PString &number) const;
     void PMFree(PseudoModem *pmodem) const;
+    void SetRedundancy(MyH323Connection &conn, OpalT38Protocol *t38handler) const;
 
   protected:
     PseudoModemQ *pmodemQ;
     PStringArray routes;
     WORD connectPort;
+
+    int in_redundancy;
+    int ls_redundancy;
+    int hs_redundancy;
 
     PDECLARE_NOTIFIER(PObject, MyH323EndPoint, OnMyCallback);
 };
