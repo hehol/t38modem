@@ -22,9 +22,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.10  2002-01-10 06:09:47  craigs
- * Changed to use RequestModeChangeT38
- * Added MPL header
+ * Revision 1.11  2002-01-10 06:16:00  craigs
+ * Added muLaw codec as well as ALaw
+ *
+ * Revision 1.11  2002/01/10 06:16:00  craigs
+ * Added muLaw codec as well as ALaw
  *
  * Revision 1.10  2002/01/10 06:09:47  craigs
  * Changed to use RequestModeChangeT38
@@ -396,7 +398,7 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
     }
   }
 
-  //SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::muLaw, H323_G711Capability::At64k));
+  SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::muLaw, H323_G711Capability::At64k));
   SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::ALaw,  H323_G711Capability::At64k));
 
   SetCapability(0, 0, new H323_T38Capability(H323_T38Capability::e_UDP));
