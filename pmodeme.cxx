@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2003 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.19  2003-12-04 16:09:51  vfrolov
- * Implemented FCS generation
- * Implemented ECM support
+ * Revision 1.20  2004-03-01 17:14:34  vfrolov
+ * Fixed binary log in command mode
+ *
+ * Revision 1.20  2004/03/01 17:14:34  vfrolov
+ * Fixed binary log in command mode
  *
  * Revision 1.19  2003/12/04 16:09:51  vfrolov
  * Implemented FCS generation
@@ -1407,10 +1409,17 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                 bresp.Concatenate(PBYTEArray((const BYTE *)"\r", 1));
         
               PString resp;
-        
-              myPTRACE(1, "--> " << " " << cmd);
+#if PTRACING
+              if (myCanTrace(1)) {
+                 if (cmd.GetLength() < 128) {
+                   myPTRACE(1, "--> " << cmd);
+                 } else {
+                   myPTRACE(1, "--> " << cmd.GetLength() << " bytes of binary");
+                 }
+              }
+#endif
               HandleCmd(cmd, resp);
-              
+
               if( resp.GetLength() ) {
                 PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
               
