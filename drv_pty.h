@@ -1,5 +1,5 @@
 /*
- * pmodeme.cxx
+ * drv_pty.h
  *
  * T38FAX Pseudo Modem
  *
@@ -23,17 +23,20 @@
  *
  * Contributor(s): Equivalence Pty ltd
  *
- * $Log: pmodeme.h,v $
- * Revision 1.4  2004-07-07 12:38:32  vfrolov
+ * $Log: drv_pty.h,v $
+ * Revision 1.1  2004-07-07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
  *
- * Revision 1.4  2004/07/07 12:38:32  vfrolov
+ * Revision 1.1  2004/07/07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
  *
- * Revision 1.3  2002/04/19 14:29:33  vfrolov
+ *
+ * Log: pty.h,v
+ *
+ * Revision 1.3  2002/04/19 14:29:37  vfrolov
  * Added Copyright header
  *
- * Revision 1.2  2002/01/10 06:10:02  craigs
+ * Revision 1.2  2002/01/10 06:10:03  craigs
  * Added MPL header
  *
  * Revision 1.1  2002/01/01 23:06:54  craigs
@@ -41,45 +44,66 @@
  *
  */
 
-#ifndef _PMODEME_H
-#define _PMODEME_H
+#ifndef _DRV_PTY_H
+#define _DRV_PTY_H
+
+#ifndef _WIN32
+  #define MODEM_DRIVER_Pty
+#endif
+
+#ifdef MODEM_DRIVER_Pty
 
 #include "pmodemi.h"
 
 ///////////////////////////////////////////////////////////////
-class ModemEngineBody;
-class PseudoModemBody;
-class T38Engine;
+class InPty;
+class OutPty;
 
-class ModemEngine : public ModemThreadChild
+class PseudoModemPty : public PseudoModemBody
 {
-    PCLASSINFO(ModemEngine, ModemThreadChild);
+    PCLASSINFO(PseudoModemPty, PseudoModemBody);
+
   public:
- 
   /**@name Construction */
   //@{
-    ModemEngine(PseudoModemBody &_parent);
-    ~ModemEngine();
+    PseudoModemPty(const PString &_tty, const PString &_route, const PNotifier &_callbackEndPoint);
+    ~PseudoModemPty();
   //@}
 
-  /**@name Operations */
+  /**@name static functions */
   //@{
-    BOOL IsReady() const;
-    BOOL Request(PStringToString &request) const;
-    BOOL Attach(T38Engine *t38engine) const;
-    void Detach(T38Engine *t38engine) const;
-    const PString &modemToken() const { return Parent().modemToken(); }
+    static BOOL CheckTty(const PString &_tty);
+    static PStringArray Description();
   //@}
 
   protected:
-    PseudoModemBody &Parent() const { return (PseudoModemBody &)parent; }
-    virtual void Main();
-    const PString &ptyName() const { return Parent().ptyName(); }
-    void ToPtyQ(const void *buf, PINDEX count) const { Parent().ToOutPtyQ(buf, count); }
-    
-    ModemEngineBody *body;
+  /**@name Overrides from class PseudoModemBody */
+  //@{
+    const PString &ttyPath() const;
+    ModemThreadChild *GetPtyNotifier();
+    BOOL StartAll();
+    void StopAll();
+    void MainLoop();
+  //@}
+
+  private:
+    BOOL OpenPty();
+    void ClosePty();
+    BOOL IsOpenPty() const { return hPty >= 0; }
+
+    int hPty;
+    InPty *inPty;
+    OutPty *outPty;
+
+    PString ptypath;
+    PString ttypath;
+
+    friend InPty;
+    friend OutPty;
 };
 ///////////////////////////////////////////////////////////////
 
-#endif  // _PMODEME_H
+#endif // MODEM_DRIVER_Pty
+
+#endif // _DRV_PTY_H
 

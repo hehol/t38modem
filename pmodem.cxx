@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.cxx,v $
- * Revision 1.6  2004-05-09 07:46:11  csoutheren
- * Updated to compile with new PIsDescendant function
+ * Revision 1.7  2004-07-07 12:38:32  vfrolov
+ * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ *
+ * Revision 1.7  2004/07/07 12:38:32  vfrolov
+ * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
  *
  * Revision 1.6  2004/05/09 07:46:11  csoutheren
  * Updated to compile with new PIsDescendant function
@@ -53,20 +56,54 @@
  */
 
 #include <ptlib.h>
-#include "pmodemi.h"
+#include "pmodem.h"
+#include "drivers.h"
 
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-PseudoModem::PseudoModem(const PString &_tty)
-{
-  valid = ttySet(_tty);
+PLIST(_PseudoModemList, PseudoModem);
 
-  if (!valid) {
-    myPTRACE(1, "PseudoModem::PseudoModem bad on " << _tty);
+class PseudoModemList : protected _PseudoModemList
+{
+    PCLASSINFO(PseudoModemList, _PseudoModemList);
+  public:
+    PINDEX Append(PseudoModem *modem);
+    PseudoModem *Find(const PString &modemToken) const;
+  protected:
+    PMutex Mutex;
+};
+
+PINDEX PseudoModemList::Append(PseudoModem *modem)
+{
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (Find(modem->modemToken())) {
+    myPTRACE(1, "PseudoModemList::Append can't add " << modem->ptyName() << " to modem list");
+    delete modem;
+    return P_MAX_INDEX;
   }
+
+  PINDEX i = _PseudoModemList::Append(modem);
+
+  myPTRACE(3, "PseudoModemList::Append " << modem->ptyName() << " (" << i << ") OK");
+
+  return i;
 }
 
+PseudoModem *PseudoModemList::Find(const PString &modemToken) const
+{
+  PObject *object;
+
+  for (PINDEX i = 0 ; (object = GetAt(i)) != NULL ; i++) {
+    PAssert(PIsDescendant(object, PseudoModem), PInvalidCast);
+    PseudoModem *modem = (PseudoModem *)object;
+    if (modem->modemToken() == modemToken)
+      return modem;
+  }
+  return NULL;
+}
+///////////////////////////////////////////////////////////////
 PObject::Comparison PseudoModem::Compare(const PObject & obj) const
 {
   PAssert(PIsDescendant(&obj, PseudoModem), PInvalidCast);
@@ -74,32 +111,56 @@ PObject::Comparison PseudoModem::Compare(const PObject & obj) const
   return modemToken().Compare(other.modemToken());
 }
 ///////////////////////////////////////////////////////////////
-BOOL PseudoModemQ::CreateModem(const PString &tty, const PString &route, const PNotifier &callbackEndPoint)
+PseudoModemQ::PseudoModemQ()
 {
-  PseudoModem *modem = new PseudoModemBody(tty, route, callbackEndPoint);
-  
-  if( modem->IsValid() ) {
-    if( Find(modem->modemToken()) == NULL ) {
-      Enqueue(modem);
-    } else {
-      myPTRACE(1, "PseudoModemQ::CreateModem can't add " << tty << " to modem queue, delete");
-      delete modem;
+  pmodem_list = new PseudoModemList();
+}
+
+PseudoModemQ::~PseudoModemQ()
+{
+  delete pmodem_list;
+}
+
+BOOL PseudoModemQ::CreateModem(
+    const PString &tty,
+    const PString &route,
+    const PNotifier &callbackEndPoint
+)
+{
+  PseudoModem *modem = PseudoModemDrivers::CreateModem(tty, route, callbackEndPoint);
+
+  if (!modem)
       return FALSE;
-    }
-  } else {
-    myPTRACE(1, "PseudoModemQ::CreateModem " << tty << " in not valid, delete");
-    delete modem;
-    return FALSE;
-  }
-  myPTRACE(3, "PseudoModemQ::CreateModem " << tty << " OK");
+
+  if (pmodem_list->Append(modem) == P_MAX_INDEX)
+      return FALSE;
+
   modem->Resume();
+
   return TRUE;
 }
 
 void PseudoModemQ::Enqueue(PseudoModem *modem)
 {
+  myPTRACE(3, "PseudoModemQ::Enqueue "
+    << ((modem != NULL) ? modem->ptyName() : "BAD"));
+
   PWaitAndSignal mutexWait(Mutex);
   _PseudoModemQ::Enqueue(modem);
+}
+
+BOOL PseudoModemQ::Enqueue(const PString &modemToken)
+{
+  PseudoModem *modem = pmodem_list->Find(modemToken);
+
+  if (!modem) {
+      myPTRACE(1, "PseudoModemQ::Enqueue BAD token " << modemToken);
+      return FALSE;
+  }
+
+  Enqueue(modem);
+
+  return TRUE;
 }
 
 PseudoModem *PseudoModemQ::DequeueWithRoute(const PString &number)
@@ -110,8 +171,12 @@ PseudoModem *PseudoModemQ::DequeueWithRoute(const PString &number)
   for( PINDEX i = 0 ; (object = GetAt(i)) != NULL ; i++ ) {
     PAssert(PIsDescendant(object, PseudoModem), PInvalidCast);
     PseudoModem *modem = (PseudoModem *)object;
-    if( modem->CheckRoute(number) && modem->IsReady() ) {
-      return Remove(modem) ? modem : NULL;;
+    if (modem->CheckRoute(number) && modem->IsReady()) {
+      if (!Remove(modem))
+        modem = NULL;
+      myPTRACE(3, "PseudoModemQ::DequeueWithRoute "
+        << ((modem != NULL) ? modem->ptyName() : "BAD"));
+      return modem;
     }
   }
   return NULL;
@@ -119,9 +184,8 @@ PseudoModem *PseudoModemQ::DequeueWithRoute(const PString &number)
 
 PseudoModem *PseudoModemQ::Find(const PString &modemToken) const
 {
-  PWaitAndSignal mutexWait(Mutex);
   PObject *object;
-  
+
   for( PINDEX i = 0 ; (object = GetAt(i)) != NULL ; i++ ) {
     PAssert(PIsDescendant(object, PseudoModem), PInvalidCast);
     PseudoModem *modem = (PseudoModem *)object;
@@ -129,7 +193,6 @@ PseudoModem *PseudoModemQ::Find(const PString &modemToken) const
       return modem;
     }
   }
-  
   return NULL;
 }
 
@@ -137,17 +200,11 @@ PseudoModem *PseudoModemQ::Dequeue(const PString &modemToken)
 {
   PWaitAndSignal mutexWait(Mutex);
   PseudoModem *modem = Find(modemToken);
-  
-  return (modem != NULL && Remove(modem)) ? modem : NULL;
-}
-
-void PseudoModemQ::Clean()
-{
-  PWaitAndSignal mutexWait(Mutex);
-  PObject *object;
-  while( (object = _PseudoModemQ::Dequeue()) != NULL ) {
-    delete object;
-  }
+  if (modem != NULL && !Remove(modem))
+    modem = NULL;
+  myPTRACE(1, "PseudoModemQ::Dequeue "
+    << ((modem != NULL) ? modem->ptyName() : "BAD"));
+  return modem;
 }
 ///////////////////////////////////////////////////////////////
 

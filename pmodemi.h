@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.h,v $
- * Revision 1.4  2002-05-15 16:18:00  vfrolov
- * Implemented per modem routing for I/C calls
+ * Revision 1.5  2004-07-07 12:38:32  vfrolov
+ * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ *
+ * Revision 1.5  2004/07/07 12:38:32  vfrolov
+ * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
  *
  * Revision 1.4  2002/05/15 16:18:00  vfrolov
  * Implemented per modem routing for I/C calls
@@ -51,59 +54,57 @@
 #include "pmodem.h"
 
 ///////////////////////////////////////////////////////////////
-class InPty;
-class OutPty;
 class ModemEngine;
 
 class PseudoModemBody : public PseudoModem
 {
     PCLASSINFO(PseudoModemBody, PseudoModem);
   public:
-  
- 
+
   /**@name Construction */
   //@{
-    PseudoModemBody(const PString &_tty, const PString &_route, const PNotifier &_callbackEndPoint);
+    PseudoModemBody(const PString &_route, const PNotifier &_callbackEndPoint);
     ~PseudoModemBody();
   //@}
 
   /**@name Operations */
   //@{
-    PBYTEArray *FromOutPtyQ() { return outPtyQ.Dequeue(); }
     PBYTEArray *FromInPtyQ() { return inPtyQ.Dequeue(); }
-    void ToPtyQ(const void *buf, PINDEX count, BOOL OutQ);
+    void ToOutPtyQ(const void *buf, PINDEX count) { ToPtyQ(buf, count, TRUE); };
   //@}
-  
-    BOOL IsReady() const;
+
+    virtual BOOL IsReady() const;
     BOOL CheckRoute(const PString &number) const;
     BOOL Request(PStringToString &request) const;
     BOOL Attach(T38Engine *t38engine) const;
     void Detach(T38Engine *t38engine) const;
-    
+
     const PNotifier &GetCallbackEndPoint() const { return callbackEndPoint; }
 
-    int handlePty() const { return hPty; }
-
-    PMutex ptyMutex;
-
   protected:
+    virtual const PString &ttyPath() const = 0;
+    virtual ModemThreadChild *GetPtyNotifier() = 0;
     virtual BOOL StartAll();
     virtual void StopAll();
-    virtual BOOL OpenPty();
-    BOOL IsOpenPty() const { return hPty >= 0; }
-    virtual void ClosePty();
-    virtual void Main();
+    virtual void MainLoop() = 0;
+
+    BOOL AddModem() const;
+    PBYTEArray *FromOutPtyQ() { return outPtyQ.Dequeue(); }
+    void ToInPtyQ(PBYTEArray *buf) { inPtyQ.Enqueue(buf); }
+    void ToInPtyQ(const void *buf, PINDEX count) { ToPtyQ(buf, count, FALSE); };
+
+    PMutex Mutex;
+
+  private:
+    void Main();
+    void ToPtyQ(const void *buf, PINDEX count, BOOL OutQ);
 
     PString route;
     const PNotifier callbackEndPoint;
-    int hPty;
-    InPty *inPty;
-    OutPty *outPty;
     ModemEngine *engine;
-    
+
     PBYTEArrayQ outPtyQ;
     PBYTEArrayQ inPtyQ;
-    PMutex Mutex;
 };
 ///////////////////////////////////////////////////////////////
 

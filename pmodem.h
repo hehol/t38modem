@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.h,v $
- * Revision 1.4  2002-05-15 16:17:49  vfrolov
- * Implemented per modem routing for I/C calls
+ * Revision 1.5  2004-07-07 12:38:32  vfrolov
+ * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ *
+ * Revision 1.5  2004/07/07 12:38:32  vfrolov
+ * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
  *
  * Revision 1.4  2002/05/15 16:17:49  vfrolov
  * Implemented per modem routing for I/C calls
@@ -60,7 +63,7 @@ class PseudoModem : public ModemThread
   
   /**@name Construction */
   //@{
-    PseudoModem(const PString &_tty);
+    PseudoModem() : valid(FALSE) {};
   //@}
 
   /**@name Operations */
@@ -70,37 +73,46 @@ class PseudoModem : public ModemThread
     virtual BOOL Attach(T38Engine *t38engine) const = 0;
     virtual void Detach(T38Engine *t38engine) const = 0;
 
-    static const char *ttyPattern();
     const PString &ptyName() const { return ptyname; }
-    const PString &ptyPath() const { return ptypath; }
-    const PString &ttyPath() const { return ttypath; }
-    const PString &modemToken() const { return ttypath; }
+    const PString &modemToken() const { return ptyname; }
     BOOL IsValid() const { return valid; }
   //@}
 
   protected:
     Comparison Compare(const PObject & obj) const;
-    BOOL ttySet(const PString &_tty);
-    
+
     PString ptyname;
-    PString ptypath;
-    PString ttypath;
     BOOL valid;
 };
 ///////////////////////////////////////////////////////////////
+class PseudoModemList;
 PQUEUE(_PseudoModemQ, PseudoModem);
 
 class PseudoModemQ : protected _PseudoModemQ
 {
     PCLASSINFO(PseudoModemQ, _PseudoModemQ);
   public:
-    BOOL CreateModem(const PString &tty, const PString &route, const PNotifier &callbackEndPoint);
+  /**@name Construction */
+  //@{
+    PseudoModemQ();
+    ~PseudoModemQ();
+  //@}
+
+  /**@name Operations */
+    BOOL CreateModem(
+      const PString &tty,
+      const PString &route,
+      const PNotifier &callbackEndPoint
+    );
     void Enqueue(PseudoModem *modem);
+    BOOL Enqueue(const PString &modemToken);
     PseudoModem *DequeueWithRoute(const PString &number);
     PseudoModem *Dequeue(const PString &modemToken);
-    PseudoModem *Find(const PString &modemToken) const;
-    void Clean();
+  //@}
   protected:
+    PseudoModem *Find(const PString &modemToken) const;
+
+    PseudoModemList *pmodem_list;
     PMutex Mutex;
 };
 ///////////////////////////////////////////////////////////////

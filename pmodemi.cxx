@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.10  2004-07-07 07:49:19  vfrolov
- * Included ptlib.h for precompiling
+ * Revision 1.11  2004-07-07 12:38:32  vfrolov
+ * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ *
+ * Revision 1.11  2004/07/07 12:38:32  vfrolov
+ * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
  *
  * Revision 1.10  2004/07/07 07:49:19  vfrolov
  * Included ptlib.h for precompiling
@@ -69,27 +72,21 @@
 
 #include <ptlib.h>
 #include "pmodemi.h"
-#include "pty.h"
 #include "pmodeme.h"
 
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-PseudoModemBody::PseudoModemBody(const PString &_tty, const PString &_route, const PNotifier &_callbackEndPoint)
-  : PseudoModem(_tty),
-    route(_route),
+PseudoModemBody::PseudoModemBody(const PString &_route, const PNotifier &_callbackEndPoint)
+  : route(_route),
     callbackEndPoint(_callbackEndPoint),
-    hPty(-1),
-    inPty(NULL),
-    outPty(NULL),
     engine(NULL)
 {
 }
 
 PseudoModemBody::~PseudoModemBody()
 {
-  StopAll();
-  ClosePty();
+  PseudoModemBody::StopAll();
 }
 
 BOOL PseudoModemBody::IsReady() const
@@ -146,8 +143,8 @@ void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, BOOL OutQ)
 
     {
       PWaitAndSignal mutexWait(Mutex);
-      ModemThreadChild *notify = OutQ ? (ModemThreadChild *)outPty : (ModemThreadChild *)engine;
-      if( notify == NULL ) {
+      ModemThreadChild *notify = OutQ ? GetPtyNotifier() : (ModemThreadChild *)engine;
+      if (notify == NULL) {
         myPTRACE(1, "PseudoModemBody::ToPtyQ notify == NULL");
         PtyQ.Clean();
         return;
@@ -172,38 +169,20 @@ void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, BOOL OutQ)
 
 BOOL PseudoModemBody::StartAll()
 {
-  if (IsOpenPty()
-     && (inPty = new InPty(*this))
-     && (outPty = new OutPty(*this))
-     && (engine = new ModemEngine(*this))
-     ) {
-    inPty->Resume();
-    outPty->Resume();
+  if (engine)
+    return TRUE;
+
+  if ((engine = new ModemEngine(*this))) {
     engine->Resume();
     return TRUE;
   }
-  StopAll();
-  ClosePty();
+  PseudoModemBody::StopAll();
   return FALSE;
 }
 
 void PseudoModemBody::StopAll()
 {
-  if(inPty) {
-    inPty->SignalStop();
-    inPty->WaitForTermination();
-    PWaitAndSignal mutexWait(Mutex);
-    delete inPty;
-    inPty = NULL;
-  }
-  if(outPty) {
-    outPty->SignalStop();
-    outPty->WaitForTermination();
-    PWaitAndSignal mutexWait(Mutex);
-    delete outPty;
-    outPty = NULL;
-  }
-  if(engine) {
+  if (engine) {
     engine->SignalStop();
     engine->WaitForTermination();
     PWaitAndSignal mutexWait(Mutex);
@@ -215,20 +194,23 @@ void PseudoModemBody::StopAll()
   childstop = FALSE;
 }
 
+BOOL PseudoModemBody::AddModem() const
+{
+  PStringToString request;
+  request.SetAt("modemtoken", modemToken());
+  request.SetAt("command", "addmodem");
+  callbackEndPoint(request, 10);
+  return request("response") == "confirm";
+}
+
 void PseudoModemBody::Main()
 {
   RenameCurrentThread(ptyName() + "(b)");
 
   myPTRACE(2, "Started for " << ttyPath() <<
               " (accepts " << (route.IsEmpty() ? PString("all") : route) << ")");
-  
-  while( !stop && OpenPty() && StartAll() ) {
-    while( !stop && !childstop ) {
-      WaitDataReady();
-    }
-    StopAll();
-  }
-  ClosePty();
+
+  MainLoop();
 
   myPTRACE(2, "Stopped " << GetThreadTimes(", CPU usage: "));
 }

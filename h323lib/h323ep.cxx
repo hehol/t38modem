@@ -3,7 +3,7 @@
  *
  * T38Modem simulator - main program
  *
- * Copyright (c) 2001-2003 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.34  2004-05-09 07:46:11  csoutheren
- * Updated to compile with new PIsDescendant function
+ * Revision 1.35  2004-07-07 12:38:32  vfrolov
+ * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ *
+ * Revision 1.35  2004/07/07 12:38:32  vfrolov
+ * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
  *
  * Revision 1.34  2004/05/09 07:46:11  csoutheren
  * Updated to compile with new PIsDescendant function
@@ -130,6 +133,7 @@
 #include "pmodem.h"
 #include "main.h"
 #include "g7231_fake.h"
+#include "drivers.h"
 
 PCREATE_PROCESS(T38Modem);
 
@@ -211,12 +215,11 @@ BOOL T38Modem::Initialise()
         "Options:\n"
         "  -p --ptty [num@]tty[,...] : Pseudo ttys (mandatory).\n"
         "                              Can be used multiple times.\n"
-        "                              The tty should match to regexp\n"
-        "                                '" << PseudoModem::ttyPattern() << "'\n"
         "                              If tty prefixed by num@ then tty will\n"
         "                              accept incoming calls only\n"
         "                              for numbers with prefix num.\n"
         "                              Use none@tty to disable incoming calls.\n"
+        "                              See Drivers section for supported tty's formats.\n"
         "  --route prefix@host       : Route numbers with prefix num to host.\n"
         "                              Can be used multiple times.\n"
         "                              Discards prefix num from numbers.\n"
@@ -226,8 +229,8 @@ BOOL T38Modem::Initialise()
 	"                              (I)ndication, (L)ow speed and (H)igh\n"
         "                              speed IFP packets.\n"
         "                              'I', 'L' and 'H' are digits.\n"
-        "  --old-asn                 : Use original ASN.1 sequence in T.38 (06/98) Annex A\n"
-        "                              (w/o CORRIGENDUM No. 1 fix).\n"
+        "  --old-asn                 : Use original ASN.1 sequence in T.38 (06/98)\n"
+        "                              Annex A (w/o CORRIGENDUM No. 1 fix).\n"
         "  -i --interface ip         : Bind to a specific interface.\n"
         "  --no-listenport           : Disable listen for incoming calls.\n"
         "  --listenport port         : Listen on a specific port.\n"
@@ -248,7 +251,15 @@ BOOL T38Modem::Initialise()
         "  -o --output               : File for trace output, default is stderr.\n"
 #endif
         "     --save                 : Save arguments in configuration file and exit.\n"
-        "  -h --help                 : Display this help message.\n";
+        "  -h --help                 : Display this help message.\n"
+        "Drivers:\n";
+
+    PStringArray descriptions = PseudoModemDrivers::Descriptions();
+
+    for (PINDEX i = 0 ; i < descriptions.GetSize() ; i++) {
+      cout << 
+        "  " << descriptions[i] << "\n";
+    }
     return FALSE;
   }
 
@@ -340,7 +351,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
     PString modemToken = request("modemtoken");
     PString response = "reject";
   
-    if (command == "dial" ) {
+    if (command == "dial") {
       PseudoModem *modem = pmodem_pool->Dequeue(modemToken);
       if (modem != NULL) {
         PString num = request("number");
@@ -402,7 +413,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
         if (modem != NULL)
           pmodem_pool->Enqueue(modem);
       }
-    } else if( command == "answer" ) {
+    } else if (command == "answer") {
       PString callToken = request("calltoken");
       H323Connection * _conn = FindConnectionWithLock(callToken);
       if( _conn != NULL ) {
@@ -410,7 +421,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
         _conn->Unlock();
         response = "confirm";
       }
-    } else if( command == "requestmode" ) {
+    } else if (command == "requestmode") {
       PString callToken = request("calltoken");
       H323Connection * _conn = FindConnectionWithLock(callToken);
       if( _conn != NULL ) {
@@ -426,14 +437,19 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
         }
         _conn->Unlock();
       }
-    } else if( command == "clearcall" ) {
+    } else if (command == "clearcall") {
       PString callToken = request("calltoken");
       if( ClearCall(callToken) ) {
         response = "confirm";
       }
+    } else if (command == "addmodem") {
+      if (pmodem_pool->Enqueue(modemToken)) {
+        response = "confirm";
+      }
     }
+
     request.SetAt("response", response);
-    
+
     myPTRACE(1, "MyH323EndPoint::OnMyCallback request={\n" << request << "}");
   } else {
     myPTRACE(1, "MyH323EndPoint::OnMyCallback unknown class " << from.GetClass() << " extra=" << extra);

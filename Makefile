@@ -22,8 +22,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.10  2004-03-09 17:22:58  vfrolov
-# Added PROCESS_PER_THREAD ifdef
+# Revision 1.11  2004-07-07 12:38:32  vfrolov
+# The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+#
+# Revision 1.11  2004/07/07 12:38:32  vfrolov
+# The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
 #
 # Revision 1.10  2004/03/09 17:22:58  vfrolov
 # Added PROCESS_PER_THREAD ifdef
@@ -53,9 +56,10 @@
 # 
 
 PROG		= t38modem
-SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pty.cxx pmodemi.cxx \
+SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
 		   g7231_fake.cxx t30tone.cxx hdlc.cxx t30.cxx fcs.cxx \
-		   pmodeme.cxx t38engine.cxx main.cxx
+		   pmodeme.cxx t38engine.cxx main.cxx \
+		   drv_pty.cxx \
 
 ifndef OPENH323DIR
 OPENH323DIR=$(HOME)/openh323
