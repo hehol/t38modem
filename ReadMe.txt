@@ -1,5 +1,5 @@
 /*
- * $Id: ReadMe.txt,v 1.9 2005-02-07 10:07:38 vfrolov Exp $
+ * $Id: ReadMe.txt,v 1.10 2005-02-10 15:07:15 vfrolov Exp $
  *
  * T38FAX Pseudo Modem
  *
@@ -53,6 +53,8 @@ Windows Users: You need two COM ports connected via Null-modem cable to create o
                Q. How to use t38modem without additional COM port hardware on Windows?
                A. Replace a pair of physical COM ports with a pair of virtual COM ports.
                   See http://com0com.sourceforge.net/ project for details.
+               Q. What model of modem to select in Add Hardware Wizard?
+               A. Select "Standard 1440 bps Modem".
 
 Cisco Users:   You additionaly need to use --old-asn and --h245tunneldisable options.
 
@@ -237,9 +239,11 @@ Examples:
 
 /*
  * $Log: ReadMe.txt,v $
- * Revision 1.9  2005-02-07 10:07:38  vfrolov
- * Fixed com0com link
- * Moved Log to the bottom
+ * Revision 1.10  2005-02-10 15:07:15  vfrolov
+ * Added more comments for Windows users
+ *
+ * Revision 1.10  2005/02/10 15:07:15  vfrolov
+ * Added more comments for Windows users
  *
  * Revision 1.9  2005/02/07 10:07:38  vfrolov
  * Fixed com0com link
