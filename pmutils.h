@@ -22,8 +22,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.2  2002-01-10 06:10:03  craigs
- * Added MPL header
+ * Revision 1.3  2002-02-11 08:35:12  vfrolov
+ * myPTRACE() outputs trace to cout only if defined COUT_TRACE
+ *
+ * Revision 1.3  2002/02/11 08:35:12  vfrolov
+ * myPTRACE() outputs trace to cout only if defined COUT_TRACE
  *
  * Revision 1.2  2002/01/10 06:10:03  craigs
  * Added MPL header
@@ -184,10 +187,14 @@ class DataStreamQ : public _DataStreamQ
     PMutex Mutex;
 };
 ///////////////////////////////////////////////////////////////
+#ifdef COUT_TRACE
 #define myPTRACE(level, args) {	\
   PTRACE(level, args);		\
   cout << PThread::Current()->GetThreadName() << ": " << args << endl;		\
 }
+#else
+#define myPTRACE(level, args) { PTRACE(level, args); }
+#endif // COUT_TRACE
 
 #define PRTHEX(data) " {\n" << setprecision(2) << hex << setfill('0') << data << dec << setfill(' ') << " }"
 ///////////////////////////////////////////////////////////////

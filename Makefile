@@ -22,8 +22,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.3  2002-01-10 06:10:02  craigs
-# Added MPL header
+# Revision 1.4  2002-02-11 08:35:08  vfrolov
+# myPTRACE() outputs trace to cout only if defined COUT_TRACE
+#
+# Revision 1.4  2002/02/11 08:35:08  vfrolov
+# myPTRACE() outputs trace to cout only if defined COUT_TRACE
 #
 # Revision 1.3  2002/01/10 06:10:02  craigs
 # Added MPL header
@@ -53,3 +56,6 @@ endif
 
 # ???
 STDCCFLAGS += -Wall
+
+STDCCFLAGS += -DCOUT_TRACE
+
