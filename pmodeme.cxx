@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.28  2005-02-16 12:14:47  vfrolov
- * Send CONNECT just before data for AT+FRM command
+ * Revision 1.29  2005-03-04 16:35:38  vfrolov
+ * Implemented AT#DFRMC command
+ * Redisigned class Profile
+ *
+ * Revision 1.29  2005/03/04 16:35:38  vfrolov
+ * Implemented AT#DFRMC command
+ * Redisigned class Profile
  *
  * Revision 1.28  2005/02/16 12:14:47  vfrolov
  * Send CONNECT just before data for AT+FRM command
@@ -156,64 +161,28 @@ static const char Revision[] = TOSTR(MAJOR_VERSION) "." TOSTR(MINOR_VERSION) "."
 class Profile
 {
   enum {
-    FloReg = 49,
-    CidModeReg = 50,
     MaxReg = 50,
     MaxBit = 7
   };
-  
+
   public:
     Profile();
-  
-    void Echo(BOOL val) {
-      SetBit(23, 0, val);
-    }
 
-    BOOL Echo() const {
-      BOOL val;
-      GetBit(23, 0, val);
-      return val;
-    }
+    #define DeclareRegisterBit(name, byte, bit)	\
+      void name(BOOL val) { SetBit(byte, bit, val); } \
+      BOOL name() const { BOOL val; GetBit(byte, bit, val); return val; }
 
-    void asciiResultCodes(BOOL val) {
-      SetBit(23, 6, val);
-    }
+    DeclareRegisterBit(Echo, 23, 0);
+    DeclareRegisterBit(asciiResultCodes, 23, 6);
+    DeclareRegisterBit(noResultCodes, 23, 7);
 
-    BOOL asciiResultCodes() const {
-      BOOL val;
-      GetBit(23, 6, val);
-      return val;
-    }
+    #define DeclareRegisterByte(name, byte)	\
+      void name(BYTE val) { SetReg(byte, val); } \
+      BYTE name() const { BYTE val; GetReg(byte, val); return val; }
 
-    void noResultCodes(BOOL val) {
-      SetBit(23, 7, val);
-    }
-
-    BOOL noResultCodes() const {
-      BOOL val;
-      GetBit(23, 7, val);
-      return val;
-    }
-
-    void CidMode(BYTE val) {
-      SetReg(CidModeReg, val);
-    }
-
-    BYTE CidMode() const {
-      BYTE val;
-      GetReg(CidModeReg, val);
-      return val;
-    }
-
-    void Flo(BYTE val) {
-      SetReg(FloReg, val);
-    }
-
-    BYTE Flo() const {
-      BYTE val;
-      GetReg(FloReg, val);
-      return val;
-    }
+    DeclareRegisterByte(DelayFrmConnect, 48);
+    DeclareRegisterByte(Flo, 49);
+    DeclareRegisterByte(CidMode, 50);
 
     BOOL SetBit(PINDEX r, PINDEX b, BOOL val) {
       if( !ChkRB(r, b) ) return FALSE;
@@ -1560,6 +1529,35 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               default:
                 err = TRUE;
             }
+          } else
+          if (strncmp(pCmd, "DFRMC", 5) == 0) {         // #DFRMC
+            pCmd += 5;
+            switch( *pCmd++ ) {
+              case '=':
+                switch( *pCmd ) {
+                  case '?':
+                    pCmd++;
+                    resp += "\r\n(0-255)";
+                    crlf = TRUE;
+                    break;
+                  default:
+                    {
+                      int val = ParseNum(&pCmd);
+                      if (val >= 0) {
+                        P.DelayFrmConnect((BYTE)val);
+                      } else {
+                        err = TRUE;
+                      }
+                    }
+                }
+                break;
+              case '?':
+                resp.sprintf("\r\n%u", (unsigned)P.DelayFrmConnect());
+                crlf = TRUE;
+                break;
+              default:
+                err = TRUE;
+            }
           } else {
             err = TRUE;
           }
@@ -1944,17 +1942,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           }
           int count = t38engine->Recv(Buf, 1024);
 
-          if (!dataCount && count && dataType == T38Engine::dtRaw) {
-            // send CONNECT just before data for AT+FRM command
-
-            PString _resp = RC_PREF() + RC_CONNECT();
-
-            PBYTEArray _bresp((const BYTE *)(const char *)_resp, _resp.GetLength());
-
-            myPTRACE(1, "<-- " << PRTHEX(_bresp));
-            bresp.Concatenate(_bresp);
-          }
-
           switch (count) {
             case -1:
               {
@@ -1970,18 +1957,41 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                 dleData.SetDiag(diag).PutEof();
               }
               t38engine->RecvStop();
-              if (dataCount == 0 && dataType == T38Engine::dtHdlc)
+              if (dataCount == 0)
                 dleData.GetDleData(Buf, 1024);	// discard ...<DLE><ETX>
               break;
             case 0:
               break;
             default:
-              dataCount += count;
               dleData.PutData(Buf, count);
-              if (dataType == T38Engine::dtHdlc)
-                fcs.build(Buf, count);
+              switch (dataType) {
+                case T38Engine::dtHdlc:
+                  fcs.build(Buf, count);
+                  break;
+                case T38Engine::dtRaw:
+                  if (!dataCount) {
+                    int dms = P.DelayFrmConnect();
+
+                    if (dms) {
+                      Mutex.Signal();
+                      PThread::Sleep(dms * 10);
+                      Mutex.Wait();
+                    }
+
+                    // send CONNECT just before data for AT+FRM command
+
+                    PString _resp = RC_PREF() + RC_CONNECT();
+
+                    PBYTEArray _bresp((const BYTE *)(const char *)_resp, _resp.GetLength());
+
+                    myPTRACE(1, "<-- " << PRTHEX(_bresp));
+                    bresp.Concatenate(_bresp);
+                  }
+              }
+              dataCount += count;
           }
-          if( count <= 0 ) break;
+          if (count <= 0)
+            break;
         }
 
         for(;;) {
