@@ -33,7 +33,7 @@
 #define MAJOR_VERSION 0
 #define MINOR_VERSION 5
 #define BUILD_TYPE    ReleaseCode
-#define BUILD_NUMBER 0
+#define BUILD_NUMBER 1
 
 #endif  // _T38M_VERSION_H
 
