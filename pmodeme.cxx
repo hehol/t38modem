@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.27  2005-02-10 10:35:18  vfrolov
- * Fixed AT prefix searching
+ * Revision 1.28  2005-02-16 12:14:47  vfrolov
+ * Send CONNECT just before data for AT+FRM command
+ *
+ * Revision 1.28  2005/02/16 12:14:47  vfrolov
+ * Send CONNECT just before data for AT+FRM command
  *
  * Revision 1.27  2005/02/10 10:35:18  vfrolov
  * Fixed AT prefix searching
@@ -1910,7 +1913,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         
         if( t38engine && t38engine->RecvStart(NextSeq()) ) {
           if( (t38engine->RecvDiag() & T38Engine::diagDiffSig) == 0 ) {
-            resp = RC_CONNECT();
+            if (dataType != T38Engine::dtRaw)
+              resp = RC_CONNECT();
             dataCount = 0;
             state = stRecv;
             parent.SignalDataReady();	// try to Recv w/o delay
@@ -1939,6 +1943,17 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             break;
           }
           int count = t38engine->Recv(Buf, 1024);
+
+          if (!dataCount && count && dataType == T38Engine::dtRaw) {
+            // send CONNECT just before data for AT+FRM command
+
+            PString _resp = RC_PREF() + RC_CONNECT();
+
+            PBYTEArray _bresp((const BYTE *)(const char *)_resp, _resp.GetLength());
+
+            myPTRACE(1, "<-- " << PRTHEX(_bresp));
+            bresp.Concatenate(_bresp);
+          }
 
           switch (count) {
             case -1:
