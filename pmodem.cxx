@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,21 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.cxx,v $
- * Revision 1.3  2002-02-08 12:58:22  vfrolov
- * Defined Linux and FreeBSD patterns in ttyPattern().
+ * Revision 1.4  2002-03-05 12:35:52  vfrolov
+ * Added Copyright header
+ * Changed class hierarchy
+ *   PseudoModem is abstract
+ *   PseudoModemBody is child of PseudoModem
+ *   Added PseudoModemQ::CreateModem() to create instances
+ * Some OS specific code moved from pmodem.cxx to pty.cxx
+ *
+ * Revision 1.4  2002/03/05 12:35:52  vfrolov
+ * Added Copyright header
+ * Changed class hierarchy
+ *   PseudoModem is abstract
+ *   PseudoModemBody is child of PseudoModem
+ *   Added PseudoModemQ::CreateModem() to create instances
+ * Some OS specific code moved from pmodem.cxx to pty.cxx
  *
  * Revision 1.3  2002/02/08 12:58:22  vfrolov
  * Defined Linux and FreeBSD patterns in ttyPattern().
@@ -37,38 +52,17 @@
  */
 
 #include <ptlib.h>
-#include "pmodem.h"
 #include "pmodemi.h"
 
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-PseudoModem::PseudoModem(const PString &_tty, const PNotifier &callbackEndPoint)
+PseudoModem::PseudoModem(const PString &_tty)
 {
-  PRegularExpression reg(ttyPattern(), PRegularExpression::Extended);
+  valid = ttySet(_tty);
 
-  if( _tty.FindRegEx(reg) == 0 ) {
-    if( _tty[0] != '/' )
-      ttypath = "/dev/" + _tty;
-    else
-      ttypath = _tty;
-    (ptypath = ttypath)[5] = 'p';
-    ptyname = &ptypath[5];
-    
-    body = new PseudoModemBody(*this, callbackEndPoint);
-    body->Resume();
-  } else {
-    body = NULL;
-    myPTRACE(3, "PseudoModem::PseudoModem bad on " << _tty);
-  }
-}
-
-PseudoModem::~PseudoModem()
-{
-  if( body ) {
-    body->SignalStop();
-    body->WaitForTermination();
-    delete body;
+  if (!valid) {
+    myPTRACE(1, "PseudoModem::PseudoModem bad on " << _tty);
   }
 }
 
@@ -78,43 +72,29 @@ PObject::Comparison PseudoModem::Compare(const PObject & obj) const
   const PseudoModem & other = (const PseudoModem &)obj;
   return modemToken().Compare(other.modemToken());
 }
-
-BOOL PseudoModem::IsReady() const
-{
-  return body && body->IsReady();
-}
-
-BOOL PseudoModem::Request(PStringToString &request) const
-{
-  return body && body->Request(request);
-}
-
-BOOL PseudoModem::Attach(T38Engine *t38engine) const
-{
-  return body && body->Attach(t38engine);
-}
-
-void PseudoModem::Detach(T38Engine *t38engine) const
-{
-  if( body )
-    body->Detach(t38engine);
-}
-
-const char *PseudoModem::ttyPattern()
-{
-#if defined(P_LINUX)
-  #define TTY_PATTERN "^(/dev/)?tty[pqrstuvwxyzabcde][0123456789abcdef]$"
-#endif
-#if defined(P_FREEBSD)
-  #define TTY_PATTERN "^(/dev/)?tty[pqrsPQRS][0123456789abcdefghijklmnopqrstuv]$"
-#endif
-#ifndef TTY_PATTERN
-  #define TTY_PATTERN "^(/dev/)?tty..$"
-#endif
-
-  return TTY_PATTERN;
-}
 ///////////////////////////////////////////////////////////////
+BOOL PseudoModemQ::CreateModem(const PString &tty, const PNotifier &callbackEndPoint)
+{
+  PseudoModem *modem = new PseudoModemBody(tty, callbackEndPoint);
+  
+  if( modem->IsValid() ) {
+    if( Find(modem->modemToken()) == NULL ) {
+      Enqueue(modem);
+    } else {
+      myPTRACE(1, "PseudoModemQ::CreateModem can't add " << tty << " to modem queue, delete");
+      delete modem;
+      return FALSE;
+    }
+  } else {
+    myPTRACE(1, "PseudoModemQ::CreateModem " << tty << " in not valid, delete");
+    delete modem;
+    return FALSE;
+  }
+  myPTRACE(3, "PseudoModemQ::CreateModem " << tty << " OK");
+  modem->Resume();
+  return TRUE;
+}
+
 void PseudoModemQ::Enqueue(PseudoModem *modem)
 {
   PWaitAndSignal mutexWait(Mutex);
