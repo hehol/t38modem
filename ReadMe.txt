@@ -1,13 +1,16 @@
 /*
- * $Id: ReadMe.txt,v 1.3 2002-01-09 16:01:03 rogerh Exp $
+ * $Id: ReadMe.txt,v 1.4 2002-01-09 16:14:58 rogerh Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: ReadMe.txt,v $
- * Revision 1.3  2002-01-09 16:01:03  rogerh
- * Executable is called t38modem
+ * Revision 1.4  2002-01-09 16:14:58  rogerh
+ * FreeBSD uses /dev/ttypa and /dev/ttypb
+ *
+ * Revision 1.4  2002/01/09 16:14:58  rogerh
+ * FreeBSD uses /dev/ttypa and /dev/ttypb
  *
  * Revision 1.3  2002/01/09 16:01:03  rogerh
  * Executable is called t38modem
@@ -37,11 +40,19 @@ $ make both
 $ ./obj_linux_x86_d/t38modem -n -o trace.log -f -p ttyx0,ttyx1 --route 0@127.0.0.1 --route all@172.16.33.21
 
 Creates two modems /dev/ttyx0 and /dev/ttyx1
+
+FreeBSD Users: You need to use  -p ttypa,ttypb 
+               instead of  -p ttyx0,ttyx1
+               Remember to replace ttyx0 with ttypa and ttyx1 with ttypb
+               when following the rest of these instructions.
+               This will create two modems /dev/ttypa and /dev/ttypb
+
 If dialed number begins with '0' then it will be routed to local host ('0' will be discarded).
 If not then it will be routed to 172.16.33.21.
 
 2.2. Testing (you need two consoles)
 ------------------------------------
+(FreeBSD users - remeber to use /dev/ttypa and /dev/ttypb with 'cu -l')
 
 $ cu -l /dev/ttyx0	    $ cu -l /dev/ttyx1
 Connected.		    Connected.
@@ -119,4 +130,6 @@ Start HylaFAX with new modems:
 
 $ .../faxgetty -D ttyx0
 $ .../faxgetty -D ttyx1
+
+(FreeBSD users - don't forget we are using ttypa and ttypb)
 
