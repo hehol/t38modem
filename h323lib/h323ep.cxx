@@ -22,8 +22,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.11  2002-01-10 06:16:00  craigs
- * Added muLaw codec as well as ALaw
+ * Revision 1.12  2002-02-11 08:48:43  vfrolov
+ * Changed some trace and cout messages
+ *
+ * Revision 1.12  2002/02/11 08:48:43  vfrolov
+ * Changed some trace and cout messages
  *
  * Revision 1.11  2002/01/10 06:16:00  craigs
  * Added muLaw codec as well as ALaw
@@ -251,7 +254,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
         if (remote.IsEmpty()) 
           request.SetAt("diag", "noroute");
         else {
-          myPTRACE(1, "MyH323EndPoint::OnMyCallback MakeCall(" << num << ")");
+          PTRACE(1, "MyH323EndPoint::OnMyCallback MakeCall(" << num << ")");
 
 	  // make the call
           MakeCall(num, callToken);
@@ -262,6 +265,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
           if (_conn == NULL ) 
             pmodemQ->Enqueue(modem);
           else {
+            cout << "O/G connection to " << num << "\n";
             PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
             MyH323Connection *conn = (MyH323Connection *)_conn;
             if( conn->Attach(modem) )
@@ -306,24 +310,6 @@ BOOL MyH323EndPoint::OnIncomingCall(H323Connection & /*_conn*/,
     s << " }\n";
     PTRACE(1, "MyH323EndPoint::OnIncomingCall " << s);
   } // */
-
-  //PAssert(_conn.IsDescendant(MyH323Connection::Class()), PInvalidCast);
-  //MyH323Connection & conn = (MyH323Connection &)_conn;
-
-  // see if incoming call is to a getway address
-  PString number;
-  
-  cout << "SourceAliases: " << setupPDU.GetSourceAliases() << "\n";
-  cout << "DestinationAlias: " << setupPDU.GetDestinationAlias() << "\n";
-  cout << "DistinctiveRing: " << setupPDU.GetDistinctiveRing() << "\n";
-
-  if (setupPDU.GetSourceE164(number)) {
-    cout << "From: " << number << "\n";
-  }
-
-  if (setupPDU.GetDestinationE164(number)) {
-    cout << "To:   " << number << "\n";
-  }
 
   return TRUE;
 }
@@ -534,6 +520,20 @@ H323Connection::AnswerCallResponse
                                     const H323SignalPDU & setupPDU,
                                     H323SignalPDU & /*connectPDU*/)
 {
+  PString number;
+  cout << "I/C connection\n";
+  PTRACE(1, "I/C connection");
+  
+  if (setupPDU.GetSourceE164(number)) {
+    cout << "From: " << number << "\n";
+    PTRACE(1, "From: " << number);
+  }
+
+  if (setupPDU.GetDestinationE164(number)) {
+    cout << "To:   " << number << "\n";
+    PTRACE(1, "To: " << number);
+}
+
   pmodem = ep.PMAlloc();
 
   if(pmodem == NULL) {
@@ -663,7 +663,11 @@ BOOL AudioRead::Read(void * buffer, PINDEX amount)
     return FALSE;
 
   if (!triggered && conn.ForceT38Mode() && conn.HadAnsweredCall()) {
-    conn.RequestModeChangeT38();
+    if( !conn.RequestModeChangeT38() ) {
+      PTRACE(2, "AudioRead::Read RequestMode T38 - fail");
+    } else {
+      PTRACE(2, "AudioRead::Read RequestMode T38 - OK");
+    }
     triggered = TRUE;
   }
 
