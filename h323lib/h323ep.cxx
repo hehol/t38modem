@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.22  2002-04-30 11:05:24  vfrolov
- * Implemented T.30 Calling Tone (CNG) generation
+ * Revision 1.23  2002-05-15 16:17:29  vfrolov
+ * Implemented per modem routing for I/C calls
+ *
+ * Revision 1.23  2002/05/15 16:17:29  vfrolov
+ * Implemented per modem routing for I/C calls
  *
  * Revision 1.22  2002/04/30 11:05:24  vfrolov
  * Implemented T.30 Calling Tone (CNG) generation
@@ -161,7 +164,10 @@ void T38Modem::Main()
             "Options:\n"
             "  -p --ptty tty[,tty...]  : Pseudo ttys (mandatory). Can be used multiple times\n"
             "                            tty ~= |" << PseudoModem::ttyPattern() << "|\n"
-            "     --route prefix@host  : route number with prefix to host. Can be used multiple times\n"
+            "                            Each tty can be prefixed by prefix@, In last case the tty\n"
+            "                            will accept I/C calls only for numbers that begin with prefix\n"
+            "                            Use none@tty to disable I/C calls\n"
+            "  --route prefix@host     : route number with prefix to host. Can be used multiple times\n"
             "                            Discards prefix from number. Prefix 'all' is all numbers\n"
 	    "                            Mandatory if not using GK\n"
             "  -i --interface ip       : Bind to a specific interface\n"
@@ -366,9 +372,9 @@ H323Connection * MyH323EndPoint::CreateConnection(unsigned callReference)
   return new MyH323Connection(*this, callReference);
 }
 
-PseudoModem * MyH323EndPoint::PMAlloc() const
+PseudoModem * MyH323EndPoint::PMAlloc(const PString &number) const
 {
-  return pmodemQ->Dequeue();
+  return pmodemQ->DequeueWithRoute(number);
 }
 
 void MyH323EndPoint::PMFree(PseudoModem *pmodem) const
@@ -411,8 +417,18 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
     PStringArray ttys = tty.Tokenise(",\r\n ", FALSE);
     
     for( PINDEX i = 0 ; i < ttys.GetSize() ; i++ ) {
-      if (!pmodemQ->CreateModem(ttys[i], PCREATE_NOTIFIER(OnMyCallback)))
-        cout << "Can't create modem for " << ttys[i] << endl;
+      tty = ttys[i];
+      PStringArray atty = tty.Tokenise("@", FALSE);
+      PString r = "";
+      if (atty.GetSize() == 2) {
+        r = atty[0];
+        tty = atty[1];
+      } else if (atty.GetSize() == 1) {
+        tty = atty[0];
+      }
+
+      if (!pmodemQ->CreateModem(tty, r, PCREATE_NOTIFIER(OnMyCallback)))
+        cout << "Can't create modem for " << tty << endl;
     }
   }
 
@@ -424,6 +440,7 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
   }
 
   SetCapability(0, 0, new H323_T38Capability(H323_T38Capability::e_UDP));
+  //SetCapability(0, 0, new H323_T38NonStandardCapability(181, 0, 18));
     
   capabilities.Remove(args.GetOptionString('D').Lines());
   capabilities.Reorder(args.GetOptionString('P').Lines());
@@ -530,9 +547,11 @@ H323Connection::AnswerCallResponse
   if (setupPDU.GetDestinationE164(number)) {
     cout << "To:   " << number << "\n";
     PTRACE(1, "To: " << number);
+  } else {
+    number = "";
   }
 
-  PseudoModem *_pmodem = ep.PMAlloc();
+  PseudoModem *_pmodem = ep.PMAlloc(number);
 
   if (_pmodem == NULL) {
     myPTRACE(1, "... denied (all modems busy)");

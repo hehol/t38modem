@@ -24,11 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.4  2002-03-05 12:40:27  vfrolov
- * Changed class hierarchy
- *   PseudoModem is abstract
- *   PseudoModemBody is child of PseudoModem
- *   Added PseudoModemQ::CreateModem() to create instances
+ * Revision 1.5  2002-05-15 16:17:55  vfrolov
+ * Implemented per modem routing for I/C calls
+ *
+ * Revision 1.5  2002/05/15 16:17:55  vfrolov
+ * Implemented per modem routing for I/C calls
  *
  * Revision 1.4  2002/03/05 12:40:27  vfrolov
  * Changed class hierarchy
@@ -58,8 +58,9 @@
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-PseudoModemBody::PseudoModemBody(const PString &_tty, const PNotifier &_callbackEndPoint)
+PseudoModemBody::PseudoModemBody(const PString &_tty, const PString &_route, const PNotifier &_callbackEndPoint)
   : PseudoModem(_tty),
+    route(_route),
     callbackEndPoint(_callbackEndPoint),
     hPty(-1),
     inPty(NULL),
@@ -79,6 +80,11 @@ BOOL PseudoModemBody::IsReady() const
 {
   PWaitAndSignal mutexWait(Mutex);
   return engine && engine->IsReady();
+}
+
+BOOL PseudoModemBody::CheckRoute(const PString &number) const
+{
+  return route.IsEmpty() || number.Find(route) == 0;
 }
 
 BOOL PseudoModemBody::Request(PStringToString &request) const
@@ -190,7 +196,8 @@ void PseudoModemBody::StopAll()
 
 void PseudoModemBody::Main()
 {
-  myPTRACE(3, "PseudoModemBody::Main Started on " << ptyPath() << " for " << ttyPath());
+  myPTRACE(3, "PseudoModemBody::Main Started on " << ptyPath() << " for " << ttyPath() <<
+              " (accepts " << (route.IsEmpty() ? PString("all") : route) << ")");
   
   while( !stop && OpenPty() && StartAll() ) {
     while( !stop && !childstop ) {

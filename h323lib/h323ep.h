@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.8  2002-04-30 11:05:32  vfrolov
- * Implemented T.30 Calling Tone (CNG) generation
+ * Revision 1.9  2002-05-15 16:17:34  vfrolov
+ * Implemented per modem routing for I/C calls
+ *
+ * Revision 1.9  2002/05/15 16:17:34  vfrolov
+ * Implemented per modem routing for I/C calls
  *
  * Revision 1.8  2002/04/30 11:05:32  vfrolov
  * Implemented T.30 Calling Tone (CNG) generation
@@ -90,7 +93,7 @@ class MyH323EndPoint : public H323EndPoint
     // new functions
     BOOL Initialise(PConfigArgs & args);
 
-    PseudoModem * PMAlloc() const;
+    PseudoModem * PMAlloc(const PString &number) const;
     void PMFree(PseudoModem *pmodem) const;
 
   protected:

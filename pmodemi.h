@@ -24,12 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.h,v $
- * Revision 1.3  2002-03-05 12:32:02  vfrolov
- * Added Copyright header
- * Changed class hierarchy
- *   PseudoModem is abstract
- *   PseudoModemBody is child of PseudoModem
- *   Added PseudoModemQ::CreateModem() to create instances
+ * Revision 1.4  2002-05-15 16:18:00  vfrolov
+ * Implemented per modem routing for I/C calls
+ *
+ * Revision 1.4  2002/05/15 16:18:00  vfrolov
+ * Implemented per modem routing for I/C calls
  *
  * Revision 1.3  2002/03/05 12:32:02  vfrolov
  * Added Copyright header
@@ -64,7 +63,7 @@ class PseudoModemBody : public PseudoModem
  
   /**@name Construction */
   //@{
-    PseudoModemBody(const PString &_tty, const PNotifier &callbackEndPoint);
+    PseudoModemBody(const PString &_tty, const PString &_route, const PNotifier &_callbackEndPoint);
     ~PseudoModemBody();
   //@}
 
@@ -76,6 +75,7 @@ class PseudoModemBody : public PseudoModem
   //@}
   
     BOOL IsReady() const;
+    BOOL CheckRoute(const PString &number) const;
     BOOL Request(PStringToString &request) const;
     BOOL Attach(T38Engine *t38engine) const;
     void Detach(T38Engine *t38engine) const;
@@ -94,6 +94,7 @@ class PseudoModemBody : public PseudoModem
     virtual void ClosePty();
     virtual void Main();
 
+    PString route;
     const PNotifier callbackEndPoint;
     int hPty;
     InPty *inPty;

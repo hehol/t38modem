@@ -24,12 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.h,v $
- * Revision 1.3  2002-03-05 12:31:58  vfrolov
- * Added Copyright header
- * Changed class hierarchy
- *   PseudoModem is abstract
- *   PseudoModemBody is child of PseudoModem
- *   Added PseudoModemQ::CreateModem() to create instances
+ * Revision 1.4  2002-05-15 16:17:49  vfrolov
+ * Implemented per modem routing for I/C calls
+ *
+ * Revision 1.4  2002/05/15 16:17:49  vfrolov
+ * Implemented per modem routing for I/C calls
  *
  * Revision 1.3  2002/03/05 12:31:58  vfrolov
  * Added Copyright header
@@ -66,6 +65,7 @@ class PseudoModem : public ModemThread
 
   /**@name Operations */
     virtual BOOL IsReady() const = 0;
+    virtual BOOL CheckRoute(const PString &number) const = 0;
     virtual BOOL Request(PStringToString &request) const = 0;
     virtual BOOL Attach(T38Engine *t38engine) const = 0;
     virtual void Detach(T38Engine *t38engine) const = 0;
@@ -90,13 +90,13 @@ class PseudoModem : public ModemThread
 ///////////////////////////////////////////////////////////////
 PQUEUE(_PseudoModemQ, PseudoModem);
 
-class PseudoModemQ : public _PseudoModemQ
+class PseudoModemQ : protected _PseudoModemQ
 {
     PCLASSINFO(PseudoModemQ, _PseudoModemQ);
   public:
-    BOOL CreateModem(const PString &tty, const PNotifier &callbackEndPoint);
+    BOOL CreateModem(const PString &tty, const PString &route, const PNotifier &callbackEndPoint);
     void Enqueue(PseudoModem *modem);
-    PseudoModem *Dequeue();
+    PseudoModem *DequeueWithRoute(const PString &number);
     PseudoModem *Dequeue(const PString &modemToken);
     PseudoModem *Find(const PString &modemToken) const;
     void Clean();

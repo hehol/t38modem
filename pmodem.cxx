@@ -24,13 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.cxx,v $
- * Revision 1.4  2002-03-05 12:35:52  vfrolov
- * Added Copyright header
- * Changed class hierarchy
- *   PseudoModem is abstract
- *   PseudoModemBody is child of PseudoModem
- *   Added PseudoModemQ::CreateModem() to create instances
- * Some OS specific code moved from pmodem.cxx to pty.cxx
+ * Revision 1.5  2002-05-15 16:17:44  vfrolov
+ * Implemented per modem routing for I/C calls
+ *
+ * Revision 1.5  2002/05/15 16:17:44  vfrolov
+ * Implemented per modem routing for I/C calls
  *
  * Revision 1.4  2002/03/05 12:35:52  vfrolov
  * Added Copyright header
@@ -73,9 +71,9 @@ PObject::Comparison PseudoModem::Compare(const PObject & obj) const
   return modemToken().Compare(other.modemToken());
 }
 ///////////////////////////////////////////////////////////////
-BOOL PseudoModemQ::CreateModem(const PString &tty, const PNotifier &callbackEndPoint)
+BOOL PseudoModemQ::CreateModem(const PString &tty, const PString &route, const PNotifier &callbackEndPoint)
 {
-  PseudoModem *modem = new PseudoModemBody(tty, callbackEndPoint);
+  PseudoModem *modem = new PseudoModemBody(tty, route, callbackEndPoint);
   
   if( modem->IsValid() ) {
     if( Find(modem->modemToken()) == NULL ) {
@@ -101,7 +99,7 @@ void PseudoModemQ::Enqueue(PseudoModem *modem)
   _PseudoModemQ::Enqueue(modem);
 }
 
-PseudoModem *PseudoModemQ::Dequeue()
+PseudoModem *PseudoModemQ::DequeueWithRoute(const PString &number)
 {
   PWaitAndSignal mutexWait(Mutex);
   PObject *object;
@@ -109,11 +107,10 @@ PseudoModem *PseudoModemQ::Dequeue()
   for( PINDEX i = 0 ; (object = GetAt(i)) != NULL ; i++ ) {
     PAssert(object->IsDescendant(PseudoModem::Class()), PInvalidCast);
     PseudoModem *modem = (PseudoModem *)object;
-    if( modem->IsReady() ) {
+    if( modem->CheckRoute(number) && modem->IsReady() ) {
       return Remove(modem) ? modem : NULL;;
     }
   }
-  
   return NULL;
 }
 
@@ -143,9 +140,10 @@ PseudoModem *PseudoModemQ::Dequeue(const PString &modemToken)
 
 void PseudoModemQ::Clean()
 {
-  PseudoModem *modem;
-  while( (modem = Dequeue()) != NULL ) {
-    delete modem;
+  PWaitAndSignal mutexWait(Mutex);
+  PObject *object;
+  while( (object = _PseudoModemQ::Dequeue()) != NULL ) {
+    delete object;
   }
 }
 ///////////////////////////////////////////////////////////////
