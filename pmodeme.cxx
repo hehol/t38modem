@@ -24,10 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.11  2002-04-19 14:06:04  vfrolov
- * Implemented T.38 mode request dial modifiers
- *   F - enable
- *   V - disable
+ * Revision 1.12  2002-05-07 10:36:16  vfrolov
+ * Added more code for case stResetHandle
+ * Changed duration of CED (T.30 requires 2.6...4.0 secs)
+ *
+ * Revision 1.12  2002/05/07 10:36:16  vfrolov
+ * Added more code for case stResetHandle
+ * Changed duration of CED (T.30 requires 2.6...4.0 secs)
  *
  * Revision 1.11  2002/04/19 14:06:04  vfrolov
  * Implemented T.38 mode request dial modifiers
@@ -1462,8 +1465,13 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       {
         PWaitAndSignal mutexWait(Mutex);
         switch( param ) {
+          case stCommand:
+            break;
           case stSend:
             resp += "\r\nERROR\r\n";
+            break;
+          case stRecvBegWait:
+            resp += "\r\nNO CARRIER\r\n";
             break;
           case stConnectWait:
           case stConnectHandle:
@@ -1473,7 +1481,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               resp += "\r\nBUSY\r\n";
             else
               resp += "\r\nERROR\r\n";
-          break;
+            break;
+          default:
+            resp += "\r\nERROR\r\n";
         }
         state = stCommand;
         if (t38engine)
@@ -1545,9 +1555,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           case cdIncoming:
             dataType = T38Engine::dtCed;
             state = stSend;
-            if( t38engine && t38engine->SendStart(dataType, 5000) ) {
+            if (t38engine && t38engine->SendStart(dataType, 3000)) {
               state = stSendAckWait;
-              if( !t38engine->SendStop(FALSE, NextSeq()) ) {
+              if (!t38engine->SendStop(FALSE, NextSeq())) {
                 resp += "\r\nERROR\r\n";
                 state = stCommand;
               }
