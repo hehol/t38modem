@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2003 Vyacheslav Frolov
+ * Copyright (c) 2003-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: fcs.cxx,v $
- * Revision 1.2  2004-02-17 13:22:50  vfrolov
- * Fixed MSVC compile errors
+ * Revision 1.3  2004-07-06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
+ *
+ * Revision 1.3  2004/07/06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
  *
  * Revision 1.2  2004/02/17 13:22:50  vfrolov
  * Fixed MSVC compile errors
@@ -36,6 +39,7 @@
  * 
  */
 
+#include <ptlib.h>
 #include "fcs.h"
 
 ///////////////////////////////////////////////////////////////

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2003 Vyacheslav Frolov
+ * Copyright (c) 2003-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30.cxx,v $
- * Revision 1.2  2003-12-04 15:50:27  vfrolov
- * Fixed extracting ECM flag
+ * Revision 1.3  2004-07-06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
+ *
+ * Revision 1.3  2004/07/06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
  *
  * Revision 1.2  2003/12/04 15:50:27  vfrolov
  * Fixed extracting ECM flag
@@ -36,6 +39,7 @@
  * 
  */
 
+#include <ptlib.h>
 #include "t30.h"
 
 ///////////////////////////////////////////////////////////////

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2003 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,10 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: dle.cxx,v $
- * Revision 1.5  2003-12-04 13:22:22  vfrolov
- * Removed ambiguous isEof()
- * Improved memory usage in DataStream
- * Fixed myPTRACE
+ * Revision 1.6  2004-07-06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
+ *
+ * Revision 1.6  2004/07/06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
  *
  * Revision 1.5  2003/12/04 13:22:22  vfrolov
  * Removed ambiguous isEof()
@@ -51,6 +52,7 @@
  * 
  */
 
+#include <ptlib.h>
 #include "dle.h"
 
 ///////////////////////////////////////////////////////////////

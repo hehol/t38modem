@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: hdlc.cxx,v $
- * Revision 1.3  2004-03-09 12:52:39  vfrolov
- * Fixed compile warning
+ * Revision 1.4  2004-07-06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
+ *
+ * Revision 1.4  2004/07/06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
  *
  * Revision 1.3  2004/03/09 12:52:39  vfrolov
  * Fixed compile warning
@@ -39,6 +42,7 @@
  * 
  */
 
+#include <ptlib.h>
 #include "hdlc.h"
 #include "t38engine.h"
 

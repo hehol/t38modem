@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.29  2004-06-18 15:06:29  vfrolov
- * Fixed race condition by adding mutex for modemCallback
+ * Revision 1.30  2004-07-06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
+ *
+ * Revision 1.30  2004/07/06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
  *
  * Revision 1.29  2004/06/18 15:06:29  vfrolov
  * Fixed race condition by adding mutex for modemCallback
@@ -127,6 +130,7 @@
  *
  */
 
+#include <ptlib.h>
 #include "t38engine.h"
 #include <transports.h>
 #include <t38.h>

@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.22  2004-06-24 17:20:22  vfrolov
- * Added stub for ATXn command
+ * Revision 1.23  2004-07-06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
+ *
+ * Revision 1.23  2004/07/06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
  *
  * Revision 1.22  2004/06/24 17:20:22  vfrolov
  * Added stub for ATXn command
@@ -110,6 +113,7 @@
  *
  */
 
+#include <ptlib.h>
 #include "pmodemi.h"
 #include "pmodeme.h"
 #include "dle.h"

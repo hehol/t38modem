@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2002 Vyacheslav Frolov
+ * Copyright (c) 2002-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.cxx,v $
- * Revision 1.2  2002-06-07 06:25:15  robertj
- * Added math.h for use of sin() function.
- * Fixed GNU warnings.
+ * Revision 1.3  2004-07-06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
+ *
+ * Revision 1.3  2004/07/06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
  *
  * Revision 1.2  2002/06/07 06:25:15  robertj
  * Added math.h for use of sin() function.
@@ -38,6 +40,7 @@
  * 
  */
 
+#include <ptlib.h>
 #include "t30tone.h"
 #include <math.h>
 

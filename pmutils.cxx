@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.cxx,v $
- * Revision 1.9  2004-03-09 17:23:11  vfrolov
- * Added PROCESS_PER_THREAD ifdef
+ * Revision 1.10  2004-07-06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
+ *
+ * Revision 1.10  2004/07/06 16:07:24  vfrolov
+ * Included ptlib.h for precompiling
  *
  * Revision 1.9  2004/03/09 17:23:11  vfrolov
  * Added PROCESS_PER_THREAD ifdef
@@ -64,6 +67,7 @@
  *
  */
 
+#include <ptlib.h>
 #include "pmutils.h"
 
 #define new PNEW
