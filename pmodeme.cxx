@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,17 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.24  2004-10-27 13:36:26  vfrolov
- * Decreased binary, DLE, and callback tracing
+ * Revision 1.25  2005-02-01 11:43:46  vfrolov
+ * Implemented ATV0 command (numeric format for result codes)
+ * Implemented AT+FMI?, AT+FMM? and AT+FMR? commands
+ * Added stubs for ATBn, ATX3 and AT+FCLASS=0 commands
+ * Added stub for AT+FLO command
+ *
+ * Revision 1.25  2005/02/01 11:43:46  vfrolov
+ * Implemented ATV0 command (numeric format for result codes)
+ * Implemented AT+FMI?, AT+FMM? and AT+FMR? commands
+ * Added stubs for ATBn, ATX3 and AT+FCLASS=0 commands
+ * Added stub for AT+FLO command
  *
  * Revision 1.24  2004/10/27 13:36:26  vfrolov
  * Decreased binary, DLE, and callback tracing
@@ -141,6 +150,7 @@ static const char Revision[] = TOSTR(MAJOR_VERSION) "." TOSTR(MINOR_VERSION) "."
 class Profile
 {
   enum {
+    FloReg = 49,
     CidModeReg = 50,
     MaxReg = 50,
     MaxBit = 7
@@ -178,7 +188,7 @@ class Profile
       GetBit(23, 7, val);
       return val;
     }
-    
+
     void CidMode(BYTE val) {
       SetReg(CidModeReg, val);
     }
@@ -186,6 +196,16 @@ class Profile
     BYTE CidMode() const {
       BYTE val;
       GetReg(CidModeReg, val);
+      return val;
+    }
+
+    void Flo(BYTE val) {
+      SetReg(FloReg, val);
+    }
+
+    BYTE Flo() const {
+      BYTE val;
+      GetReg(FloReg, val);
       return val;
     }
 
@@ -222,7 +242,7 @@ class Profile
     BOOL GetBits(PINDEX r, PINDEX bl, PINDEX bh, BYTE &val) const {
       if( !ChkRBB(r, bl, bh) ) return FALSE;
       BYTE msk = MaskBB(bl, bh);
-      val = (S[r] & msk) >> bl;
+      val = BYTE((S[r] & msk) >> bl);
       return TRUE;
     }
     
@@ -245,7 +265,7 @@ class Profile
       return "\x01\x02\x04\x08\x10\x20\x40\x80"[b];
     }
     static BYTE MaskBB(PINDEX bl, PINDEX bh) { // bl <= bh
-      return ("\x01\x03\x07\x0F\x1F\x3F\x7F\xFF"[bh - bl]) << bl;
+      return BYTE(("\x01\x03\x07\x0F\x1F\x3F\x7F\xFF"[bh - bl]) << bl);
     }
     
     BYTE S[MaxReg + 1];	// S-registers
@@ -299,6 +319,9 @@ class Timeout : public PTimer
     BOOL continuous;
     PMutex Mutex;
 };
+///////////////////////////////////////////////////////////////
+#define DeclareResultCode(name, v0, v1)	\
+  PString name() const { return P.asciiResultCodes() ? (v1) : (v0); }
 ///////////////////////////////////////////////////////////////
 class ModemEngineBody : public PObject
 {
@@ -354,10 +377,10 @@ class ModemEngineBody : public PObject
       return t38engine && t38engine->isOutBufFull();
     }
   //@}
-  
+
   protected:
     BOOL Echo() const { return P.Echo(); }
-    BOOL HandleClass1Cmd(const char **ppCmd, PString &resp);
+    BOOL HandleClass1Cmd(const char **ppCmd, PString &resp, BOOL &ok, BOOL &crlf);
     void HandleCmd(const PString &cmd, PString &resp);
 
     void ResetDleData() {
@@ -373,7 +396,7 @@ class ModemEngineBody : public PObject
       ResetDleData();
       state = stSend;
       if( t38engine && t38engine->SendStart(dataType, br) ) {
-        resp += "\r\nCONNECT\r\n";
+        resp = RC_CONNECT();
         return TRUE;
       } else {
         state = stCommand;
@@ -433,6 +456,19 @@ class ModemEngineBody : public PObject
     DeclareStringParam(SrcNum)
     DeclareStringParam(DstNum)
 
+    DeclareResultCode(RC_PREF,            "", "\r\n")
+
+    DeclareResultCode(RC_OK,           "0\r", "OK\r\n")
+    DeclareResultCode(RC_CONNECT,      "1\r", "CONNECT\r\n")
+    DeclareResultCode(RC_RING,         "2\r", "RING\r\n")
+    DeclareResultCode(RC_NO_CARRIER,   "3\r", "NO CARRIER\r\n")
+    DeclareResultCode(RC_ERROR,        "4\r", "ERROR\r\n")
+    DeclareResultCode(RC_CONNECT_1200, "5\r", "CONNECT 1200\r\n")
+    DeclareResultCode(RC_NO_DIALTONE,  "6\r", "NO DIALTONE\r\n")
+    DeclareResultCode(RC_BUSY,         "7\r", "BUSY\r\n")
+    DeclareResultCode(RC_NO_ANSWER,    "8\r", "NO ANSWER\r\n")
+    DeclareResultCode(RC_RINGING,      "9\r", "RINGING\r\n")
+    DeclareResultCode(RC_FCERROR,    "+F4\r", "+FCERROR\r\n")
 };
 ///////////////////////////////////////////////////////////////
 
@@ -743,7 +779,7 @@ static int ParseNum(const char **ppCmd,
     return num;
 }
 
-BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
+BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, BOOL &ok, BOOL &crlf)
 {
   BOOL T;
   
@@ -780,12 +816,15 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
         switch( **ppCmd ) {
           case '?':
             (*ppCmd)++;
-              resp += "\r\n0-255\r\nOK\r\n";
+            resp += "\r\n0-255";
+            crlf = TRUE;
             break;
           default:
             {
               int dms = ParseNum(ppCmd);
               if( dms >= 0 ) {
+                ok = FALSE;
+
                 PWaitAndSignal mutexWait(Mutex);
                 dataType = dt;
                 state = stSend;
@@ -815,18 +854,18 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
           case '?':
             (*ppCmd)++;
             if( dt == T38Engine::dtRaw )
-              resp += "\r\n24,48,72,73,74,96,97,98,121,122,145,146\r\nOK\r\n";
+              resp += "\r\n24,48,72,73,74,96,97,98,121,122,145,146";
             else
-              resp += "\r\n3\r\nOK\r\n";
+              resp += "\r\n3";
+            crlf = TRUE;
             break;
           default:
             {
               int br = ParseNum(ppCmd);
-              
-              if( (dt == T38Engine::dtRaw && br == 3) || (dt == T38Engine::dtHdlc && br != 3) ) {
+
+              if ((dt == T38Engine::dtRaw && br == 3) || (dt == T38Engine::dtHdlc && br != 3))
                 return FALSE;
-	      }
-                
+
               switch( br ) {
                 case 3:
                 case 24:
@@ -841,8 +880,22 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
                 case 122:
                 case 145:
                 case 146:
+                  ok = FALSE;
                   {
-                    BOOL res = T ? SendStart(dt, br, resp) : RecvStart(dt, br);
+                    PString _resp;
+                    BOOL res = T ? SendStart(dt, br, _resp) : RecvStart(dt, br);
+
+                    if (_resp.GetLength()) {
+                      if (crlf)
+                        resp += "\r\n";
+                      else
+                        resp += RC_PREF();
+
+                      crlf = FALSE;
+
+                      resp += _resp;
+                    }
+
                     if (!res)
                       PThread::Sleep(100);	// workaround
                     return res;
@@ -887,11 +940,11 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 
   BOOL err = FALSE;
   BOOL ok = TRUE;
-  BOOL crlf = TRUE;
-  
-  while (state == stCommand && !err && *pCmd)  {
+  BOOL crlf = FALSE;
+
+  while (state == stCommand && !err && *pCmd) {
       switch( *pCmd++ ) {
-	case ' ':
+        case ' ':
           break;
         case 'A':	// Accept incoming call
           ok = FALSE;
@@ -931,8 +984,13 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 state = stConnectHandle;
                 parent.SignalDataReady();
               }
-              crlf = FALSE;
             }
+          }
+          break;
+        case 'B':       // Turn ITU-T V.22/BELL 212A
+          if (ParseNum(&pCmd, 0, 1) >= 0) {
+          } else {
+            err = TRUE;
           }
           break;
         case 'D':	// Dial
@@ -997,7 +1055,6 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               
               if (response == "confirm") {
                 CallToken(request("calltoken"));
-                crlf = FALSE;
               } else {
                 callDirection = cdUndefined;
                 forceFaxMode = FALSE;
@@ -1006,9 +1063,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 if (response == "reject") {
                   PString diag = request("diag");
                   if( diag == "noroute" )
-                    resp += "\r\nBUSY";
+                    resp += RC_BUSY();
                   else
-                    resp += "\r\nNO DIALTONE";
+                    resp += RC_NO_DIALTONE();
                 } else {
                   err = TRUE;
                 }
@@ -1033,18 +1090,20 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             
             switch( val ) {
               case 0:
-                resp += "\r\n";
-                resp += Model;
+                resp += "\r\n" + PString(Model);
+                crlf = TRUE;
                 break;
               case 3:
-                resp += "\r\n";
-                resp += Manufacturer;
+                resp += "\r\n" + PString(Manufacturer);
+                crlf = TRUE;
                 break;
               case 8:
                 resp += "\r\nNMBR = " + SrcNum();
+                crlf = TRUE;
                 break;
               case 9:
                 resp += "\r\nNDID = " + DstNum();
+                crlf = TRUE;
                 break;
               default:
                 if( val < 0 )
@@ -1096,6 +1155,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 
                   if( P.GetReg(r, val) ) {
                     resp.sprintf("\r\n%3.3u", (unsigned)val);
+                    crlf = TRUE;
                   } else {
                     err = TRUE;
                   }
@@ -1121,6 +1181,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 
                           if( P.GetBit(r, b, val) ) {
                             resp.sprintf("\r\n%u", (unsigned)val);
+                            crlf = TRUE;
                           } else {
                             err = TRUE;
                           }
@@ -1146,7 +1207,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           ToSBit(asciiResultCodes);
           break;
         case 'X':	// Which result codes
-          if (ParseNum(&pCmd, 0, 1) >= 4) {
+          if (ParseNum(&pCmd, 0, 1) >= 3) {
           } else {
             err = TRUE;
           }
@@ -1176,6 +1237,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                           case '?':
                             pCmd++;
                             resp += "\r\n0";
+                            crlf = TRUE;
                             break;
                           default:
                             switch( ParseNum(&pCmd) ) {
@@ -1188,6 +1250,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                         break;
                       case '?':
                         resp += "\r\n0";
+                        crlf = TRUE;
                         break;
                       default:
                         err = TRUE;
@@ -1205,9 +1268,13 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                           case '?':
                             pCmd++;
                             resp += "\r\n1";	// "\r\n1,8"
+                            crlf = TRUE;
                             break;
                           default:
                             switch( ParseNum(&pCmd) ) {
+                              case 0:
+                                P.ModemClass("0");
+                                break;
                               case 1:
                                 P.ModemClass("1");
                                 break;
@@ -1221,6 +1288,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                         break;
                       case '?':
                         resp += "\r\n" + P.ModemClass();
+                        crlf = TRUE;
                         break;
                       default:
                         err = TRUE;
@@ -1229,29 +1297,110 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                     err = TRUE;
                   }
                   break;
+                case 'L':
+                  switch (*pCmd++) {
+                    case 'O': // +FLO
+                      switch (*pCmd++) {
+                        case '=':
+                          switch (*pCmd) {
+                            case '?':
+                              pCmd++;
+                              resp += "\r\n0-2";
+                              crlf = TRUE;
+                              break;
+                            default:
+                              {
+                                int val = ParseNum(&pCmd);
+                                switch (val) {
+                                  case 0:
+                                  case 1:
+                                  case 2:
+                                    P.Flo((BYTE)val);
+                                    break;
+                                  default:
+                                    err = TRUE;
+                                }
+                              }
+                          }
+                          break;
+                        case '?':
+                          resp.sprintf("\r\n%u", (unsigned)P.Flo());
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
+                    default:
+                      err = TRUE;
+                  }
+                  break;
                 case 'M':
-                  if( strncmp(pCmd, "FR", 2) == 0 ) {	// +FMFR
-                    pCmd += 2;
-                    switch( *pCmd++ ) {
-                      case '?':
-                        resp += "\r\n";
-                        resp += Manufacturer;
-                        break;
+                  switch (*pCmd++) {
+                    case 'D':
+                      switch (*pCmd++) {
+                        case 'L': // +FMDL
+                          switch (*pCmd++) {
+                            case '?':
+                              resp += "\r\n" + PString(Model);
+                              crlf = TRUE;
+                              break;
+                            default:
+                              err = TRUE;
+                          }
+                          break;
                       default:
-                        err = TRUE;
-                    }
-                  } else if( strncmp(pCmd, "DL", 2) == 0 ) {	// +FMDL
-                    pCmd += 2;
-                    switch( *pCmd++ ) {
-                      case '?':
-                        resp += "\r\n";
-                        resp += Model;
-                        break;
+                          err = TRUE;
+                      }
+                      break;
+                    case 'F':
+                      switch (*pCmd++) {
+                        case 'R': // +FMFR
+                          switch (*pCmd++) {
+                            case '?':
+                              resp += "\r\n" + PString(Manufacturer);
+                              crlf = TRUE;
+                              break;
+                            default:
+                              err = TRUE;
+                          }
+                          break;
                       default:
-                        err = TRUE;
-                    }
-                  } else {
-                    err = TRUE;
+                          err = TRUE;
+                      }
+                      break;
+                    case 'I': // +FMI
+                      switch (*pCmd++) {
+                        case '?':
+                          resp += "\r\n" + PString(Manufacturer);
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
+                    case 'M': // +FMM
+                      switch (*pCmd++) {
+                        case '?':
+                          resp += "\r\n" + PString(Model);
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
+                    case 'R': // +FMR
+                      switch (*pCmd++) {
+                        case '?':
+                          resp += "\r\n" + PString(Revision);
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
+                    default:
+                      err = TRUE;
                   }
                   break;
                 case 'R':
@@ -1260,10 +1409,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                     case 'H':				// +FRH
                     case 'S':				// +FRS
                       pCmd++;
-                      ok = FALSE;
-                      if( HandleClass1Cmd(&pCmd, resp) )
-                        crlf = FALSE;
-                      else
+                      if (!HandleClass1Cmd(&pCmd, resp, ok, crlf))
                         err = TRUE;
                       break;
                     default:
@@ -1271,8 +1417,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                         pCmd += 2;
                         switch( *pCmd++ ) {
                           case '?':
-                            resp += "\r\n";
-                            resp += Revision;
+                            resp += "\r\n" + PString(Revision);
+                            crlf = TRUE;
                             break;
                           default:
                             err = TRUE;
@@ -1288,10 +1434,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                     case 'H':				// +FTH
                     case 'S':				// +FTS
                       pCmd++;
-                      ok = FALSE;
-                      if( HandleClass1Cmd(&pCmd, resp) )
-                        crlf = FALSE;
-                      else
+                      if (!HandleClass1Cmd(&pCmd, resp, ok, crlf))
                         err = TRUE;
                       break;
                     default:
@@ -1356,6 +1499,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   case '?':
                     pCmd++;
                     resp += "\r\n(0,10)";
+                    crlf = TRUE;
                     break;
                   default:
                     {
@@ -1363,7 +1507,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                       switch (val) {
                         case 0:
                         case 10:
-                          P.CidMode(val);
+                          P.CidMode((BYTE)val);
                           break;
                         default:
                           err = TRUE;
@@ -1373,6 +1517,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 break;
               case '?':
                 resp.sprintf("\r\n%u", (unsigned)P.CidMode());
+                crlf = TRUE;
                 break;
               default:
                 err = TRUE;
@@ -1385,13 +1530,21 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           err = TRUE;
       }
   }
-  if( err ) {
-    resp += "\r\nERROR";
-  } else if( ok ) {
-    resp += "\r\nOK";
-  }
-  if( crlf )
+
+  if (crlf)
     resp += "\r\n";
+
+  if (err) {
+    if (!crlf)
+      resp += RC_PREF();
+    resp += RC_ERROR();
+  }
+  else
+  if (ok) {
+    if (!crlf)
+      resp += RC_PREF();
+    resp += RC_OK();
+  }
 }
 
 void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
@@ -1467,7 +1620,9 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                 case -1:
                   state = stSendAckWait;
                   if( !t38engine || !t38engine->SendStop(moreFrames, NextSeq()) ) {
-                    bresp.Concatenate(PBYTEArray((const BYTE *)"\r\nERROR\r\n", 9));
+                    PString resp = RC_PREF() + RC_ERROR();
+
+                    bresp.Concatenate(PBYTEArray((const BYTE *)resp, resp.GetLength()));
                     state = stCommand;
                   }
                   break;
@@ -1509,13 +1664,18 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             PWaitAndSignal mutexWait(Mutex);
             state = stCommand;
             timeout.Stop();
+
+            PString resp = RC_PREF();
+
             if (t38engine) {
               t38engine->ResetModemState();
-              bresp.Concatenate(PBYTEArray((const BYTE *)"\r\nOK\r\n", 6));
+              resp += RC_OK();
             } else {
               _ClearCall();
-              bresp.Concatenate(PBYTEArray((const BYTE *)"\r\nNO CARRIER\r\n", 14));
+              resp += RC_NO_CARRIER();
             }
+
+            bresp.Concatenate(PBYTEArray((const BYTE *)resp, resp.GetLength()));
           }
       }
     }
@@ -1528,14 +1688,14 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
   {
     PWaitAndSignal mutexWait(Mutex);
     if (cmd.IsEmpty() && timerRing.Get())  {
-      resp += "\r\nRING\r\n";
+      resp = RC_RING();
       BYTE s0, ringCount;
       P.GetReg(0, s0);
       P.GetReg(1, ringCount);
       if (!ringCount && P.CidMode() == 10) {
-        resp += "NMBR = " + SrcNum();
-        resp += "\r\nNDID = " + DstNum();
-        resp += "\r\nRING\r\n";
+        resp += "NMBR = " + SrcNum() + "\r\n"
+                "NDID = " + DstNum() + "\r\n";
+        resp += RC_RING();
       }
       P.SetReg(1, ++ringCount);
       if (s0 > 0 && (ringCount >= s0)) {
@@ -1551,7 +1711,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       case stConnectWait:
       case stReqModeAckWait:
       case stRecvBegWait:
-        resp += "\r\nNO CARRIER\r\n";
+        resp = RC_NO_CARRIER();
         state = stCommand;
         if (t38engine)
           t38engine->ResetModemState();
@@ -1572,22 +1732,22 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           case stCommand:
             break;
           case stSend:
-            resp += "\r\nERROR\r\n";
+            resp = RC_ERROR();
             break;
           case stRecvBegWait:
-            resp += "\r\nNO CARRIER\r\n";
+            resp = RC_NO_CARRIER();
             break;
           case stConnectWait:
           case stConnectHandle:
           case stReqModeAckWait:
           case stReqModeAckHandle:
             if (callDirection == cdOutgoing)
-              resp += "\r\nBUSY\r\n";
+              resp = RC_BUSY();
             else
-              resp += "\r\nERROR\r\n";
+              resp = RC_ERROR();
             break;
           default:
-            resp += "\r\nERROR\r\n";
+            resp = RC_ERROR();
         }
         state = stCommand;
         if (t38engine)
@@ -1601,7 +1761,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         PWaitAndSignal mutexWait(Mutex);
         state = stSendAckWait;
         if( !t38engine || !t38engine->SendStop(moreFrames, NextSeq()) ) {
-          resp += "\r\nERROR\r\n";
+          resp = RC_ERROR();
           state = stCommand;
         }
       }
@@ -1645,7 +1805,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               } else {
                 state = stCommand;
                 timeout.Stop();
-                resp += "\r\nNO CARRIER\r\n";
+                resp = RC_NO_CARRIER();
               }
             }
             break;
@@ -1662,11 +1822,11 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             if (t38engine && t38engine->SendStart(dataType, 3000)) {
               state = stSendAckWait;
               if (!t38engine->SendStop(FALSE, NextSeq())) {
-                resp += "\r\nERROR\r\n";
+                resp = RC_ERROR();
                 state = stCommand;
               }
             } else {
-              resp += "\r\nNO CARRIER\r\n";
+              resp = RC_NO_CARRIER();
               state = stCommand;
             }
             break;
@@ -1674,11 +1834,11 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             if (t38engine)
               t38engine->SendOnIdle(T38Engine::dtCng);
             if( !RecvStart(T38Engine::dtHdlc, 3) ) {
-              resp += "\r\nERROR\r\n";
+              resp = RC_ERROR();
             }
             break;
           default:
-            resp += "\r\nNO CARRIER\r\n";
+            resp = RC_NO_CARRIER();
             state = stCommand;
         }
       }
@@ -1687,10 +1847,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       switch( dataType ) {
         case T38Engine::dtCed:
           if( !SendStart(T38Engine::dtHdlc, 3, resp) )
-            resp += "\r\nERROR\r\n";
+            resp = RC_ERROR();
           break;
         case T38Engine::dtSilence:
-            resp += "\r\nOK\r\n";
+            resp = RC_OK();
             state = stCommand;
           break;
         case T38Engine::dtHdlc:
@@ -1698,10 +1858,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           {
             PWaitAndSignal mutexWait(Mutex);
             if( moreFrames ) {
-              resp += "\r\nCONNECT\r\n";
+              resp = RC_CONNECT();
               state = stSend;
             } else {
-              resp += "\r\nOK\r\n";
+              resp = RC_OK();
               state = stCommand;
             }
             ResetDleData();
@@ -1715,17 +1875,17 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         
         if( t38engine && t38engine->RecvStart(NextSeq()) ) {
           if( (t38engine->RecvDiag() & T38Engine::diagDiffSig) == 0 ) {
-            resp += "\r\nCONNECT\r\n";
+            resp = RC_CONNECT();
             dataCount = 0;
             state = stRecv;
             parent.SignalDataReady();	// try to Recv w/o delay
           } else {
             t38engine->RecvStop();
-            resp += "\r\n+FCERROR\r\n";
+            resp = RC_FCERROR();
             state = stCommand;
           }
         } else {
-          resp += "\r\nERROR\r\n";
+          resp = RC_ERROR();
           state = stCommand;
         }
         ResetDleData();
@@ -1751,8 +1911,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                 int diag = t38engine->RecvDiag();
 
                 if (dataType == T38Engine::dtHdlc) {
-                  Buf[0] = fcs >> 8;
-                  Buf[1] = fcs;
+                  Buf[0] = BYTE(fcs >> 8);
+                  Buf[1] = BYTE(fcs);
                   if (diag & T38Engine::diagBadFcs)
                      Buf[0]++;
                   dleData.PutData(Buf, 2);
@@ -1786,13 +1946,13 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                 
                 if (dataType == T38Engine::dtHdlc) {
                   if (diag == 0)
-                    resp += "\r\nOK\r\n";
+                    resp = RC_OK();
                   else if (dataCount == 0 && (diag & ~T38Engine::diagNoCarrier) == 0)
-                    resp += "\r\nNO CARRIER\r\n";
+                    resp = RC_NO_CARRIER();
                   else
-                    resp += "\r\nERROR\r\n";
+                    resp = RC_ERROR();
                 } else {
-                  resp += "\r\nNO CARRIER\r\n";
+                  resp = RC_NO_CARRIER();
                 }
               }
               break;
@@ -1817,6 +1977,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
   }
   
   if( resp.GetLength() ) {
+    resp = RC_PREF() + resp;
+
     PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
     
     myPTRACE(1, "<-- " << PRTHEX(_bresp));
