@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.11  2002-05-07 11:06:12  vfrolov
- * Discarded const from ModemCallbackWithUnlock()
+ * Revision 1.12  2002-05-08 16:33:16  vfrolov
+ * Adjusted post training delays
+ *
+ * Revision 1.12  2002/05/08 16:33:16  vfrolov
+ * Adjusted post training delays
  *
  * Revision 1.11  2002/05/07 11:06:12  vfrolov
  * Discarded const from ModemCallbackWithUnlock()
@@ -217,18 +220,18 @@ void ModStream::Move(ModStream &from)
 ///////////////////////////////////////////////////////////////
 static const MODPARS mods[] = {
 MODPARS(T38Engine::dtHdlc,   3, T38I(e_v21_preamble),              900, T38D(e_v21),         300 ),
-MODPARS( T38Engine::dtRaw,  24, T38I(e_v27_2400_training),         800, T38D(e_v27_2400),   2400 ),
-MODPARS( T38Engine::dtRaw,  48, T38I(e_v27_4800_training),         800, T38D(e_v27_4800),   4800 ),
-MODPARS( T38Engine::dtRaw,  72, T38I(e_v29_7200_training),         800, T38D(e_v29_7200),   7200 ),
+MODPARS( T38Engine::dtRaw,  24, T38I(e_v27_2400_training),        1100, T38D(e_v27_2400),   2400 ),
+MODPARS( T38Engine::dtRaw,  48, T38I(e_v27_4800_training),         900, T38D(e_v27_4800),   4800 ),
+MODPARS( T38Engine::dtRaw,  72, T38I(e_v29_7200_training),         300, T38D(e_v29_7200),   7200 ),
 MODPARS( T38Engine::dtRaw,  73, T38I(e_v17_7200_long_training),   1500, T38D(e_v17_7200),   7200 ),
-MODPARS( T38Engine::dtRaw,  74, T38I(e_v17_7200_short_training),   400, T38D(e_v17_7200),   7200 ),
-MODPARS( T38Engine::dtRaw,  96, T38I(e_v29_9600_training),         800, T38D(e_v29_9600),   9600 ),
+MODPARS( T38Engine::dtRaw,  74, T38I(e_v17_7200_short_training),   300, T38D(e_v17_7200),   7200 ),
+MODPARS( T38Engine::dtRaw,  96, T38I(e_v29_9600_training),         300, T38D(e_v29_9600),   9600 ),
 MODPARS( T38Engine::dtRaw,  97, T38I(e_v17_9600_long_training),   1500, T38D(e_v17_9600),   9600 ),
-MODPARS( T38Engine::dtRaw,  98, T38I(e_v17_9600_short_training),   400, T38D(e_v17_9600),   9600 ),
+MODPARS( T38Engine::dtRaw,  98, T38I(e_v17_9600_short_training),   300, T38D(e_v17_9600),   9600 ),
 MODPARS( T38Engine::dtRaw, 121, T38I(e_v17_12000_long_training),  1500, T38D(e_v17_12000), 12000 ),
-MODPARS( T38Engine::dtRaw, 122, T38I(e_v17_12000_short_training),  400, T38D(e_v17_12000), 12000 ),
+MODPARS( T38Engine::dtRaw, 122, T38I(e_v17_12000_short_training),  300, T38D(e_v17_12000), 12000 ),
 MODPARS( T38Engine::dtRaw, 145, T38I(e_v17_14400_long_training),  1500, T38D(e_v17_14400), 14400 ),
-MODPARS( T38Engine::dtRaw, 146, T38I(e_v17_14400_short_training),  400, T38D(e_v17_14400), 14400 ),
+MODPARS( T38Engine::dtRaw, 146, T38I(e_v17_14400_short_training),  300, T38D(e_v17_14400), 14400 ),
 };
 
 static const MODPARS invalidMods;
