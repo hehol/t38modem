@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.1  2004-07-07 13:36:46  vfrolov
- * Initial revision
+ * Revision 1.2  2004-08-30 12:11:33  vfrolov
+ * Enabled input XON/XOFF control
+ *
+ * Revision 1.2  2004/08/30 12:11:33  vfrolov
+ * Enabled input XON/XOFF control
  *
  * Revision 1.1  2004/07/07 13:36:46  vfrolov
  * Initial revision
@@ -513,7 +516,11 @@ BOOL PseudoModemC0C::OpenC0C()
   dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
   dcb.fDtrControl = DTR_CONTROL_ENABLE;
   dcb.fOutX = FALSE;
-  dcb.fInX = FALSE;
+  dcb.fInX = TRUE;
+  dcb.XonChar = 0x11;
+  dcb.XoffChar = 0x13;
+  dcb.XonLim = 100;
+  dcb.XoffLim = 100;
   dcb.fParity = FALSE;
   dcb.fNull = FALSE;
 
