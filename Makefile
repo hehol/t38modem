@@ -22,8 +22,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.8  2002-08-05 10:10:29  robertj
-# Normalised Makefile usage of openh323u.mak include file, fixing odd messages.
+# Revision 1.9  2003-12-04 15:56:45  vfrolov
+# Added hdlc.cxx t30.cxx fcs.cxx
+#
+# Revision 1.9  2003/12/04 15:56:45  vfrolov
+# Added hdlc.cxx t30.cxx fcs.cxx
 #
 # Revision 1.8  2002/08/05 10:10:29  robertj
 # Normalised Makefile usage of openh323u.mak include file, fixing odd messages.
@@ -47,7 +50,9 @@
 # 
 
 PROG		= t38modem
-SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pty.cxx pmodemi.cxx pmodeme.cxx t38engine.cxx main.cxx g7231_fake.cxx t30tone.cxx
+SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pty.cxx pmodemi.cxx \
+		   g7231_fake.cxx t30tone.cxx hdlc.cxx t30.cxx fcs.cxx \
+		   pmodeme.cxx t38engine.cxx main.cxx
 
 ifndef OPENH323DIR
 OPENH323DIR=$(HOME)/openh323
