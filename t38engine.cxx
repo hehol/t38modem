@@ -1,13 +1,18 @@
 /*
- * $Id: t38engine.cxx,v 1.3 2002-01-02 04:50:34 craigs Exp $
+ * $Id: t38engine.cxx,v 1.4 2002-01-03 21:36:42 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.3  2002-01-02 04:50:34  craigs
- * General formatting cleanups whilst looking for efax problem
+ * Revision 1.4  2002-01-03 21:36:42  craigs
+ * Added additional logic to work with efax
+ * Thanks to Vyacheslav Frolov
+ *
+ * Revision 1.4  2002/01/03 21:36:42  craigs
+ * Added additional logic to work with efax
+ * Thanks to Vyacheslav Frolov
  *
  * Revision 1.3  2002/01/02 04:50:34  craigs
  * General formatting cleanups whilst looking for efax problem
@@ -249,6 +254,7 @@ T38Engine::T38Engine(const PString &_name)
   modStreamInSaved = NULL;
   
   T38Mode = TRUE;
+  no_signal = TRUE;
 }
 
 BOOL T38Engine::Originate(H323Transport & transport)
@@ -634,6 +640,11 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
         if( isStateModemOut() || stateOut != stOutIdle ) {
           switch( stateOut ) {
             case stOutIdle:
+              if( !no_signal ) {
+                myPTRACE(1, "T38Engine::PreparePacket waiting no_signal");
+                redo = TRUE;
+                break;
+              }
               switch( ModParsOut.dataType ) {
                 case dtHdlc:
                 case dtRaw:
@@ -782,6 +793,15 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
       WaitOutDataReady();
       if( !IsT38Mode() )
         return FALSE;
+
+      {
+        PWaitAndSignal mutexWait(Mutex);
+        if( stateOut == stOutData ) {
+          myPTRACE(1, "T38Engine::PreparePacket DTE's data delay, reset " << countOut);
+          countOut = 0;
+          timeBeginOut = PTime() - PTimeInterval(msPerOut);	// no delay
+        }
+      }
     }
     if( !redo ) break;
   }
@@ -829,8 +849,10 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
         delete modStreamInSaved;
         modStreamInSaved = NULL;
       }
+      
       switch( (const T38_Type_of_msg_t30_indicator &)ifp.m_type_of_msg ) {
         case T38I(e_no_signal):
+          no_signal = TRUE;
         case T38I(e_cng):
         case T38I(e_ced):
           break;
@@ -847,6 +869,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
         case T38I(e_v17_12000_long_training):
         case T38I(e_v17_14400_short_training):
         case T38I(e_v17_14400_long_training):
+          no_signal = FALSE;
           modStreamInSaved = new ModStream(GetModPars((const T38_Type_of_msg_t30_indicator &)ifp.m_type_of_msg, by_ind));
           modStreamInSaved->PushBuf();
             
@@ -951,6 +974,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
                   case T38F(e_t4_non_ecm_sig_end):
                     modStream->PutEof(diagNoCarrier);
                     modStream = NULL;
+                    no_signal = TRUE;
                     break;
                 }
               }

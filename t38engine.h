@@ -1,13 +1,18 @@
 /*
- * $Id: t38engine.h,v 1.2 2002-01-01 23:59:52 craigs Exp $
+ * $Id: t38engine.h,v 1.3 2002-01-03 21:36:42 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: t38engine.h,v $
- * Revision 1.2  2002-01-01 23:59:52  craigs
- * Lots of additional implementation thanks to Vyacheslav Frolov
+ * Revision 1.3  2002-01-03 21:36:42  craigs
+ * Added additional logic to work with efax
+ * Thanks to Vyacheslav Frolov
+ *
+ * Revision 1.3  2002/01/03 21:36:42  craigs
+ * Added additional logic to work with efax
+ * Thanks to Vyacheslav Frolov
  *
  * Revision 1.2  2002/01/01 23:59:52  craigs
  * Lots of additional implementation thanks to Vyacheslav Frolov
@@ -144,6 +149,7 @@ class T38Engine : public OpalT38Protocol
     
     int stateIn;
     int callbackParamIn;
+    BOOL no_signal;
     
     ModStream *modStreamIn;
     ModStream *modStreamInSaved;
