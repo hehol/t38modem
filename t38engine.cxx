@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.12  2002-05-08 16:33:16  vfrolov
- * Adjusted post training delays
+ * Revision 1.13  2002-05-15 16:05:17  vfrolov
+ * Changed algorithm of handling isCarrierIn
+ * Removed delay after sending dtSilence
+ *
+ * Revision 1.13  2002/05/15 16:05:17  vfrolov
+ * Changed algorithm of handling isCarrierIn
+ * Removed delay after sending dtSilence
  *
  * Revision 1.12  2002/05/08 16:33:16  vfrolov
  * Adjusted post training delays
@@ -219,7 +224,7 @@ void ModStream::Move(ModStream &from)
 }
 ///////////////////////////////////////////////////////////////
 static const MODPARS mods[] = {
-MODPARS(T38Engine::dtHdlc,   3, T38I(e_v21_preamble),              900, T38D(e_v21),         300 ),
+MODPARS( T38Engine::dtHdlc,  3, T38I(e_v21_preamble),              900, T38D(e_v21),         300 ),
 MODPARS( T38Engine::dtRaw,  24, T38I(e_v27_2400_training),        1100, T38D(e_v27_2400),   2400 ),
 MODPARS( T38Engine::dtRaw,  48, T38I(e_v27_4800_training),         900, T38D(e_v27_4800),   4800 ),
 MODPARS( T38Engine::dtRaw,  72, T38I(e_v29_7200_training),         300, T38D(e_v29_7200),   7200 ),
@@ -667,40 +672,46 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
   //myPTRACE(1, name << " T38Engine::PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
   
   ifp = T38_IFPPacket();
+  BOOL doDalay = TRUE;
+  BOOL wasCarrierIn = FALSE;
 
   for(;;) {
     BOOL redo = FALSE;
-    PTimeInterval outDelay;
     
-    switch( stateOut ) {
-      case stOutIdle:			outDelay = msPerOut; break;
-      
-      case stOutCedWait:		outDelay = ModParsOut.lenInd; break;
-      case stOutSilenceWait:		outDelay = ModParsOut.lenInd; break;
-      case stOutIndWait:		outDelay = ModParsOut.lenInd; break;
+    if (doDalay) {
+      PTimeInterval outDelay;
 
-      case stOutData:
-        outDelay = PTimeInterval((countOut*8*1000)/ModParsOut.br + msPerOut) - (PTime() - timeBeginOut);
-        break;
-      
-      case stOutHdlcFcs:		outDelay = msPerOut; break;
-      case stOutHdlcFlagsWait:		outDelay = msPerOut*3; break;
-      
-      case stOutDataNoSig:		outDelay = msPerOut; break;
-      
-      case stOutNoSig:			outDelay = msPerOut; break;
-      default:				outDelay = 0;
-    }
-      
-    //myPTRACE(1, name << " T38Engine::PreparePacket outDelay=" << outDelay);
-    
-    if( outDelay > 0 )
-    #ifdef P_LINUX
-      usleep(outDelay.GetMilliSeconds() * 1000);
-    #else
-      PThread::Sleep(outDelay);
-    #endif
-      
+      switch( stateOut ) {
+        case stOutIdle:			outDelay = msPerOut; break;
+
+        case stOutCedWait:		outDelay = ModParsOut.lenInd; break;
+        case stOutSilenceWait:		outDelay = ModParsOut.lenInd; break;
+        case stOutIndWait:		outDelay = ModParsOut.lenInd; break;
+
+        case stOutData:
+          outDelay = PTimeInterval((countOut*8*1000)/ModParsOut.br + msPerOut) - (PTime() - timeBeginOut);
+          break;
+
+        case stOutHdlcFcs:		outDelay = msPerOut; break;
+        case stOutHdlcFlagsWait:	outDelay = msPerOut*3; break;
+
+        case stOutDataNoSig:		outDelay = msPerOut; break;
+
+        case stOutNoSig:		outDelay = msPerOut; break;
+        default:			outDelay = 0;
+      }
+
+      //myPTRACE(1, name << " T38Engine::PreparePacket outDelay=" << outDelay);
+
+      if( outDelay > 0 )
+      #ifdef P_LINUX
+        usleep(outDelay.GetMilliSeconds() * 1000);
+      #else
+        PThread::Sleep(outDelay);
+      #endif
+    } else
+      doDalay = TRUE;
+
     if (!IsT38Mode())
       return FALSE;
 
@@ -711,14 +722,38 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
         if( isStateModemOut() || stateOut != stOutIdle ) {
           switch( stateOut ) {
             case stOutIdle:
-              if( isCarrierIn ) {
-                myPTRACE(1, name << " T38Engine::PreparePacket waiting isCarrierIn(" << isCarrierIn << ") == 0");
-                if( --isCarrierIn == 0 ) {	// to prevent dead lock
-                  myPTRACE(1, name << " T38Engine::PreparePacket isCarrierIn expired");
+              if (isCarrierIn) {
+                myPTRACE(1, name << " T38Engine::PreparePacket isCarrierIn for dataType=" << ModParsOut.dataType);
+                int waitms = 0;
+                /*
+                 * We can't to begin sending data while the carrier is detected because
+                 * it's possible that all data (including indication) will be losted.
+                 * It's too critical for image data because it's possible to receive
+                 * MCF generated for previous page after sending small page that was
+                 * not delivered.
+                 */
+                switch( ModParsOut.dataType ) {
+                  case dtHdlc:		waitms = 500; break;	// it's can't be too long
+                  case dtRaw:		waitms = 2000; break;	// it's can't be too short
                 }
-                redo = TRUE;
-                break;
+                
+                if (waitms) {
+                  if (!wasCarrierIn) {
+                    wasCarrierIn = TRUE;
+                    timeBeginOut = PTime() + PTimeInterval(1000);
+                    redo = TRUE;
+                    break;
+                  } else if (timeBeginOut > PTime()) {
+                    redo = TRUE;
+                    break;
+                  } else {
+                    myPTRACE(1, name << " T38Engine::PreparePacket isCarrierIn expired");
+                  }
+                }
               }
+
+              wasCarrierIn = FALSE;
+
               switch( ModParsOut.dataType ) {
                 case dtHdlc:
                 case dtRaw:
@@ -750,6 +785,7 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
               stateOut = stOutIdle;
               stateModem = stmIdle;
               ModemCallbackWithUnlock(callbackParamOut);
+              doDalay = FALSE;
               redo = TRUE;
               break;
             ////////////////////////////////////////////////////
@@ -885,7 +921,8 @@ BOOL T38Engine::PreparePacket(T38_IFPPacket & ifp)
         if( stateOut == stOutData ) {
           myPTRACE(1, name << " T38Engine::PreparePacket DTE's data delay, reset " << countOut);
           countOut = 0;
-          timeBeginOut = PTime() - PTimeInterval(msPerOut);	// no delay
+          timeBeginOut = PTime() - PTimeInterval(msPerOut);
+          doDalay = FALSE;
         }
       }
     }
@@ -955,7 +992,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
         case T38I(e_v17_12000_long_training):
         case T38I(e_v17_14400_short_training):
         case T38I(e_v17_14400_long_training):
-          isCarrierIn = 1000 / msPerOut;	// 1 sec
+          isCarrierIn = 1;
           modStreamInSaved = new ModStream(GetModPars((const T38_Type_of_msg_t30_indicator &)ifp.m_type_of_msg, by_ind));
           modStreamInSaved->PushBuf();
             
