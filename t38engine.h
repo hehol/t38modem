@@ -22,8 +22,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.5  2002-01-10 06:10:03  craigs
- * Added MPL header
+ * Revision 1.6  2002-02-11 16:46:21  vfrolov
+ * Discarded transport arg from Originate() and Answer()
+ * Thanks to Christopher Curtis
+ *
+ * Revision 1.6  2002/02/11 16:46:21  vfrolov
+ * Discarded transport arg from Originate() and Answer()
+ * Thanks to Christopher Curtis
  *
  * Revision 1.5  2002/01/10 06:10:03  craigs
  * Added MPL header
@@ -132,8 +137,8 @@ class T38Engine : public OpalT38Protocol
     
   protected:
   
-    virtual BOOL Originate(H323Transport & transport);
-    virtual BOOL Answer(H323Transport & transport);
+    virtual BOOL Originate();
+    virtual BOOL Answer();
 
     /**Prepare outgoing T.38 packet.
 

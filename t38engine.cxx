@@ -22,8 +22,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.6  2002-01-10 06:10:03  craigs
- * Added MPL header
+ * Revision 1.7  2002-02-11 16:46:18  vfrolov
+ * Discarded transport arg from Originate() and Answer()
+ * Thanks to Christopher Curtis
+ *
+ * Revision 1.7  2002/02/11 16:46:18  vfrolov
+ * Discarded transport arg from Originate() and Answer()
+ * Thanks to Christopher Curtis
  *
  * Revision 1.6  2002/01/10 06:10:03  craigs
  * Added MPL header
@@ -279,24 +284,24 @@ T38Engine::T38Engine(const PString &_name)
   isCarrierIn = 0;
 }
 
-BOOL T38Engine::Originate(H323Transport & transport)
+BOOL T38Engine::Originate()
 {
   if (!name.IsEmpty()) {
     PString old = PThread::Current()->GetThreadName();
     PThread::Current()->SetThreadName(name + "(tx):%0x");
     PTRACE(2, "myT38Protocol::Originate old ThreadName=" << old);
   }
-  return OpalT38Protocol::Originate(transport);
+  return OpalT38Protocol::Originate();
 }
 
-BOOL T38Engine::Answer(H323Transport & transport)
+BOOL T38Engine::Answer()
 {
   if( !name.IsEmpty() ) {
     PString old = PThread::Current()->GetThreadName();
     PThread::Current()->SetThreadName(name + "(rx):%0x");
     PTRACE(2, "myT38Protocol::Answer old ThreadName=" << old);
   }
-  return OpalT38Protocol::Answer(transport);
+  return OpalT38Protocol::Answer();
 }
 
 T38Engine::~T38Engine()
