@@ -21,20 +21,17 @@
  *
  * Contributor(s): Equivalence Pty ltd
  *
- * $Log: version.h,v $
- * Revision 1.3  2002-01-10 06:10:03  craigs
- * Added MPL header
+ * Library dependencies:
  *
- * Revision 1.3  2002/01/10 06:10:03  craigs
- * Added MPL header
- *
+ *   pwlib: v1.2.14   CVS tag: HEAD
+ *   openh323: v1.8.3   CVS tag: HEAD
  */
  
 #ifndef _T38M_VERSION_H
 #define _T38M_VERSION_H
 
 #define MAJOR_VERSION 0
-#define MINOR_VERSION 1
+#define MINOR_VERSION 4
 #define BUILD_TYPE    ReleaseCode
 #define BUILD_NUMBER 0
 
