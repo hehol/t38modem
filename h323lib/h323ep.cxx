@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.20  2002-04-27 10:20:41  vfrolov
- * Added ability to disable listen for incoming calls
+ * Revision 1.21  2002-04-30 04:06:06  craigs
+ * Added option to set G.723.1 codec
+ *
+ * Revision 1.21  2002/04/30 04:06:06  craigs
+ * Added option to set G.723.1 codec
  *
  * Revision 1.20  2002/04/27 10:20:41  vfrolov
  * Added ability to disable listen for incoming calls
@@ -82,6 +85,7 @@
 #include "t38engine.h"
 #include "pmodem.h"
 #include "main.h"
+#include "g7231_fake.h"
 
 PCREATE_PROCESS(T38Modem);
 
@@ -116,6 +120,7 @@ void T38Modem::Main()
 
              "F-fastenable."
              "T-h245tunneldisable."
+	     "G-g7231code."
 
              "g-gatekeeper:"         "n-no-gatekeeper."
              "-require-gatekeeper."  "-no-require-gatekeeper."
@@ -165,6 +170,7 @@ void T38Modem::Main()
             "  --require-gatekeeper    : Exit if gatekeeper discovery fails.\n"
             "  -F --fastenable         : Enable fast start\n"
             "  -T --h245tunneldisable  : Disable H245 tunnelling.\n"
+	    "  -G --g7231enable        : Enable G.723.1 codec, rather than G.711\n"
 #if PTRACING
             "  -t --trace              : Enable trace, use multiple times for more detail\n"
             "  -o --output             : File for trace output, default is stderr\n"
@@ -407,8 +413,12 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
     }
   }
 
-  SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::muLaw, H323_G711Capability::At64k));
-  SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::ALaw,  H323_G711Capability::At64k));
+  if (args.HasOption('G')) 
+    SetCapability(0, 0, new G7231_Fake_Capability());
+  else {
+    SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::muLaw, H323_G711Capability::At64k));
+    SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::ALaw,  H323_G711Capability::At64k));
+  }
 
   SetCapability(0, 0, new H323_T38Capability(H323_T38Capability::e_UDP));
     
