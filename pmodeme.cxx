@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.17  2002-12-30 12:49:29  vfrolov
- * Added tracing thread's CPU usage (Linux only)
+ * Revision 1.18  2003-01-08 16:58:58  vfrolov
+ * Added cbpOutBufNoFull and isOutBufFull()
+ *
+ * Revision 1.18  2003/01/08 16:58:58  vfrolov
+ * Added cbpOutBufNoFull and isOutBufFull()
  *
  * Revision 1.17  2002/12/30 12:49:29  vfrolov
  * Added tracing thread's CPU usage (Linux only)
@@ -325,6 +328,10 @@ class ModemEngineBody : public PObject
       PWaitAndSignal mutexWait(Mutex);
       return state == stCommand && (PTime() - lastPtyActivity) > 5*1000;
     }
+    BOOL isOutBufFull() const {
+      PWaitAndSignal mutexWait(Mutex);
+      return t38engine && t38engine->isOutBufFull();
+    }
   //@}
   
   protected:
@@ -465,15 +472,21 @@ void ModemEngine::Main()
     if (stop)
       break;
 
-    PBYTEArray *buf = Parent().FromInPtyQ();
+    while( !body->isOutBufFull() ) {
+      PBYTEArray *buf = Parent().FromInPtyQ();
 
-    if (buf)  {
-      body->HandleData(*buf, bresp);
-      delete buf;
-      if (stop)
-        break;
+      if (buf)  {
+        body->HandleData(*buf, bresp);
+        delete buf;
+        if (stop)
+          break;
+      } else
+          break;
     }
-    
+
+    if (stop)
+      break;
+
     if (bresp.GetSize()) {
       ToPtyQ(bresp, bresp.GetSize());
     }
@@ -679,6 +692,8 @@ void ModemEngineBody::OnMyCallback(PObject &from, INT extra)
             state = stSendBufEmptyHandle;
             break;
         }
+        break;
+      case T38Engine::cbpOutBufNoFull:
         break;
       default:
         myPTRACE(1, "ModemEngineBody::OnMyCallback extra(" << extra << ") != seq(" << seq << ")");
