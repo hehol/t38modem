@@ -1,13 +1,16 @@
 /*
- * $Id: pmodeme.cxx,v 1.2 2002-01-01 23:59:52 craigs Exp $
+ * $Id: pmodeme.cxx,v 1.3 2002-01-02 04:49:37 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.2  2002-01-01 23:59:52  craigs
- * Lots of additional implementation thanks to Vyacheslav Frolov
+ * Revision 1.3  2002-01-02 04:49:37  craigs
+ * Added support for ATS0 register
+ *
+ * Revision 1.3  2002/01/02 04:49:37  craigs
+ * Added support for ATS0 register
  *
  * Revision 1.2  2002/01/01 23:59:52  craigs
  * Lots of additional implementation thanks to Vyacheslav Frolov
@@ -296,6 +299,9 @@ class ModemEngineBody : public PObject
     DeclareStringParam(CallToken)
     DeclareStringParam(SrcNum)
     DeclareStringParam(DstNum)
+
+    PINDEX ringCount;
+
 };
 ///////////////////////////////////////////////////////////////
 
@@ -348,28 +354,38 @@ void ModemEngine::Main()
   for(;;) {
     PBYTEArray bresp;
     
-    if( stop ) break;
+    if (stop)
+      break;
+
     WaitDataReady();
-    if( stop ) break;
+
+    if (stop)
+      break;
+
     body->CheckState(bresp);
-    if( stop ) break;
+
+    if (stop)
+      break;
 
     PBYTEArray *buf = Parent().FromInPtyQ();
 
-    if( buf ) {
+    if (buf)  {
       body->HandleData(*buf, bresp);
       delete buf;
-      if( stop ) break;
+      if (stop)
+        break;
     }
     
-    if( bresp.GetSize() ) {
+    if (bresp.GetSize()) {
       ToPtyQ(bresp, bresp.GetSize());
-      if( stop ) break;
+      if (stop)
+        break;
     }
   }
 
-  myPTRACE(1, "<-> Stoped");
+  myPTRACE(1, "<-> Stopped");
 }
+
 ///////////////////////////////////////////////////////////////
 Profile::Profile() {
   for( PINDEX r = 0 ; r <= MaxReg ; r++ ) {
@@ -401,6 +417,7 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
     callDirection(cdUndefined),
     state(stCommand)
 {
+  ringCount = 0;
 }
 
 ModemEngineBody::~ModemEngineBody()
@@ -613,8 +630,9 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
             {
               int br = ParseNum(ppCmd);
               
-              if( (dt == T38Engine::dtRaw && br == 3) || (dt == T38Engine::dtHdlc && br != 3) )
+              if( (dt == T38Engine::dtRaw && br == 3) || (dt == T38Engine::dtHdlc && br != 3) ) {
                 return FALSE;
+	      }
                 
               switch( br ) {
                 case 3:
@@ -659,20 +677,20 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
       err = TRUE;			\
   }
 
-void ModemEngineBody::HandleCmd(const PString &cmd, PString &resp)
+void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 {
-  const PString &ucmd = cmd.ToUpper();
-  const char *pCmd = ucmd;
-    
-  if( strncmp(pCmd, "AT", 2) != 0 )
+  if (!(cmd.Left(2) *= "AT"))
     return;
     
+  PString ucmd = cmd.ToUpper();
+  const char * pCmd = ucmd;
   pCmd += 2;
+
   BOOL err = FALSE;
   BOOL ok = TRUE;
   BOOL crlf = TRUE;
   
-  while( state == stCommand && !err && *pCmd ) {
+  while (state == stCommand && !err && *pCmd)  {
       switch( *pCmd++ ) {
 	case ' ':
           break;
@@ -683,7 +701,7 @@ void ModemEngineBody::HandleCmd(const PString &cmd, PString &resp)
             timerRing.Stop();
             state = stReqModeAckWait;
             timeout.Start(60000);
-            if( t38engine != NULL ) {
+            if (t38engine != NULL)  {
               state = stReqModeAckHandle;
               timeout.Stop();
               parent.SignalDataReady();
@@ -698,7 +716,7 @@ void ModemEngineBody::HandleCmd(const PString &cmd, PString &resp)
               
               PString response = request("response");
               
-              if( response == "confirm" ) {
+              if (response == "confirm" ) {
                 callDirection = cdIncoming;
                 crlf = FALSE;
               } else {
@@ -1211,14 +1229,21 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
     }
 }
 
-void ModemEngineBody::CheckState(PBYTEArray &bresp)
+void ModemEngineBody::CheckState(PBYTEArray & bresp)
 {
   PString resp;
   
   {
     PWaitAndSignal mutexWait(Mutex);
-    if(cmd.IsEmpty() && timerRing.Get() ) {
+    if (cmd.IsEmpty() && timerRing.Get())  {
       resp += "\r\nRING\r\n";
+      ringCount++;
+      BYTE s0;
+      P.GetReg(0, s0);
+      if (s0 > 0 && (ringCount >= s0)) {
+        PString resp;
+        HandleCmd("ATA", resp);
+      }
     }
   }
 
@@ -1395,5 +1420,4 @@ void ModemEngineBody::CheckState(PBYTEArray &bresp)
     bresp.Concatenate(_bresp);
   }
 }
-///////////////////////////////////////////////////////////////
 
