@@ -24,12 +24,17 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.3  2002-03-01 08:53:12  vfrolov
- * Added Copyright header
- * Some OS specific code moved from pmodemi.cxx to pty.cxx
- * Added error code string to log
- * Fixed race condition with fast close and open slave tty
- * Some other changes
+ * Revision 1.4  2002-03-05 12:40:27  vfrolov
+ * Changed class hierarchy
+ *   PseudoModem is abstract
+ *   PseudoModemBody is child of PseudoModem
+ *   Added PseudoModemQ::CreateModem() to create instances
+ *
+ * Revision 1.4  2002/03/05 12:40:27  vfrolov
+ * Changed class hierarchy
+ *   PseudoModem is abstract
+ *   PseudoModemBody is child of PseudoModem
+ *   Added PseudoModemQ::CreateModem() to create instances
  *
  * Revision 1.3  2002/03/01 08:53:12  vfrolov
  * Added Copyright header
@@ -46,7 +51,6 @@
  *
  */
 
-#include "pmodem.h"
 #include "pmodemi.h"
 #include "pty.h"
 #include "pmodeme.h"
@@ -54,8 +58,8 @@
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-PseudoModemBody::PseudoModemBody(const PseudoModem &_parent, const PNotifier &_callbackEndPoint)
-  : parent(_parent),
+PseudoModemBody::PseudoModemBody(const PString &_tty, const PNotifier &_callbackEndPoint)
+  : PseudoModem(_tty),
     callbackEndPoint(_callbackEndPoint),
     hPty(-1),
     inPty(NULL),
@@ -69,26 +73,6 @@ PseudoModemBody::~PseudoModemBody()
 {
   StopAll();
   ClosePty();
-}
-
-const PString &PseudoModemBody::ptyName() const
-{
-  return parent.ptyName();
-}
-
-const PString &PseudoModemBody::ptyPath() const
-{
-  return parent.ptyPath();
-}
-
-const PString &PseudoModemBody::ttyPath() const
-{
-  return parent.ttyPath();
-}
-
-const PString &PseudoModemBody::modemToken() const
-{
-  return parent.modemToken();
 }
 
 BOOL PseudoModemBody::IsReady() const

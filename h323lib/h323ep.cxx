@@ -24,12 +24,17 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.14  2002-03-01 09:45:03  vfrolov
- * Added Copyright header
- * Added sending "established" command on connection established
- * Implemented mode change on receiving "requestmode" command
- * Added setting lastReadCount
- * Added some other changes
+ * Revision 1.15  2002-03-05 12:40:23  vfrolov
+ * Changed class hierarchy
+ *   PseudoModem is abstract
+ *   PseudoModemBody is child of PseudoModem
+ *   Added PseudoModemQ::CreateModem() to create instances
+ *
+ * Revision 1.15  2002/03/05 12:40:23  vfrolov
+ * Changed class hierarchy
+ *   PseudoModem is abstract
+ *   PseudoModemBody is child of PseudoModem
+ *   Added PseudoModemQ::CreateModem() to create instances
  *
  * Revision 1.14  2002/03/01 09:45:03  vfrolov
  * Added Copyright header
@@ -395,19 +400,8 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
     PStringArray ttys = tty.Tokenise(",\r\n ", FALSE);
     
     for( PINDEX i = 0 ; i < ttys.GetSize() ; i++ ) {
-      PseudoModem *modem = new PseudoModem(ttys[i], PCREATE_NOTIFIER(OnMyCallback));
-      
-      if( modem->IsValid() ) {
-        if( pmodemQ->Find(modem->modemToken()) == NULL ) {
-          pmodemQ->Enqueue(modem);
-        } else {
-          cout << "Can't add " << ttys[i] << " to queue, delete" << endl;
-          delete modem;
-        }
-      } else {
-        cout << ttys[i] << " in not valid" << endl;
-        delete modem;
-      }
+      if (!pmodemQ->CreateModem(ttys[i], PCREATE_NOTIFIER(OnMyCallback)))
+        cout << "Can't create modem for " << ttys[i] << endl;
     }
   }
 
