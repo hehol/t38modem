@@ -24,9 +24,13 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.37  2004-10-27 13:22:42  vfrolov
- * Added flags to call to PTrace::Initialise()
- * Added version message to trace
+ * Revision 1.38  2004-10-29 10:51:03  vfrolov
+ * Added missing OS class to trace
+ * Fixed MSVC compiler warning
+ *
+ * Revision 1.38  2004/10/29 10:51:03  vfrolov
+ * Added missing OS class to trace
+ * Fixed MSVC compiler warning
  *
  * Revision 1.37  2004/10/27 13:22:42  vfrolov
  * Added flags to call to PTrace::Initialise()
@@ -217,8 +221,10 @@ BOOL T38Modem::Initialise()
                      args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL,
                      PTrace::DateAndTime | PTrace::Thread | PTrace::Blocks);
 
-  PTRACE(1, GetName() << " Version " << GetVersion(TRUE)
-      << " on " << GetOSName() << " (" << GetOSVersion() << '-' << GetOSHardware() << ")");
+  PTRACE(1, GetName()
+      << " Version " << GetVersion(TRUE)
+      << " on " << GetOSClass() << " " << GetOSName()
+      << " (" << GetOSVersion() << '-' << GetOSHardware() << ")");
 #endif
 
   if (args.HasOption('h')) {
@@ -660,7 +666,7 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler()
 }
 
 H323Connection::AnswerCallResponse
-     MyH323Connection::OnAnswerCall(const PString & caller,
+     MyH323Connection::OnAnswerCall(const PString & /*caller*/,
                                     const H323SignalPDU & setupPDU,
                                     H323SignalPDU & /*connectPDU*/)
 {
