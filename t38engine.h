@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.9  2002-05-07 10:15:44  vfrolov
- * Fixed dead lock on modemCallback
+ * Revision 1.10  2002-05-07 11:06:18  vfrolov
+ * Discarded const from ModemCallbackWithUnlock()
+ *
+ * Revision 1.10  2002/05/07 11:06:18  vfrolov
+ * Discarded const from ModemCallbackWithUnlock()
  *
  * Revision 1.9  2002/05/07 10:15:44  vfrolov
  * Fixed dead lock on modemCallback
@@ -183,7 +186,7 @@ class T38Engine : public OpalT38Protocol
     void WaitOutDataReady() { outDataReadySyncPoint.Wait(); }
     
     BOOL IsT38Mode() const { return T38Mode; }
-    void ModemCallbackWithUnlock(INT extra) const;
+    void ModemCallbackWithUnlock(INT extra);
 
     int stateOut;
     int onIdleOut;

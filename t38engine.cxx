@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.10  2002-05-07 10:15:38  vfrolov
- * Fixed dead lock on modemCallback
+ * Revision 1.11  2002-05-07 11:06:12  vfrolov
+ * Discarded const from ModemCallbackWithUnlock()
+ *
+ * Revision 1.11  2002/05/07 11:06:12  vfrolov
+ * Discarded const from ModemCallbackWithUnlock()
  *
  * Revision 1.10  2002/05/07 10:15:38  vfrolov
  * Fixed dead lock on modemCallback
@@ -366,7 +369,7 @@ void T38Engine::Detach(const PNotifier &callback)
 }
 ///////////////////////////////////////////////////////////////
 //
-void T38Engine::ModemCallbackWithUnlock(INT extra) const
+void T38Engine::ModemCallbackWithUnlock(INT extra)
 {
   PNotifier callback = modemCallback;
   
