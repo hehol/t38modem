@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.cxx,v $
- * Revision 1.1  2002-04-30 10:59:07  vfrolov
- * Initial revision
+ * Revision 1.2  2002-06-07 06:25:15  robertj
+ * Added math.h for use of sin() function.
+ * Fixed GNU warnings.
+ *
+ * Revision 1.2  2002/06/07 06:25:15  robertj
+ * Added math.h for use of sin() function.
+ * Fixed GNU warnings.
  *
  * Revision 1.1  2002/04/30 10:59:07  vfrolov
  * Initial revision
@@ -34,6 +39,8 @@
  */
 
 #include "t30tone.h"
+#include <math.h>
+
 
 ///////////////////////////////////////////////////////////////
 
@@ -58,7 +65,7 @@ static BYTE CngTone[CNG_SIMPLES_PER_REPEATE*BYTES_PER_SIMPLE];
 
 static BOOL initCngTone()
 {
-  for( PINDEX i = 0 ; i < sizeof(CngTone)/BYTES_PER_SIMPLE ; i++ ) {
+  for( size_t i = 0 ; i < sizeof(CngTone)/BYTES_PER_SIMPLE ; i++ ) {
     double Sin = sin((CNG_HZ*TWO_PI*i)/SIMPLES_PER_SEC);
     ((SIMPLE_TYPE *)CngTone)[i] = (SIMPLE_TYPE)(Sin * CNG_AMPLITUDE);
   }
@@ -88,12 +95,12 @@ void T30Tone::Read(void * buffer, PINDEX amount)
   switch(type) {
     case cng:
       while(amount) {
-        if (index >= (CNG_ON_BYTES + CNG_OFF_BYTES))
+        if (index >= (PINDEX)(CNG_ON_BYTES + CNG_OFF_BYTES))
           index = 0;
 
         PINDEX len;
 
-        if (CNG_ON_BYTES > index) {
+        if ((PINDEX)CNG_ON_BYTES > index) {
           PINDEX i = index % sizeof(CngTone);
           len = sizeof(CngTone) - i;
           if (len > amount)
