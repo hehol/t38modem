@@ -24,9 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.29  2005-03-04 16:35:38  vfrolov
- * Implemented AT#DFRMC command
- * Redisigned class Profile
+ * Revision 1.30  2005-03-05 15:42:39  vfrolov
+ * Added missing check for PTRACING
+ * Fixed typo in T38DLE trace
+ *
+ * Revision 1.30  2005/03/05 15:42:39  vfrolov
+ * Added missing check for PTRACING
+ * Fixed typo in T38DLE trace
  *
  * Revision 1.29  2005/03/04 16:35:38  vfrolov
  * Implemented AT#DFRMC command
@@ -928,11 +932,13 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
       break;
   }
 
+#if PTRACING
   if (i) {
     PBYTEArray bin((const BYTE *)(const char *)cmd, i);
 
     myPTRACE(1, "--> " << PRTHEX(bin));
   }
+#endif
 
   const char *pCmd;
 
@@ -2022,9 +2028,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 #if PTRACING
               if (myCanTrace(2)) {
                  if (count <= 16) {
-                   PTRACE(2, "T38DLE--> " << PRTHEX(PBYTEArray(Buf, count)));
+                   PTRACE(2, "<-- T38DLE " << PRTHEX(PBYTEArray(Buf, count)));
                  } else {
-                   PTRACE(2, "T38DLE--> " << count << " bytes");
+                   PTRACE(2, "<-- T38DLE " << count << " bytes");
                  }
               }
 #endif
