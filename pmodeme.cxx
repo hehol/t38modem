@@ -24,8 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.10  2002-04-03 02:45:36  vfrolov
- * Implemented AT#CID=10 - ANI/DNIS reporting between RINGs
+ * Revision 1.11  2002-04-19 14:06:04  vfrolov
+ * Implemented T.38 mode request dial modifiers
+ *   F - enable
+ *   V - disable
+ *
+ * Revision 1.11  2002/04/19 14:06:04  vfrolov
+ * Implemented T.38 mode request dial modifiers
+ *   F - enable
+ *   V - disable
  *
  * Revision 1.10  2002/04/03 02:45:36  vfrolov
  * Implemented AT#CID=10 - ANI/DNIS reporting between RINGs
@@ -352,6 +359,7 @@ class ModemEngineBody : public PObject
     int seq;
 
     int callDirection;
+    BOOL forceFaxMode;
     BOOL connectionEstablished;
     int state;
     int param;
@@ -482,6 +490,7 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
     timeout(myCallback),
     seq(0),
     callDirection(cdUndefined),
+    forceFaxMode(FALSE),
     connectionEstablished(FALSE),
     state(stCommand)
 {
@@ -515,6 +524,7 @@ void ModemEngineBody::_ClearCall()
   Mutex.Wait();
   CallToken("");
   callDirection = cdUndefined;
+  forceFaxMode = FALSE;
 }
 
 BOOL ModemEngineBody::Request(PStringToString &request)
@@ -809,6 +819,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           {
             PWaitAndSignal mutexWait(Mutex);
             callDirection = cdIncoming;
+            forceFaxMode = TRUE;
             timerRing.Stop();
             if (!connectionEstablished) {
               state = stConnectWait;
@@ -827,6 +838,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               
               if (response != "confirm" ) {
                 callDirection = cdUndefined;
+                forceFaxMode = FALSE;
                 timeout.Stop();
                 state = stCommand;
                 err = TRUE;
@@ -846,6 +858,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           break;
         case 'D':	// Dial
           ok = FALSE;
+          forceFaxMode = FALSE;
           {
             PString num;
           
@@ -859,6 +872,12 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   case '-':
                   case 'T':
                   case 'P':
+                    break;
+                  case 'F':
+                    forceFaxMode = TRUE;
+                    break;
+                  case 'V':
+                    forceFaxMode = FALSE;
                     break;
                   default:
                     err = TRUE;
@@ -889,6 +908,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 crlf = FALSE;
               } else {
                 callDirection = cdUndefined;
+                forceFaxMode = FALSE;
                 timeout.Stop();
                 state = stCommand;
                 if (response == "reject") {
@@ -1477,9 +1497,11 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         PWaitAndSignal mutexWait(Mutex);
         switch(param) {
           case chEvent:
-            param = chDelay;
-            timeout.Start(1000);    // wait 1 sec before request mode
-            break;
+            if (forceFaxMode) {
+              param = chDelay;
+              timeout.Start(1000);    // wait 1 sec before request mode
+              break;
+            }
           case chHandle:
             connectionEstablished = TRUE;
             if (t38engine) {
@@ -1487,8 +1509,12 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               timeout.Stop();
               parent.SignalDataReady();
             } else {
-              timeout.Start(10000);
               state = stReqModeAckWait;
+              if (!forceFaxMode) {
+                timeout.Start(60000);
+                break;
+              }
+              timeout.Start(10000);
               PStringToString request;
               request.SetAt("modemtoken", parent.modemToken());
               request.SetAt("command", "requestmode");
@@ -1515,9 +1541,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     case stReqModeAckHandle:
       {
         PWaitAndSignal mutexWait(Mutex);
-        dataType = T38Engine::dtCed;
         switch( callDirection ) {
           case cdIncoming:
+            dataType = T38Engine::dtCed;
             state = stSend;
             if( t38engine && t38engine->SendStart(dataType, 5000) ) {
               state = stSendAckWait;
@@ -1531,6 +1557,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             }
             break;
           case cdOutgoing:
+            if (t38engine)
+              t38engine->SendOnIdle(T38Engine::dtCng);
             if( !RecvStart(T38Engine::dtHdlc, 3) ) {
               resp += "\r\nERROR\r\n";
             }
