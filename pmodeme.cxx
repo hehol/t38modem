@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.23  2004-07-06 16:07:24  vfrolov
- * Included ptlib.h for precompiling
+ * Revision 1.24  2004-10-27 13:36:26  vfrolov
+ * Decreased binary, DLE, and callback tracing
+ *
+ * Revision 1.24  2004/10/27 13:36:26  vfrolov
+ * Decreased binary, DLE, and callback tracing
  *
  * Revision 1.23  2004/07/06 16:07:24  vfrolov
  * Included ptlib.h for precompiling
@@ -682,7 +685,7 @@ void ModemEngineBody::Detach(T38Engine *_t38engine)
 
 void ModemEngineBody::OnMyCallback(PObject &from, INT extra)
 {
-  PTRACE(1, "ModemEngineBody::OnMyCallback " << from.GetClass() << " " << extra);
+  PTRACE(extra < 0 ? 1 : 3, "ModemEngineBody::OnMyCallback " << from.GetClass() << " " << extra);
   if (PIsDescendant(&from, T38Engine) ) {
     PWaitAndSignal mutexWait(Mutex);
     if( extra == seq ) {
@@ -871,9 +874,13 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp)
 
 void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 {
-  if (!(cmd.Left(2) *= "AT"))
+  if (!(cmd.Left(2) *= "AT")) {
+    myPTRACE(1, "--> " << cmd.GetLength() << " bytes of binary");
     return;
-    
+  }
+
+  myPTRACE(1, "--> " << cmd);
+
   PString ucmd = cmd.ToUpper();
   const char * pCmd = ucmd;
   pCmd += 2;
@@ -1420,29 +1427,21 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
               }
               len--;
               pBuf++;
-    
-              if( Echo() )
+
+              if (Echo())
                 bresp.Concatenate(PBYTEArray((const BYTE *)"\r", 1));
-        
+
               PString resp;
-#if PTRACING
-              if (myCanTrace(1)) {
-                 if (cmd.GetLength() < 128) {
-                   myPTRACE(1, "--> " << cmd);
-                 } else {
-                   myPTRACE(1, "--> " << cmd.GetLength() << " bytes of binary");
-                 }
-              }
-#endif
+
               HandleCmd(cmd, resp);
 
-              if( resp.GetLength() ) {
+              if (resp.GetLength()) {
                 PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
-              
+
                 myPTRACE(1, "<-- " << PRTHEX(_bresp));
                 bresp.Concatenate(_bresp);
               }
-        
+
               cmd = PString();
             }
           }
@@ -1800,7 +1799,15 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             case 0:
               break;
             default:
-              PTRACE(1, "T38DLE--> " << PRTHEX(PBYTEArray(Buf, count)));
+#if PTRACING
+              if (myCanTrace(2)) {
+                 if (count <= 16) {
+                   PTRACE(2, "T38DLE--> " << PRTHEX(PBYTEArray(Buf, count)));
+                 } else {
+                   PTRACE(2, "T38DLE--> " << count << " bytes");
+                 }
+              }
+#endif
               bresp.Concatenate(PBYTEArray(Buf, count));
           }
           if( count <= 0 ) break;
