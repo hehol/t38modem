@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.35  2004-07-07 12:38:32  vfrolov
- * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ * Revision 1.36  2004-10-20 13:40:03  vfrolov
+ * Put date and time to trace
+ *
+ * Revision 1.36  2004/10/20 13:40:03  vfrolov
+ * Put date and time to trace
  *
  * Revision 1.35  2004/07/07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
@@ -207,6 +210,8 @@ BOOL T38Modem::Initialise()
 #if PTRACING
   PTrace::Initialise(args.GetOptionCount('t'),
                      args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL);
+  PTrace::ClearOptions(PTrace::Timestamp);
+  PTrace::SetOptions(PTrace::DateAndTime);
 #endif
 
   if (args.HasOption('h')) {
