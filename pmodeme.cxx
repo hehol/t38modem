@@ -1,13 +1,18 @@
 /*
- * $Id: pmodeme.cxx,v 1.3 2002-01-02 04:49:37 craigs Exp $
+ * $Id: pmodeme.cxx,v 1.4 2002-01-03 21:36:00 craigs Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.3  2002-01-02 04:49:37  craigs
- * Added support for ATS0 register
+ * Revision 1.4  2002-01-03 21:36:00  craigs
+ * Added change to use S1 register for number of rings on answer
+ * Thanks to Vyacheslav Frolov
+ *
+ * Revision 1.4  2002/01/03 21:36:00  craigs
+ * Added change to use S1 register for number of rings on answer
+ * Thanks to Vyacheslav Frolov
  *
  * Revision 1.3  2002/01/02 04:49:37  craigs
  * Added support for ATS0 register
@@ -300,8 +305,6 @@ class ModemEngineBody : public PObject
     DeclareStringParam(SrcNum)
     DeclareStringParam(DstNum)
 
-    PINDEX ringCount;
-
 };
 ///////////////////////////////////////////////////////////////
 
@@ -417,7 +420,6 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
     callDirection(cdUndefined),
     state(stCommand)
 {
-  ringCount = 0;
 }
 
 ModemEngineBody::~ModemEngineBody()
@@ -459,6 +461,7 @@ BOOL ModemEngineBody::Request(PStringToString &request)
     SrcNum(request("srcnum"));
     DstNum(request("dstnum"));
     timerRing.Start(6000);
+    P.SetReg(1, 0);
     request.SetAt("response", "confirm");
     request.SetAt("answer", "pending");
     //request.SetAt("answer", "now");
@@ -1237,9 +1240,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     PWaitAndSignal mutexWait(Mutex);
     if (cmd.IsEmpty() && timerRing.Get())  {
       resp += "\r\nRING\r\n";
-      ringCount++;
-      BYTE s0;
+      BYTE s0, ringCount;
       P.GetReg(0, s0);
+      P.GetReg(1, ringCount);
+      P.SetReg(1, ++ringCount);
       if (s0 > 0 && (ringCount >= s0)) {
         PString resp;
         HandleCmd("ATA", resp);
