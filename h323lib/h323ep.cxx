@@ -24,9 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.29  2002-12-20 10:12:46  vfrolov
- * Implemented tracing with PID of thread (for LinuxThreads)
- *   or ID of thread (for other POSIX Threads)
+ * Revision 1.30  2003-04-07 06:52:43  vfrolov
+ * Fixed --save option
+ *
+ * Revision 1.30  2003/04/07 06:52:43  vfrolov
+ * Fixed --save option
  *
  * Revision 1.29  2002/12/20 10:12:46  vfrolov
  * Implemented tracing with PID of thread (for LinuxThreads)
@@ -139,6 +141,15 @@ void T38Modem::Main()
        << " on " << GetOSClass() << ' ' << GetOSName()
        << " (" << GetOSVersion() << '-' << GetOSHardware() << ")\n\n";
 
+  if (!Initialise())
+    return;
+
+  for (;;)
+    PThread::Sleep(5000);
+}
+
+BOOL T38Modem::Initialise()
+{
   PConfigArgs args(GetArguments());
 
   args.Parse(
@@ -220,23 +231,26 @@ void T38Modem::Main()
         "  -t --trace                : Enable trace, use multiple times for more detail.\n"
         "  -o --output               : File for trace output, default is stderr.\n"
 #endif
-        "     --save                 : Save arguments in configuration file.\n"
+        "     --save                 : Save arguments in configuration file and exit.\n"
         "  -h --help                 : Display this help message.\n";
-    return;
+    return FALSE;
   }
 
-  args.Save("save");
+  if (args.HasOption("save")) {
+    args.Save("save");
+    cout << "Arguments were saved in configuration file\n";
+    return FALSE;
+  }
 
-  MyH323EndPoint endpoint;
+  MyH323EndPoint *endpoint = new MyH323EndPoint();
 
   PString userName = "OpenH323 Answering Machine v" + GetVersion();
   if (args.HasOption('u'))
     userName = args.GetOptionString('u');
-  endpoint.SetLocalUserName(userName);
+  endpoint->SetLocalUserName(userName);
 
-  if (!endpoint.Initialise(args))
-    return;
-
+  if (!endpoint->Initialise(args))
+    return FALSE;
 
   // start the H.323 listener
   H323ListenerTCP * listener = NULL;
@@ -250,41 +264,40 @@ void T38Modem::Main()
     if (args.HasOption('i'))
       interfaceAddress = PIPSocket::Address(args.GetOptionString('i'));
 
-    listener  = new H323ListenerTCP(endpoint, interfaceAddress, listenPort);
+    listener = new H323ListenerTCP(*endpoint, interfaceAddress, listenPort);
 
-    if (!endpoint.StartListener(listener)) {
-      cout <<  "Could not open H.323 listener port on "
+    if (!endpoint->StartListener(listener)) {
+      cout << "Could not open H.323 listener port on "
            << listener->GetListenerPort() << endl;
       delete listener;
-      return;
+      return FALSE;
     }
   }
 
   if (args.HasOption('g')) {
     PString gkName = args.GetOptionString('g');
-    if (endpoint.SetGatekeeper(gkName, new H323TransportUDP(endpoint)))
-      cout << "Gatekeeper set: " << *endpoint.GetGatekeeper() << endl;
+    if (endpoint->SetGatekeeper(gkName, new H323TransportUDP(*endpoint)))
+      cout << "Gatekeeper set: " << *endpoint->GetGatekeeper() << endl;
     else {
       cout << "Error registering with gatekeeper at \"" << gkName << '"' << endl;
-      return;
+      return FALSE;
     }
   }
   else if (!args.HasOption('n')) {
     cout << "Searching for gatekeeper..." << flush;
-    if (endpoint.DiscoverGatekeeper(new H323TransportUDP(endpoint)))
-      cout << "\nGatekeeper found: " << *endpoint.GetGatekeeper() << endl;
+    if (endpoint->DiscoverGatekeeper(new H323TransportUDP(*endpoint)))
+      cout << "\nGatekeeper found: " << *endpoint->GetGatekeeper() << endl;
     else {
       cout << "\nNo gatekeeper found." << endl;
       if (args.HasOption("require-gatekeeper"))
-        return;
+        return FALSE;
     }
   }
 
-  cout << "Waiting for incoming calls for \"" << endpoint.GetLocalUserName() << '"'
+  cout << "Waiting for incoming calls for \"" << endpoint->GetLocalUserName() << '"'
        << PString(listener ? "" : " disabled") << endl;
 
-  for (;;)
-    PThread::Sleep(5000);
+  return TRUE;
 }
 
 ///////////////////////////////////////////////////////////////

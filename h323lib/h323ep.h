@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.13  2002-11-18 22:57:53  craigs
- * Added patches from Vyacheslav Frolov for CORRIGENDUM
+ * Revision 1.14  2003-04-07 06:52:46  vfrolov
+ * Fixed --save option
+ *
+ * Revision 1.14  2003/04/07 06:52:46  vfrolov
+ * Fixed --save option
  *
  * Revision 1.13  2002/11/18 22:57:53  craigs
  * Added patches from Vyacheslav Frolov for CORRIGENDUM
@@ -83,11 +86,9 @@ class T38Modem : public PProcess
     ~T38Modem();
 
     void Main();
-    void RecordFile(PArgList & args);
 
   protected:
-    long GetCodec(const PString & codecname);
-    OpalLineInterfaceDevice * GetDevice(const PString & device);
+    BOOL Initialise();
 };
 
 class PseudoModem;
