@@ -24,12 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: main.h,v $
- * Revision 1.6  2002-03-01 09:45:11  vfrolov
- * Added Copyright header
- * Added sending "established" command on connection established
- * Implemented mode change on receiving "requestmode" command
- * Added setting lastReadCount
- * Added some other changes
+ * Revision 1.7  2002-03-22 09:39:47  vfrolov
+ * Removed obsoleted option -f
+ *
+ * Revision 1.7  2002/03/22 09:39:47  vfrolov
+ * Removed obsoleted option -f
  *
  * Revision 1.6  2002/03/01 09:45:11  vfrolov
  * Added Copyright header
@@ -87,12 +86,10 @@ class MyH323EndPoint : public H323EndPoint
     // new functions
     BOOL Initialise(PConfigArgs & args);
 
-    BOOL ForceT38Mode() const { return forceT38Mode; }
     PseudoModem * PMAlloc() const;
     void PMFree(PseudoModem *pmodem) const;
 
   protected:
-    BOOL forceT38Mode;
     PseudoModemQ *pmodemQ;
     PStringArray routes;
     WORD connectPort;
@@ -122,7 +119,6 @@ class MyH323Connection : public H323Connection
 
     OpalT38Protocol * CreateT38ProtocolHandler() const;
     BOOL OpenAudioChannel(BOOL, unsigned, H323AudioCodec & codec);
-    BOOL ForceT38Mode() const { return ep.ForceT38Mode(); }
 
   protected:
     const MyH323EndPoint & ep;

@@ -24,11 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.15  2002-03-05 12:40:23  vfrolov
- * Changed class hierarchy
- *   PseudoModem is abstract
- *   PseudoModemBody is child of PseudoModem
- *   Added PseudoModemQ::CreateModem() to create instances
+ * Revision 1.16  2002-03-22 09:39:13  vfrolov
+ * Removed obsoleted option -f
+ *
+ * Revision 1.16  2002/03/22 09:39:13  vfrolov
+ * Removed obsoleted option -f
  *
  * Revision 1.15  2002/03/05 12:40:23  vfrolov
  * Changed class hierarchy
@@ -99,7 +99,6 @@ void T38Modem::Main()
   PConfigArgs args(GetArguments());
 
   args.Parse(
-             "f-fax."
 	     "p-ptty:"
 	     "-route:"
 
@@ -225,7 +224,6 @@ void T38Modem::Main()
 
 MyH323EndPoint::MyH323EndPoint()
 {
-  forceT38Mode = FALSE;
   pmodemQ = new PseudoModemQ();
   //autoStartTransmitFax = TRUE;
 }
@@ -316,7 +314,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
       if( _conn != NULL ) {
         PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
         MyH323Connection *conn = (MyH323Connection *)_conn;
-        if (conn->ForceT38Mode() && conn->HadAnsweredCall()) {
+        if (conn->HadAnsweredCall()) {
           if (request("mode") == "fax") {
             if (conn->RequestModeChangeT38()) {
               PTRACE(2, "MyH323EndPoint::OnMyCallback RequestMode T38 - OK");
@@ -371,11 +369,6 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
     connectPort = (WORD)args.GetOptionString("connectport").AsInteger();
   else
     connectPort = H323ListenerTCP::DefaultSignalPort;
-
-  if (args.HasOption('f')) {
-    forceT38Mode = TRUE;
-    myPTRACE(1, "Force T38 mode !!!");
-  }
 
   if (args.HasOption("route")) {
     PString r = args.GetOptionString("route");

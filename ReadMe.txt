@@ -1,13 +1,16 @@
 /*
- * $Id: ReadMe.txt,v 1.4 2002-01-09 16:14:58 rogerh Exp $
+ * $Id: ReadMe.txt,v 1.5 2002-03-22 09:40:57 vfrolov Exp $
  *
  * T38FAX Pseudo Modem
  *
  * Original author: Vyacheslav Frolov
  *
  * $Log: ReadMe.txt,v $
- * Revision 1.4  2002-01-09 16:14:58  rogerh
- * FreeBSD uses /dev/ttypa and /dev/ttypb
+ * Revision 1.5  2002-03-22 09:40:57  vfrolov
+ * Removed obsoleted option -f
+ *
+ * Revision 1.5  2002/03/22 09:40:57  vfrolov
+ * Removed obsoleted option -f
  *
  * Revision 1.4  2002/01/09 16:14:58  rogerh
  * FreeBSD uses /dev/ttypa and /dev/ttypb
@@ -37,7 +40,7 @@ $ make both
 2.1. Starting
 -------------
 
-$ ./obj_linux_x86_d/t38modem -n -o trace.log -f -p ttyx0,ttyx1 --route 0@127.0.0.1 --route all@172.16.33.21
+$ ./obj_linux_x86_d/t38modem -n -o trace.log -p ttyx0,ttyx1 --route 0@127.0.0.1 --route all@172.16.33.21
 
 Creates two modems /dev/ttyx0 and /dev/ttyx1
 
