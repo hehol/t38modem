@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.15  2005-02-04 10:18:49  vfrolov
- * Fixed warnings for No Trace build
+ * Revision 1.16  2005-03-05 15:39:12  vfrolov
+ * Ignore COUT_TRACE if not PTRACING
+ *
+ * Revision 1.16  2005/03/05 15:39:12  vfrolov
+ * Ignore COUT_TRACE if not PTRACING
  *
  * Revision 1.15  2005/02/04 10:18:49  vfrolov
  * Fixed warnings for No Trace build
@@ -243,6 +246,10 @@ class DataStreamQ : public _DataStreamQ
 // warning C4127: conditional expression is constant
 #pragma warning(disable:4127)
 #endif // _MSC_VER
+
+#if !PTRACING && defined COUT_TRACE
+#undef COUT_TRACE
+#endif
 
 #ifdef COUT_TRACE
 #define _myPTRACE(level, args) do { \
