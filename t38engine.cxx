@@ -24,9 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.15  2002-05-22 15:21:26  vfrolov
- * Added missed enableTimeout check
- * Fixed bad ifp tracing bug
+ * Revision 1.16  2002-11-15 07:43:52  vfrolov
+ * Do not wait no-signal if received *-sig-end
+ * Fixed compiler warnings
+ *
+ * Revision 1.16  2002/11/15 07:43:52  vfrolov
+ * Do not wait no-signal if received *-sig-end
+ * Fixed compiler warnings
  *
  * Revision 1.15  2002/05/22 15:21:26  vfrolov
  * Added missed enableTimeout check
@@ -261,7 +265,7 @@ enum GetModParsBy {
 };
 
 static const MODPARS &GetModPars(int key, enum GetModParsBy by = by_val) {
-  for( PINDEX i = 0 ; i < sizeof(mods)/sizeof(mods[0]) ; i++ ) {
+  for( PINDEX i = 0 ; i < PINDEX(sizeof(mods)/sizeof(mods[0])) ; i++ ) {
     switch( by ) {
       case by_val:
         if( mods[i].val == key )
@@ -386,6 +390,7 @@ void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
 
 BOOL T38Engine::Originate()
 {
+#if PTRACING
   if (!name.IsEmpty()) {
     PString old = PThread::Current()->GetThreadName();
     PThread::Current()->SetThreadName(name + "(tx):%0x");
@@ -393,6 +398,7 @@ BOOL T38Engine::Originate()
   }
   
   PTRACE(3, "T38\tOriginate, transport=" << *transport);
+#endif
 
   long seq = -1;
   int maxRedundancy = 0;
@@ -442,7 +448,7 @@ BOOL T38Engine::Originate()
           maxRedundancy = in_redundancy;
           break;
         case T38_Type_of_msg::e_data:
-          switch( (const T38_Type_of_msg_data &)ifp.m_type_of_msg ) {
+          switch( (T38_Type_of_msg_data)ifp.m_type_of_msg ) {
             case T38D(e_v21):
               maxRedundancy = ls_redundancy;
               break;
@@ -528,6 +534,7 @@ BOOL T38Engine::Originate()
 
 BOOL T38Engine::Answer()
 {
+#if PTRACING
   if( !name.IsEmpty() ) {
     PString old = PThread::Current()->GetThreadName();
     PThread::Current()->SetThreadName(name + "(rx):%0x");
@@ -535,6 +542,7 @@ BOOL T38Engine::Answer()
   }
   
   PTRACE(3, "T38\tAnswer, transport=" << *transport);
+#endif
 
   /* HACK HACK HACK -- need to figure out how to get the remote address
    * properly here */
@@ -1123,7 +1131,7 @@ int T38Engine::PreparePacket(T38_IFPPacket & ifp, BOOL enableTimeout)
               {
                 BYTE b[(msPerOut * 14400)/(8*1000)];
                 PINDEX len = (msPerOut * ModParsOut.br)/(8*1000);
-                if( len > sizeof(b) )
+                if (len > PINDEX(sizeof(b)))
                   len = sizeof(b);
                 int count = bufOut.GetData(b, len);
                 
@@ -1299,7 +1307,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
         modStreamInSaved = NULL;
       }
       
-      switch( (const T38_Type_of_msg_t30_indicator &)ifp.m_type_of_msg ) {
+      switch( (T38_Type_of_msg_t30_indicator)ifp.m_type_of_msg ) {
         case T38I(e_no_signal):
         case T38I(e_cng):
         case T38I(e_ced):
@@ -1319,7 +1327,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
         case T38I(e_v17_14400_short_training):
         case T38I(e_v17_14400_long_training):
           isCarrierIn = 1;
-          modStreamInSaved = new ModStream(GetModPars((const T38_Type_of_msg_t30_indicator &)ifp.m_type_of_msg, by_ind));
+          modStreamInSaved = new ModStream(GetModPars((T38_Type_of_msg_t30_indicator)ifp.m_type_of_msg, by_ind));
           modStreamInSaved->PushBuf();
             
           if( stateModem == stmInWaitData ) {
@@ -1346,7 +1354,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
       break;
     case T38_Type_of_msg::e_data:
       {
-        unsigned type_of_msg = (const T38_Type_of_msg_data &)ifp.m_type_of_msg;
+        unsigned type_of_msg = (T38_Type_of_msg_data)ifp.m_type_of_msg;
         ModStream *modStream = modStreamIn;
         
         if( modStream == NULL || modStream->lastBuf == NULL ) {
@@ -1421,7 +1429,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
                   case T38F(e_t4_non_ecm_sig_end):
                     modStream->PutEof(diagNoCarrier);
                     modStream = NULL;
-                    //isCarrierIn = 0;
+                    isCarrierIn = 0;
                     break;
                 }
               }
