@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.21  2004-05-09 07:46:11  csoutheren
- * Updated to compile with new PIsDescendant function
+ * Revision 1.22  2004-06-24 17:20:22  vfrolov
+ * Added stub for ATXn command
+ *
+ * Revision 1.22  2004/06/24 17:20:22  vfrolov
+ * Added stub for ATXn command
  *
  * Revision 1.21  2004/05/09 07:46:11  csoutheren
  * Updated to compile with new PIsDescendant function
@@ -1130,6 +1133,12 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           break;
         case 'V':	// Numeric or ASCII result codes
           ToSBit(asciiResultCodes);
+          break;
+        case 'X':	// Which result codes
+          if (ParseNum(&pCmd, 0, 1) >= 4) {
+          } else {
+            err = TRUE;
+          }
           break;
         case 'Z':	// Load Registers from Profile
           {
