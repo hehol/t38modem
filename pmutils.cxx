@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,17 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.cxx,v $
- * Revision 1.2  2002-01-10 06:10:03  craigs
- * Added MPL header
+ * Revision 1.3  2002-03-07 07:55:18  vfrolov
+ * Fixed endless recursive call SignalChildStop(). Possible there is
+ * a bug in gcc version 2.95.4 20010902 (Debian prerelease).
+ * Markus Storm reported the promlem.
+ * Added Copyright header.
+ *
+ * Revision 1.3  2002/03/07 07:55:18  vfrolov
+ * Fixed endless recursive call SignalChildStop(). Possible there is
+ * a bug in gcc version 2.95.4 20010902 (Debian prerelease).
+ * Markus Storm reported the promlem.
+ * Added Copyright header.
  *
  * Revision 1.2  2002/01/10 06:10:03  craigs
  * Added MPL header
@@ -45,6 +56,16 @@ ModemThread::ModemThread()
     stop(FALSE),
     childstop(FALSE)
 {
+}
+
+void ModemThread::SignalChildStop() {
+  childstop = TRUE;
+  SignalDataReady();
+}
+
+void ModemThread::SignalStop() {
+  stop = TRUE;
+  SignalDataReady();
 }
 ///////////////////////////////////////////////////////////////
 ModemThreadChild::ModemThreadChild(ModemThread &_parent)
