@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.9  2004-03-01 17:18:46  vfrolov
- * Increased MAX_qBUF
+ * Revision 1.10  2004-07-07 07:49:19  vfrolov
+ * Included ptlib.h for precompiling
+ *
+ * Revision 1.10  2004/07/07 07:49:19  vfrolov
+ * Included ptlib.h for precompiling
  *
  * Revision 1.9  2004/03/01 17:18:46  vfrolov
  * Increased MAX_qBUF
@@ -64,6 +67,7 @@
  *
  */
 
+#include <ptlib.h>
 #include "pmodemi.h"
 #include "pty.h"
 #include "pmodeme.h"

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2002 Vyacheslav Frolov
+ * Copyright (c) 2001-2004 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pty.cxx,v $
- * Revision 1.7  2002-12-30 12:49:42  vfrolov
- * Added tracing thread's CPU usage (Linux only)
+ * Revision 1.8  2004-07-07 07:49:19  vfrolov
+ * Included ptlib.h for precompiling
+ *
+ * Revision 1.8  2004/07/07 07:49:19  vfrolov
+ * Included ptlib.h for precompiling
  *
  * Revision 1.7  2002/12/30 12:49:42  vfrolov
  * Added tracing thread's CPU usage (Linux only)
@@ -55,6 +58,7 @@
  *
  */
 
+#include <ptlib.h>
 #include <sys/time.h>
 #include "pmodemi.h"
 #include "pty.h"
