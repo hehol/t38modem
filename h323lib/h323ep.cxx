@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.18  2002-04-18 08:04:13  vfrolov
- * Disabled the in band DTMF detection
+ * Revision 1.19  2002-04-19 14:09:48  vfrolov
+ * Enabled T.38 mode request for O/G connections
+ *
+ * Revision 1.19  2002/04/19 14:09:48  vfrolov
+ * Enabled T.38 mode request for O/G connections
  *
  * Revision 1.18  2002/04/18 08:04:13  vfrolov
  * Disabled the in band DTMF detection
@@ -308,9 +311,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
       PString callToken = request("calltoken");
       H323Connection * _conn = FindConnectionWithLock(callToken);
       if( _conn != NULL ) {
-        PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
-        MyH323Connection *conn = (MyH323Connection *)_conn;
-        conn->AnsweringCall(H323Connection::AnswerCallNow);
+        _conn->AnsweringCall(H323Connection::AnswerCallNow);
         _conn->Unlock();
         response = "confirm";
       }
@@ -318,21 +319,15 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
       PString callToken = request("calltoken");
       H323Connection * _conn = FindConnectionWithLock(callToken);
       if( _conn != NULL ) {
-        PAssert(_conn->IsDescendant(MyH323Connection::Class()), PInvalidCast);
-        MyH323Connection *conn = (MyH323Connection *)_conn;
-        if (conn->HadAnsweredCall()) {
-          if (request("mode") == "fax") {
-            if (conn->RequestModeChangeT38()) {
-              PTRACE(2, "MyH323EndPoint::OnMyCallback RequestMode T38 - OK");
-              response = "confirm";
-            } else {
-              PTRACE(2, "MyH323EndPoint::OnMyCallback RequestMode T38 - fail");
-            }
+        if (request("mode") == "fax") {
+          if (_conn->RequestModeChangeT38()) {
+            PTRACE(2, "MyH323EndPoint::OnMyCallback RequestMode T38 - OK");
+            response = "confirm";
           } else {
-            PTRACE(2, "MyH323EndPoint::OnMyCallback unknown mode");
+            PTRACE(2, "MyH323EndPoint::OnMyCallback RequestMode T38 - fail");
           }
         } else {
-          response = "confirm";
+          PTRACE(2, "MyH323EndPoint::OnMyCallback unknown mode");
         }
         _conn->Unlock();
       }
