@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: g7231_fake.cxx,v $
- * Revision 1.2  2002-07-23 01:15:24  craigs
- * Added Capability clone function
+ * Revision 1.3  2003-12-18 13:16:46  vfrolov
+ * Fixed all CPU usage
+ *
+ * Revision 1.3  2003/12/18 13:16:46  vfrolov
+ * Fixed all CPU usage
  *
  * Revision 1.2  2002/07/23 01:15:24  craigs
  * Added Capability clone function
@@ -109,16 +112,18 @@ int G7231_Fake_Codec::GetFrameLen(int val)
 
 BOOL G7231_Fake_Codec::Read(BYTE * /*buffer*/, unsigned & length, RTP_DataFrame &)
 {
-	length = 0;
+  length = 0;
 
-	return TRUE;
+  delayRead.Delay((G7231_SAMPLES_PER_BLOCK*2)/16);
+
+  return TRUE;
 }
 
 BOOL G7231_Fake_Codec::Write(const BYTE * buffer, unsigned length, const RTP_DataFrame & /* rtp */, unsigned & writtenLength)
 {
   writtenLength = length;
 
-  delay.Delay((G7231_SAMPLES_PER_BLOCK*2)/16);
+  delayWrite.Delay((G7231_SAMPLES_PER_BLOCK*2)/16);
 
   return TRUE;
 }

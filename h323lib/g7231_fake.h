@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: g7231_fake.h,v $
- * Revision 1.2  2002-07-23 01:15:24  craigs
- * Added Capability clone function
+ * Revision 1.3  2003-12-18 13:16:52  vfrolov
+ * Fixed all CPU usage
+ *
+ * Revision 1.3  2003/12/18 13:16:52  vfrolov
+ * Fixed all CPU usage
  *
  * Revision 1.2  2002/07/23 01:15:24  craigs
  * Added Capability clone function
@@ -58,7 +61,8 @@ class G7231_Fake_Codec : public H323AudioCodec
     BOOL Write(const BYTE * buffer, unsigned length, const RTP_DataFrame & rtp, unsigned & frames);
 
   protected:
-    PAdaptiveDelay delay;
+    PAdaptiveDelay delayRead;
+    PAdaptiveDelay delayWrite;
 };  
 
 class G7231_Fake_Capability : public H323AudioCapability
