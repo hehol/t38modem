@@ -610,7 +610,6 @@ BOOL AudioRead::Read(void * buffer, PINDEX amount)
     return FALSE;
 
   if (!triggered && conn.ForceT38Mode() && conn.HadAnsweredCall()) {
-    cout << "Triggering mode change" << endl;
     conn.RequestModeChange();
     triggered = TRUE;
   }
