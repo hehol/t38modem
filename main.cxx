@@ -3,7 +3,7 @@
  *
  * T38Modem simulator - main program
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,9 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.38  2004-10-29 10:51:03  vfrolov
- * Added missing OS class to trace
- * Fixed MSVC compiler warning
+ * Revision 1.39  2005-02-04 10:18:48  vfrolov
+ * Fixed warnings for No Trace build
+ *
+ * Revision 1.39  2005/02/04 10:18:48  vfrolov
+ * Fixed warnings for No Trace build
  *
  * Revision 1.38  2004/10/29 10:51:03  vfrolov
  * Added missing OS class to trace
@@ -358,7 +360,7 @@ MyH323EndPoint::MyH323EndPoint()
   old_asn = FALSE;
 }
 
-void MyH323EndPoint::OnMyCallback(PObject &from, INT extra)
+void MyH323EndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
 {
   if (PIsDescendant(&from, PStringToString) ) {
     PStringToString &request = (PStringToString &)from;

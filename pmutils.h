@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.14  2005-02-03 11:32:12  vfrolov
- * Fixed MSVC compile warnings
+ * Revision 1.15  2005-02-04 10:18:49  vfrolov
+ * Fixed warnings for No Trace build
+ *
+ * Revision 1.15  2005/02/04 10:18:49  vfrolov
+ * Fixed warnings for No Trace build
  *
  * Revision 1.14  2005/02/03 11:32:12  vfrolov
  * Fixed MSVC compile warnings
@@ -247,9 +250,11 @@ class DataStreamQ : public _DataStreamQ
   cout << PThread::Current()->GetThreadName() << ": " << args << endl; \
 } while(0)
 #define myCanTrace(level) TRUE
+#define myPTRACE_PARAM(param) param
 #else
 #define _myPTRACE(level, args) do { PTRACE(level, args); } while(0)
 #define myCanTrace(level) PTrace::CanTrace(level)
+#define myPTRACE_PARAM(param) PTRACE_PARAM(param)
 #endif // COUT_TRACE
 
 #ifdef MYPTRACE_LEVEL

@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.32  2005-02-03 11:32:12  vfrolov
- * Fixed MSVC compile warnings
+ * Revision 1.33  2005-02-04 10:18:49  vfrolov
+ * Fixed warnings for No Trace build
+ *
+ * Revision 1.33  2005/02/04 10:18:49  vfrolov
+ * Fixed warnings for No Trace build
  *
  * Revision 1.32  2005/02/03 11:32:12  vfrolov
  * Fixed MSVC compile warnings
@@ -1455,7 +1458,7 @@ int T38Engine::PreparePacket(T38_IFPPacket & ifp, BOOL enableTimeout)
   return 1;
 }
 ///////////////////////////////////////////////////////////////
-BOOL T38Engine::HandlePacketLost(unsigned nLost)
+BOOL T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
 {
   PWaitAndSignal mutexWaitIn(MutexIn);
 
