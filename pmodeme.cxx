@@ -3,6 +3,8 @@
  *
  * T38FAX Pseudo Modem
  *
+ * Copyright (c) 2001-2002 Vyacheslav Frolov
+ *
  * Open H323 Project
  *
  * The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,19 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.7  2002-02-11 08:40:15  vfrolov
- * More clear call implementation
+ * Revision 1.8  2002-03-01 10:00:26  vfrolov
+ * Added Copyright header
+ * Implemented connection established handling and mode change request
+ * Implemented ATI8 command
+ * Fixed some deadlocks
+ * Added some other changes
+ *
+ * Revision 1.8  2002/03/01 10:00:26  vfrolov
+ * Added Copyright header
+ * Implemented connection established handling and mode change request
+ * Implemented ATI8 command
+ * Fixed some deadlocks
+ * Added some other changes
  *
  * Revision 1.7  2002/02/11 08:40:15  vfrolov
  * More clear call implementation
@@ -221,8 +234,9 @@ class ModemEngineBody : public PObject
   public:
     enum {
       stResetHandle,
-      stBusyHandle,
       stCommand,
+      stConnectWait,
+      stConnectHandle,
       stReqModeAckWait,
       stReqModeAckHandle,
       stSend,
@@ -240,6 +254,12 @@ class ModemEngineBody : public PObject
       cdIncoming,
     };
     
+    enum {
+      chEvent,
+      chDelay,
+      chHandle,
+    };
+
   /**@name Construction */
   //@{
     ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbackEndPoint);
@@ -255,7 +275,7 @@ class ModemEngineBody : public PObject
     void CheckState(PBYTEArray &bresp);
     BOOL IsReady() const {
       PWaitAndSignal mutexWait(Mutex);
-      return state == stCommand && (PTime() - lastPtyActivity) > 10*1000;
+      return state == stCommand && (PTime() - lastPtyActivity) > 5*1000;
     }
   //@}
   
@@ -298,7 +318,8 @@ class ModemEngineBody : public PObject
       return TRUE;
     }
     
-    void ClearCall();
+    void ClearCall() { PWaitAndSignal mutexWait(Mutex); _ClearCall(); }
+    void _ClearCall();
 
     int NextSeq() { return seq = ++seq % T38Engine::cbpUserDataMod; }
 
@@ -315,7 +336,9 @@ class ModemEngineBody : public PObject
     int seq;
 
     int callDirection;
+    BOOL connectionEstablished;
     int state;
+    int param;
     PString cmd;
     int dataType;
 
@@ -380,15 +403,10 @@ void ModemEngine::Main()
     SignalStop();
     return;
   }
-
+  
   for(;;) {
     PBYTEArray bresp;
     
-    if (stop)
-      break;
-
-    WaitDataReady();
-
     if (stop)
       break;
 
@@ -408,9 +426,12 @@ void ModemEngine::Main()
     
     if (bresp.GetSize()) {
       ToPtyQ(bresp, bresp.GetSize());
-      if (stop)
-        break;
     }
+
+    if (stop)
+      break;
+
+    WaitDataReady();
   }
 
   myPTRACE(1, "<-> Stopped");
@@ -445,6 +466,7 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
     timeout(myCallback),
     seq(0),
     callDirection(cdUndefined),
+    connectionEstablished(FALSE),
     state(stCommand)
 {
 }
@@ -459,9 +481,10 @@ ModemEngineBody::~ModemEngineBody()
   }
 }
 
-void ModemEngineBody::ClearCall()
+void ModemEngineBody::_ClearCall()
 {
-  if( CallToken().IsEmpty() )
+  connectionEstablished = FALSE;
+  if (CallToken().IsEmpty())
     return;
     
   timerRing.Stop();
@@ -471,7 +494,9 @@ void ModemEngineBody::ClearCall()
   request.SetAt("command", "clearcall");
   request.SetAt("calltoken", CallToken());
 
+  Mutex.Signal();
   callbackEndPoint(request, 1);
+  Mutex.Wait();
   CallToken("");
   callDirection = cdUndefined;
 }
@@ -481,41 +506,62 @@ BOOL ModemEngineBody::Request(PStringToString &request)
   myPTRACE(1, "ModemEngineBody::Request request={\n" << request << "}");
   
   PString command = request("command");
+
+  request.SetAt("response", "reject");
   
   if( command == "call" ) {
     PWaitAndSignal mutexWait(Mutex);
-    CallToken(request("calltoken"));
-    SrcNum(request("srcnum"));
-    DstNum(request("dstnum"));
-    timerRing.Start(6000);
-    P.SetReg(1, 0);
-    request.SetAt("response", "confirm");
-    request.SetAt("answer", "pending");
-    //request.SetAt("answer", "now");
-  } else if( command == "clearcall" ) {
+    if (CallToken().IsEmpty()) {
+      CallToken(request("calltoken"));
+      SrcNum(request("srcnum"));
+      DstNum(request("dstnum"));
+      timerRing.Start(5000);
+      P.SetReg(1, 0);
+      request.SetAt("response", "confirm");
+    } else {
+      myPTRACE(1, "ModemEngineBody::Request already in use by " << CallToken());
+    }
+  } else if (command == "established") {
     PWaitAndSignal mutexWait(Mutex);
-    if( !CallToken().IsEmpty() ) {
-      timerRing.Stop();
-      switch (state) {
-        case stReqModeAckWait:
-          if (callDirection == cdOutgoing ) {
-            timeout.Stop();
-            state = stBusyHandle;
-            parent.SignalDataReady();
-          }
-          break;
+    if (CallToken().IsEmpty()) {
+      myPTRACE(1, "ModemEngineBody::Request not in use");
+    } else if (CallToken() == request("calltoken")) {
+      if (state == stConnectWait) {
+        param = chEvent;
+        state = stConnectHandle;
+        parent.SignalDataReady();
+        request.SetAt("response", "confirm");
       }
+    } else {
+      myPTRACE(1, "ModemEngineBody::Request in use by " << CallToken());
+    }
+  } else if (command == "clearcall") {
+    PWaitAndSignal mutexWait(Mutex);
+    if (CallToken().IsEmpty()) {
+      PTRACE(3, "ModemEngineBody::Request not in use");
+    } else if (CallToken() == request("calltoken")) {
+      connectionEstablished = FALSE;
+      timerRing.Stop();
+      if (state != stResetHandle) {
+        param = state;
+        state = stResetHandle;
+        parent.SignalDataReady();
+        request.SetAt("response", "confirm");
+      }
+    } else {
+      myPTRACE(1, "ModemEngineBody::Request in use by " << CallToken());
     }
   } else {
-    request.SetAt("response", "reject");
-    myPTRACE(1, "ModemEngineBody::Request reject");
+    myPTRACE(1, "ModemEngineBody::Request unknown request");
   }
   return TRUE;
 }
 
 BOOL ModemEngineBody::Attach(T38Engine *_t38engine)
 {
+  PTRACE(1, "ModemEngineBody::Attach");
   PWaitAndSignal mutexWait(Mutex);
+
   if( t38engine != NULL ) {
     myPTRACE(1, "ModemEngineBody::Attach other t38engine already Attached");
     return FALSE;
@@ -570,6 +616,7 @@ void ModemEngineBody::OnMyCallback(PObject &from, INT extra)
       case T38Engine::cbpReset:
         switch( state ) {
           case stSend:
+            param = state;
             state = stResetHandle;
             break;
         }
@@ -742,41 +789,48 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 	case ' ':
           break;
         case 'A':	// Accept incoming call
+          ok = FALSE;
           {
-            ok = FALSE;
             PWaitAndSignal mutexWait(Mutex);
+            callDirection = cdIncoming;
             timerRing.Stop();
-            state = stReqModeAckWait;
-            timeout.Start(60000);
-            if (t38engine != NULL)  {
-              state = stReqModeAckHandle;
-              timeout.Stop();
-              parent.SignalDataReady();
-              crlf = FALSE;
-            } else {
+            if (!connectionEstablished) {
+              state = stConnectWait;
+              timeout.Start(60000);
+            
               PStringToString request;
               request.SetAt("modemtoken", parent.modemToken());
               request.SetAt("command", "answer");
               request.SetAt("calltoken", CallToken());
             
-              callbackEndPoint(request, 1);
+              Mutex.Signal();
+              callbackEndPoint(request, 2);
+              Mutex.Wait();
               
               PString response = request("response");
               
-              if (response == "confirm" ) {
-                callDirection = cdIncoming;
-                crlf = FALSE;
-              } else {
-                state = stCommand;
+              if (response != "confirm" ) {
+                callDirection = cdUndefined;
                 timeout.Stop();
+                state = stCommand;
                 err = TRUE;
               }
+            }
+            
+            if (!err) {
+              if (connectionEstablished) {
+                timeout.Stop();
+                param = chHandle;
+                state = stConnectHandle;
+                parent.SignalDataReady();
+              }
+              crlf = FALSE;
             }
           }
           break;
         case 'D':	// Dial
+          ok = FALSE;
           {
-            ok = FALSE;
             PString num;
           
             for( char ch ; (ch = *pCmd) != 0 && !err ; pCmd++ ) {
@@ -796,31 +850,40 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               }
             }
             
-            if( !err ) {
+            if (!err) {
+              PWaitAndSignal mutexWait(Mutex);
+              callDirection = cdOutgoing;
+              timerRing.Stop();
+              state = stConnectWait;
+              timeout.Start(60000);
+            
               PStringToString request;
               request.SetAt("modemtoken", parent.modemToken());
               request.SetAt("command", "dial");
               request.SetAt("number", num);
             
-              callbackEndPoint(request, 1);
+              Mutex.Signal();
+              callbackEndPoint(request, 3);
+              Mutex.Wait();
 
               PString response = request("response");
               
-              if( response == "reject" ) {
-                PString diag = request("diag");
-                if( diag == "noroute" )
-                  resp += "\r\nBUSY";
-                else
-                  resp += "\r\nNO DIALTONE";
-              } else if( response == "confirm" ) {
+              if (response == "confirm") {
                 CallToken(request("calltoken"));
                 crlf = FALSE;
-                PWaitAndSignal mutexWait(Mutex);
-                state = stReqModeAckWait;
-                timeout.Start(60000);
-                callDirection = cdOutgoing;
               } else {
-                err = TRUE;
+                callDirection = cdUndefined;
+                timeout.Stop();
+                state = stCommand;
+                if (response == "reject") {
+                  PString diag = request("diag");
+                  if( diag == "noroute" )
+                    resp += "\r\nBUSY";
+                  else
+                    resp += "\r\nNO DIALTONE";
+                } else {
+                  err = TRUE;
+                }
               }
             }
           }
@@ -848,6 +911,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               case 3:
                 resp += "\r\n";
                 resp += Manufacturer;
+                break;
+              case 8:
+                resp += "\r\nNMBR=" + SrcNum();
                 break;
               case 9:
                 resp += "\r\nNDID=" + DstNum();
@@ -1270,7 +1336,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
               t38engine->ResetModemState();
               bresp.Concatenate(PBYTEArray((const BYTE *)"\r\nOK\r\n", 6));
             } else {
-              ClearCall();
+              _ClearCall();
               bresp.Concatenate(PBYTEArray((const BYTE *)"\r\nNO CARRIER\r\n", 14));
             }
           }
@@ -1300,6 +1366,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
   if( timeout.Get() ) {
     PWaitAndSignal mutexWait(Mutex);
     switch( state ) {
+      case stConnectWait:
       case stReqModeAckWait:
       case stRecvBegWait:
         resp += "\r\nNO CARRIER\r\n";
@@ -1307,7 +1374,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         if (t38engine)
           t38engine->ResetModemState();
         else
-          ClearCall();
+          _ClearCall();
+        break;
+      case stConnectHandle:
+        param = chHandle;
         break;
     }
   }
@@ -1316,23 +1386,25 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     case stResetHandle:
       {
         PWaitAndSignal mutexWait(Mutex);
-        resp += "\r\nERROR\r\n";
+        switch( param ) {
+          case stSend:
+            resp += "\r\nERROR\r\n";
+            break;
+          case stConnectWait:
+          case stConnectHandle:
+          case stReqModeAckWait:
+          case stReqModeAckHandle:
+            if (callDirection == cdOutgoing)
+              resp += "\r\nBUSY\r\n";
+            else
+              resp += "\r\nERROR\r\n";
+          break;
+        }
         state = stCommand;
         if (t38engine)
           t38engine->ResetModemState();
         else
-          ClearCall();
-      }
-      break;
-    case stBusyHandle:
-      {
-        PWaitAndSignal mutexWait(Mutex);
-        resp += "\r\nBUSY\r\n";
-        state = stCommand;
-        if (t38engine)
-          t38engine->ResetModemState();
-        else
-          ClearCall();
+          _ClearCall();
       }
       break;
     case stSendBufEmptyHandle:
@@ -1342,6 +1414,46 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         if( !t38engine || !t38engine->SendStop(moreFrames, NextSeq()) ) {
           resp += "\r\nERROR\r\n";
           state = stCommand;
+        }
+      }
+      break;
+    case stConnectHandle:
+      {
+        PWaitAndSignal mutexWait(Mutex);
+        switch(param) {
+          case chEvent:
+            param = chDelay;
+            timeout.Start(1000);    // wait 1 sec before request mode
+            break;
+          case chHandle:
+            connectionEstablished = TRUE;
+            if (t38engine) {
+              state = stReqModeAckHandle;
+              timeout.Stop();
+              parent.SignalDataReady();
+            } else {
+              timeout.Start(10000);
+              state = stReqModeAckWait;
+              PStringToString request;
+              request.SetAt("modemtoken", parent.modemToken());
+              request.SetAt("command", "requestmode");
+              request.SetAt("calltoken", CallToken());
+              request.SetAt("mode", "fax");
+    
+              Mutex.Signal();
+              callbackEndPoint(request, 4);
+              Mutex.Wait();
+    
+              PString response = request("response");
+    
+              if (response == "confirm" ) {
+              } else {
+                state = stCommand;
+                timeout.Stop();
+                resp += "\r\nNO CARRIER\r\n";
+              }
+            }
+            break;
         }
       }
       break;
@@ -1430,16 +1542,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           }
           int count = t38engine->Recv(Buf, 1024);
           
-          /*
-          if( dataCount == 0 && count != 0 ) {
-            // Remote can do too long delay between indication and data
-            // so we respond CONNECT on data rather then on indication
-            PBYTEArray _bresp((const BYTE *)"\r\nCONNECT\r\n", 11);
-            myPTRACE(1, "<-- " << PRTHEX(_bresp));
-            bresp.Concatenate(_bresp);
-          }
-          */
-        
           switch( count ) {
             case -1:
               dleData.SetDiag(t38engine->RecvDiag()).PutEof();
@@ -1498,4 +1600,5 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     bresp.Concatenate(_bresp);
   }
 }
+///////////////////////////////////////////////////////////////
 
