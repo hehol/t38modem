@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.40  2005-02-24 11:21:11  vfrolov
- * Added ability to put list to --route option
+ * Revision 1.41  2005-04-28 09:12:07  vfrolov
+ * Made tidy up
+ *
+ * Revision 1.41  2005/04/28 09:12:07  vfrolov
+ * Made tidy up
  *
  * Revision 1.40  2005/02/24 11:21:11  vfrolov
  * Added ability to put list to --route option
@@ -141,11 +144,10 @@
 // mostly "stolen" from OpenAM
 
 #include <ptlib.h>
-#include <ptlib/pipechan.h>
+#include <h323pdu.h>
+#include <h323t38.h>
 
 #include "version.h"
-#include <h323pdu.h>
-#include "h323t38.h"
 #include "t38engine.h"
 #include "pmodem.h"
 #include "main.h"
@@ -597,8 +599,7 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
 
 MyH323Connection::MyH323Connection(MyH323EndPoint & _ep, unsigned callReference)
   : H323Connection(_ep, callReference), ep(_ep),
-    pmodem(NULL),
-    audioWrite(NULL), audioRead(NULL)
+    pmodem(NULL)
 {
 }
 
@@ -621,12 +622,6 @@ MyH323Connection::~MyH323Connection()
 
     ep.PMFree(pmodem);
   }
-
-  if (audioWrite != NULL)
-    delete audioWrite;
-
-  if (audioRead != NULL)
-    delete audioRead;
 }
 
 void MyH323Connection::OnEstablished()
@@ -772,20 +767,10 @@ BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize 
 
   PTRACE(2, "MyH323Connection::OpenAudioChannel " << codec);
 
-  PWaitAndSignal mutex(connMutex);
-
-  if (audioWrite == NULL) {
-    audioWrite = new AudioWrite(*this);
-  }
-
-  if (audioRead == NULL) {
-    audioRead = new AudioRead(*this, HadAnsweredCall() ? T30Tone::silence : T30Tone::cng);
-  }
-
   if (isEncoding) {
-    codec.AttachChannel(audioRead, FALSE);
+    codec.AttachChannel(new AudioRead(HadAnsweredCall() ? T30Tone::silence : T30Tone::cng), TRUE);
   } else {
-    codec.AttachChannel(audioWrite, FALSE);
+    codec.AttachChannel(new AudioWrite(), TRUE);
   }
 
   return TRUE;
@@ -793,8 +778,8 @@ BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize 
 
 ///////////////////////////////////////////////////////////////
 
-AudioRead::AudioRead(MyH323Connection & _conn, T30Tone::Type type)
-  : conn(_conn), t30Tone(type), closed(FALSE)
+AudioRead::AudioRead(T30Tone::Type type)
+  : t30Tone(type), closed(FALSE)
 {
 }
 
@@ -823,8 +808,8 @@ BOOL AudioRead::Close()
 
 ///////////////////////////////////////////////////////////////
 
-AudioWrite::AudioWrite(MyH323Connection & _conn)
-  : conn(_conn), closed(FALSE)
+AudioWrite::AudioWrite()
+  : closed(FALSE)
 {
 }
 
