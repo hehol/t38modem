@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.18  2004-06-18 15:06:29  vfrolov
- * Fixed race condition by adding mutex for modemCallback
+ * Revision 1.19  2005-07-18 11:39:48  vfrolov
+ * Changed for OPAL
+ *
+ * Revision 1.19  2005/07/18 11:39:48  vfrolov
+ * Changed for OPAL
  *
  * Revision 1.18  2004/06/18 15:06:29  vfrolov
  * Fixed race condition by adding mutex for modemCallback
@@ -89,8 +92,13 @@
 #ifndef _T38ENGINE_H
 #define _T38ENGINE_H
 
+#ifdef USE_OPAL
+  #include <t38/t38proto.h>
+#else
+  #include <t38proto.h>
+#endif
+
 #include "pmutils.h"
-#include <t38proto.h>
 #include "hdlc.h"
 #include "t30.h"
 
@@ -159,7 +167,6 @@ class T38Engine : public OpalT38Protocol
   
   /**@name Operations */
   //@{
-    void CleanUpOnTermination();
     void SetRedundancy(
       int indication,
       int low_speed,
@@ -197,6 +204,13 @@ class T38Engine : public OpalT38Protocol
   
     void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp) const;
 
+#ifdef USE_OPAL
+    #define CleanUpOnTerminationOrClose Close
+#else
+    #define CleanUpOnTerminationOrClose CleanUpOnTermination
+#endif
+
+    void CleanUpOnTerminationOrClose();
     BOOL Originate();
     BOOL Answer();
 

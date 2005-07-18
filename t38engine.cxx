@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.34  2005-03-03 16:09:06  vfrolov
- * Fixed memory leak
+ * Revision 1.35  2005-07-18 11:39:47  vfrolov
+ * Changed for OPAL
+ *
+ * Revision 1.35  2005/07/18 11:39:47  vfrolov
+ * Changed for OPAL
  *
  * Revision 1.34  2005/03/03 16:09:06  vfrolov
  * Fixed memory leak
@@ -143,9 +146,16 @@
  */
 
 #include <ptlib.h>
+
+#ifdef USE_OPAL
+  #include <opal/transports.h>
+  #include <asn/t38.h>
+#else
+  #include <transports.h>
+  #include <t38.h>
+#endif
+
 #include "t38engine.h"
-#include <transports.h>
-#include <t38.h>
 
 #define new PNEW
 
@@ -664,7 +674,7 @@ BOOL T38Engine::Answer()
 
   /* HACK HACK HACK -- need to figure out how to get the remote address
    * properly here */
-  transport->SetPromiscuous(H323Transport::AcceptFromAnyAutoSet);
+  transport->SetPromiscuous(transport->AcceptFromAnyAutoSet);
 
   int consecutiveBadPackets = 0;
   long expectedSequenceNumber = 0;
@@ -683,7 +693,7 @@ BOOL T38Engine::Answer()
      * promiscuous listening */
     if (expectedSequenceNumber == 0) {
       PTRACE(3, "T38\tReceived first packet, remote=" << transport->GetRemoteAddress());
-      transport->SetPromiscuous(H323Transport::AcceptFromRemoteOnly);
+      transport->SetPromiscuous(transport->AcceptFromRemoteOnly);
     }
 
     T38_UDPTLPacket udptl;
@@ -798,10 +808,10 @@ void T38Engine::ModemCallbackWithUnlock(INT extra)
   Mutex.Wait();
 }
 
-void T38Engine::CleanUpOnTermination()
+void T38Engine::CleanUpOnTerminationOrClose()
 {
-  myPTRACE(1, name << " T38Engine::CleanUpOnTermination");
-  OpalT38Protocol::CleanUpOnTermination();
+  myPTRACE(1, name << " T38Engine::CleanUpOnTerminationOrClose");
+  OpalT38Protocol::CleanUpOnTerminationOrClose();
 
   PWaitAndSignal mutexWait(Mutex);
   T38Mode = FALSE;
