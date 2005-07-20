@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2005 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.19  2005-07-18 11:39:48  vfrolov
- * Changed for OPAL
+ * Revision 1.20  2005-07-20 12:42:36  vfrolov
+ * Done less strict comparison in MODPARS::IsEqual()
+ *
+ * Revision 1.20  2005/07/20 12:42:36  vfrolov
+ * Done less strict comparison in MODPARS::IsEqual()
  *
  * Revision 1.19  2005/07/18 11:39:48  vfrolov
  * Changed for OPAL
@@ -115,7 +118,7 @@ class MODPARS
     );
 
     BOOL IsModValid() const { return val >= 0; }
-    BOOL IsEqual(const MODPARS &mp) const { return val == mp.val; }
+    BOOL IsEqual(const MODPARS &mp) const { return msgType == mp.msgType; }
 
     int dataType;
     int dataTypeT38;
