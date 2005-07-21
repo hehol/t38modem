@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.35  2005-07-18 11:39:47  vfrolov
- * Changed for OPAL
+ * Revision 1.36  2005-07-21 06:49:02  vfrolov
+ * Added missing CompleteEncoding()
+ *
+ * Revision 1.36  2005/07/21 06:49:02  vfrolov
+ * Added missing CompleteEncoding()
  *
  * Revision 1.35  2005/07/18 11:39:47  vfrolov
  * Changed for OPAL
@@ -621,6 +624,7 @@ BOOL T38Engine::Originate()
 
     PPER_Stream rawData;
     udptl.Encode(rawData);
+    rawData.CompleteEncoding();
 
 #if PTRACING
     if (res > 0) {
