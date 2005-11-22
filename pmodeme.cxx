@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.30  2005-03-05 15:42:39  vfrolov
- * Added missing check for PTRACING
- * Fixed typo in T38DLE trace
+ * Revision 1.31  2005-11-22 16:39:36  vfrolov
+ * Fixed MSVC compile warning
+ *
+ * Revision 1.31  2005/11/22 16:39:36  vfrolov
+ * Fixed MSVC compile warning
  *
  * Revision 1.30  2005/03/05 15:42:39  vfrolov
  * Added missing check for PTRACING
@@ -570,7 +572,13 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
   : parent(_parent),
     t38engine(NULL),
     callbackEndPoint(_callbackEndPoint),
+#ifdef _MSC_VER
+#pragma warning(disable:4355) // warning C4355: 'this' : used in base member initializer list
+#endif
     myCallback(PCREATE_NOTIFIER(OnMyCallback)),
+#ifdef _MSC_VER
+#pragma warning(default:4355)
+#endif
     timerRing(myCallback, TRUE),
     timeout(myCallback),
     seq(0),
