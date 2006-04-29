@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.41  2005-04-28 09:12:07  vfrolov
- * Made tidy up
+ * Revision 1.42  2006-04-29 20:31:28  dominance
+ * add -v option to keep debian packaging happy ;)
+ *
+ * Revision 1.42  2006/04/29 20:31:28  dominance
+ * add -v option to keep debian packaging happy ;)
  *
  * Revision 1.41  2005/04/28 09:12:07  vfrolov
  * Made tidy up
@@ -174,7 +177,7 @@ T38Modem::~T38Modem()
 void T38Modem::Main()
 {
   cout << GetName()
-       << " Version " << GetVersion(TRUE)
+       << " Version " << GetVersion(TRUE) << "\n"
        << " by " << GetManufacturer()
        << " on " << GetOSClass() << ' ' << GetOSName()
        << " (" << GetOSVersion() << '-' << GetOSHardware() << ")\n\n";
@@ -204,6 +207,7 @@ BOOL T38Modem::Initialise()
              "g-gatekeeper:"         "n-no-gatekeeper."
              "-require-gatekeeper."  "-no-require-gatekeeper."
              "h-help."
+             "v-version."
              "i-interface:"          "-no-interface."
              "-listenport:"          "-no-listenport."
              "-connectport:"         "-no-connectport."
@@ -276,6 +280,7 @@ BOOL T38Modem::Initialise()
         "  -o --output               : File for trace output, default is stderr.\n"
 #endif
         "     --save                 : Save arguments in configuration file and exit.\n"
+         "  -v --version              : Display version.\n"
         "  -h --help                 : Display this help message.\n"
         "Drivers:\n";
 
@@ -288,6 +293,11 @@ BOOL T38Modem::Initialise()
     return FALSE;
   }
 
+ 
+  if (args.HasOption('v')) {
+	return FALSE;
+  }
+ 
   if (args.HasOption("save")) {
     args.Save("save");
     cout << "Arguments were saved in configuration file\n";
