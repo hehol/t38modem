@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.cxx,v $
- * Revision 1.7  2004-07-07 12:38:32  vfrolov
- * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ * Revision 1.8  2006-05-23 14:48:54  vfrolov
+ * Fixed race condition (reported by Tamas)
+ *
+ * Revision 1.8  2006/05/23 14:48:54  vfrolov
+ * Fixed race condition (reported by Tamas)
  *
  * Revision 1.7  2004/07/07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
@@ -71,6 +74,7 @@ class PseudoModemList : protected _PseudoModemList
     PINDEX Append(PseudoModem *modem);
     PseudoModem *Find(const PString &modemToken) const;
   protected:
+    PseudoModem *_Find(const PString &modemToken) const;
     PMutex Mutex;
 };
 
@@ -78,7 +82,7 @@ PINDEX PseudoModemList::Append(PseudoModem *modem)
 {
   PWaitAndSignal mutexWait(Mutex);
 
-  if (Find(modem->modemToken())) {
+  if (_Find(modem->modemToken())) {
     myPTRACE(1, "PseudoModemList::Append can't add " << modem->ptyName() << " to modem list");
     delete modem;
     return P_MAX_INDEX;
@@ -92,6 +96,12 @@ PINDEX PseudoModemList::Append(PseudoModem *modem)
 }
 
 PseudoModem *PseudoModemList::Find(const PString &modemToken) const
+{
+  PWaitAndSignal mutexWait(Mutex);
+  return _Find(modemToken);
+}
+
+PseudoModem *PseudoModemList::_Find(const PString &modemToken) const
 {
   PObject *object;
 
