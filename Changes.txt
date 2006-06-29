@@ -7,6 +7,11 @@
  *
  */
 
+Changelog for t38modem 0.8.3
+
+* Fixed race condition on start up.
+* Added -v option to keep Debian packaging happy.
+
 Changelog for t38modem 0.8.2
 
 * Fixed incompatibilities with some endpoints.
