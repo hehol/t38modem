@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.36  2005-07-21 06:49:02  vfrolov
- * Added missing CompleteEncoding()
+ * Revision 1.37  2006-07-05 04:37:17  csoutheren
+ * Applied 1488904 - SetPromiscuous(AcceptFromLastReceivedOnly) for T.38
+ * Thanks to Vyacheslav Frolov
+ *
+ * Revision 1.37  2006/07/05 04:37:17  csoutheren
+ * Applied 1488904 - SetPromiscuous(AcceptFromLastReceivedOnly) for T.38
+ * Thanks to Vyacheslav Frolov
  *
  * Revision 1.36  2005/07/21 06:49:02  vfrolov
  * Added missing CompleteEncoding()
@@ -676,9 +681,9 @@ BOOL T38Engine::Answer()
   RenameCurrentThread(name + "(rx)");
   PTRACE(2, "T38\tAnswer, transport=" << *transport);
 
-  /* HACK HACK HACK -- need to figure out how to get the remote address
-   * properly here */
-  transport->SetPromiscuous(transport->AcceptFromAnyAutoSet);
+  // We can't get negotiated sender's address and port,
+  // so accept first packet from any address and port
+  transport->SetPromiscuous(transport->AcceptFromAny);
 
   int consecutiveBadPackets = 0;
   long expectedSequenceNumber = 0;
@@ -693,18 +698,18 @@ BOOL T38Engine::Answer()
       break;
     }
 
-    /* when we get the first packet, set the RemoteAddress and then turn off
-     * promiscuous listening */
-    if (expectedSequenceNumber == 0) {
-      PTRACE(3, "T38\tReceived first packet, remote=" << transport->GetRemoteAddress());
-      transport->SetPromiscuous(transport->AcceptFromRemoteOnly);
-    }
-
     T38_UDPTLPacket udptl;
 
-    if (udptl.Decode(rawData))
+    if (udptl.Decode(rawData)) {
       consecutiveBadPackets = 0;
-    else {
+
+      // When we get the first packet, we know sender's address and port,
+      // so accept next packets from sender's address and port only
+      if (expectedSequenceNumber == 0) {
+        PTRACE(3, "T38\tReceived first packet, remote=" << transport->GetLastReceivedAddress());
+        transport->SetPromiscuous(transport->AcceptFromLastReceivedOnly);
+      }
+    } else {
       consecutiveBadPackets++;
       PTRACE(2, "T38\tRaw data decode failure:\n  "
              << setprecision(2) << rawData << "\n  UDPTL = "
