@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2006 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.cxx,v $
- * Revision 1.2  2004-10-20 14:00:17  vfrolov
- * Fixed race condition with SignalDataReady()/WaitDataReady()
+ * Revision 1.3  2006-10-18 14:54:53  vfrolov
+ * Added hPty >= FD_SETSIZE check
+ *
+ * Revision 1.3  2006/10/18 14:54:53  vfrolov
+ * Added hPty >= FD_SETSIZE check
  *
  * Revision 1.2  2004/10/20 14:00:17  vfrolov
  * Fixed race condition with SignalDataReady()/WaitDataReady()
@@ -385,6 +388,26 @@ BOOL PseudoModemPty::OpenPty()
     if (++delay > 5)
       delay = 5;
   }
+
+#ifdef FD_SETSIZE
+  if (hPty >= FD_SETSIZE) {
+    myPTRACE(1, "PseudoModemPty::OpenPty ERROR: hPty(" << hPty << ") >= FD_SETSIZE(" << FD_SETSIZE << ")");
+    ClosePty();
+    return FALSE;
+  }
+  #if PTRACING
+  if (myCanTrace(2)) {
+    static int hPtyWarn = (FD_SETSIZE*3)/4;
+
+    if (hPty > hPtyWarn) {
+      hPtyWarn = hPty;
+      myPTRACE(2, "PseudoModemPty::OpenPty WARNING: hPty=" << hPty << ", FD_SETSIZE=" << FD_SETSIZE);
+    }
+  }
+  #endif
+#else
+  #warning FD_SETSIZE not defined!
+#endif
 
   struct termios Termios;
 
