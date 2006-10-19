@@ -22,8 +22,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.11  2004-07-07 12:38:32  vfrolov
-# The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+# Revision 1.12  2006-10-19 10:45:59  vfrolov
+# Added FD_TRACE_LEVEL ifdef
+#
+# Revision 1.12  2006/10/19 10:45:59  vfrolov
+# Added FD_TRACE_LEVEL ifdef
 #
 # Revision 1.11  2004/07/07 12:38:32  vfrolov
 # The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
@@ -81,6 +84,14 @@ endif
 #
 ifdef MYPTRACE_LEVEL
 STDCCFLAGS += -DMYPTRACE_LEVEL=$(MYPTRACE_LEVEL)
+endif
+
+#
+# If defined FD_TRACE_LEVEL=N then myPTRACE() will
+# output the warnings on level N for big file descriptors
+#
+ifdef FD_TRACE_LEVEL
+STDCCFLAGS += -DFD_TRACE_LEVEL=$(FD_TRACE_LEVEL)
 endif
 
 #
