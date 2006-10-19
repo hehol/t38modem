@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.cxx,v $
- * Revision 1.3  2006-10-18 14:54:53  vfrolov
- * Added hPty >= FD_SETSIZE check
+ * Revision 1.4  2006-10-19 10:44:15  vfrolov
+ * Fixed big file descriptors problem (replaced select() by poll())
+ *
+ * Revision 1.4  2006/10/19 10:44:15  vfrolov
+ * Fixed big file descriptors problem (replaced select() by poll())
  *
  * Revision 1.3  2006/10/18 14:54:53  vfrolov
  * Added hPty >= FD_SETSIZE check
@@ -72,7 +75,7 @@
 
 #ifdef MODEM_DRIVER_Pty
 
-#include <sys/time.h>
+#include <sys/poll.h>
 
 #define new PNEW
 
@@ -105,15 +108,6 @@ class OutPty : public UniPty
     virtual void Main();
 };
 ///////////////////////////////////////////////////////////////
-#define PrepareSelect(n, fdset, tv, s)	\
-  int n = hPty + 1;			\
-  fd_set fdset;				\
-  struct timeval tv;			\
-  FD_ZERO(&fdset);			\
-  FD_SET(hPty, &fdset);			\
-  tv.tv_sec = s;			\
-  tv.tv_usec = 0;
-///////////////////////////////////////////////////////////////
 UniPty::UniPty(PseudoModemPty &_parent, int _hPty)
   : ModemThreadChild(_parent),
     hPty(_hPty)
@@ -131,14 +125,17 @@ void InPty::Main()
   myPTRACE(1, "--> Started");
 
   for (;;) {
-    PrepareSelect(n, fdset, tv, 5);
+    pollfd pollfd;
+
+    pollfd.fd = hPty;
+    pollfd.events = POLLIN;
 
     if (stop)
       break;
 
-    ::select(n, &fdset, NULL, NULL, &tv);
+    ::poll(&pollfd, 1, 5000);
 
-    if (FD_ISSET(hPty, &fdset)) {
+    if (pollfd.revents) {
       char cbuf[1024];
       int len;
 
@@ -184,7 +181,10 @@ void OutPty::Main()
   PINDEX done = 0;
 
   for (;;) {
-    PrepareSelect(n, fdset, tv, 5);
+    pollfd pollfd;
+
+    pollfd.fd = hPty;
+    pollfd.events = POLLOUT;
 
     while (!buf) {
       if (stop)
@@ -200,9 +200,9 @@ void OutPty::Main()
     if (stop)
       break;
 
-    ::select(n, NULL, &fdset, NULL, &tv);
+    ::poll(&pollfd, 1, 5000);
 
-    if (FD_ISSET(hPty, &fdset)) {
+    if (pollfd.revents) {
       int len;
 
       if (stop)
@@ -347,11 +347,14 @@ BOOL PseudoModemPty::OpenPty()
   if (IsOpenPty()) {
     // check hPty health
 
-    PrepareSelect(n, fdset, tv, 0);
+    pollfd pollfd;
 
-    ::select(n, &fdset, NULL, NULL, &tv);
+    pollfd.fd = hPty;
+    pollfd.events = POLLIN;
 
-    if (FD_ISSET(hPty, &fdset)) {
+    ::poll(&pollfd, 1, 0);
+
+    if (pollfd.revents) {
       char cbuf[1];
       int len;
 
@@ -389,24 +392,13 @@ BOOL PseudoModemPty::OpenPty()
       delay = 5;
   }
 
-#ifdef FD_SETSIZE
-  if (hPty >= FD_SETSIZE) {
-    myPTRACE(1, "PseudoModemPty::OpenPty ERROR: hPty(" << hPty << ") >= FD_SETSIZE(" << FD_SETSIZE << ")");
-    ClosePty();
-    return FALSE;
-  }
-  #if PTRACING
-  if (myCanTrace(2)) {
-    static int hPtyWarn = (FD_SETSIZE*3)/4;
-
-    if (hPty > hPtyWarn) {
-      hPtyWarn = hPty;
-      myPTRACE(2, "PseudoModemPty::OpenPty WARNING: hPty=" << hPty << ", FD_SETSIZE=" << FD_SETSIZE);
-    }
-  }
+#if defined FD_TRACE_LEVEL && defined PTRACING
+  #ifdef FD_SETSIZE
+  if (hPty > (FD_SETSIZE*3)/4)
+    myPTRACE(FD_TRACE_LEVEL, "PseudoModemPty::OpenPty WARNING: hPty=" << hPty << ", FD_SETSIZE=" << FD_SETSIZE);
+  #else
+    #warning FD_SETSIZE not defined!
   #endif
-#else
-  #warning FD_SETSIZE not defined!
 #endif
 
   struct termios Termios;
