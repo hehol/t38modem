@@ -22,8 +22,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.12  2006-10-19 10:45:59  vfrolov
-# Added FD_TRACE_LEVEL ifdef
+# Revision 1.13  2006-10-20 10:06:43  vfrolov
+# Added REPEAT_INDICATOR_SENDING ifdef
+#
+# Revision 1.13  2006/10/20 10:06:43  vfrolov
+# Added REPEAT_INDICATOR_SENDING ifdef
 #
 # Revision 1.12  2006/10/19 10:45:59  vfrolov
 # Added FD_TRACE_LEVEL ifdef
@@ -101,5 +104,13 @@ endif
 #
 ifdef PROCESS_PER_THREAD
 STDCCFLAGS += -DPROCESS_PER_THREAD
+endif
+
+#
+# If defined REPEAT_INDICATOR_SENDING then t38modem
+# will repeat indicator sending on idle
+#
+ifdef REPEAT_INDICATOR_SENDING
+STDCCFLAGS += -DREPEAT_INDICATOR_SENDING
 endif
 
