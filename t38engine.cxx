@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2005 Vyacheslav Frolov
+ * Copyright (c) 2001-2006 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,9 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.37  2006-07-05 04:37:17  csoutheren
- * Applied 1488904 - SetPromiscuous(AcceptFromLastReceivedOnly) for T.38
- * Thanks to Vyacheslav Frolov
+ * Revision 1.38  2006-10-20 10:04:00  vfrolov
+ * Added code for ignoring repeated indicators
+ * Added code for sending repeated indicators (disabled by default)
+ *
+ * Revision 1.38  2006/10/20 10:04:00  vfrolov
+ * Added code for ignoring repeated indicators
+ * Added code for sending repeated indicators (disabled by default)
  *
  * Revision 1.37  2006/07/05 04:37:17  csoutheren
  * Applied 1488904 - SetPromiscuous(AcceptFromLastReceivedOnly) for T.38
@@ -543,10 +547,32 @@ BOOL T38Engine::Originate()
   T38_UDPTLPacket udptl;
   udptl.m_error_recovery.SetTag(T38_UDPTLPacket_error_recovery::e_secondary_ifp_packets);
 
+#if REPEAT_INDICATOR_SENDING
+  T38_IFPPacket lastifp;
+#endif
+
   for (;;) {
     T38_IFPPacket ifp;
+    int res;
 
-    int res = PreparePacket(ifp, maxRedundancy > 0);
+#ifdef REPEAT_INDICATOR_SENDING
+    if (seq >= 0 && lastifp.m_type_of_msg.GetTag() == T38_Type_of_msg::e_t30_indicator)
+      res = PreparePacket(ifp, TRUE); // do not wait next ifp
+    else
+#endif
+
+    res = PreparePacket(ifp, maxRedundancy > 0);
+
+#ifdef REPEAT_INDICATOR_SENDING
+    if (res > 0)
+      lastifp = ifp;
+    else
+    if (res < 0 && lastifp.m_type_of_msg.GetTag() == T38_Type_of_msg::e_t30_indicator) {
+      // send indicator again
+      ifp = lastifp;
+      res = 1;
+    }
+#endif
 
     if (res > 0) {
       T38_UDPTLPacket_error_recovery &recovery = udptl.m_error_recovery;
@@ -1522,6 +1548,15 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
 
   switch( ifp.m_type_of_msg.GetTag() ) {
     case T38_Type_of_msg::e_t30_indicator:
+      if ((modStreamIn != NULL) && (modStreamIn->lastBuf != NULL &&
+            modStreamIn->ModPars.ind == (T38_Type_of_msg_t30_indicator)ifp.m_type_of_msg) ||
+          (modStreamInSaved != NULL) && (modStreamInSaved->lastBuf != NULL &&
+            modStreamInSaved->ModPars.ind == (T38_Type_of_msg_t30_indicator)ifp.m_type_of_msg))
+      {
+        myPTRACE(3, "T38Engine::HandlePacket ignored repeated indicator " << ifp.m_type_of_msg);
+        break;
+      }
+
       if( modStreamIn != NULL && modStreamIn->PutEof(diagOutOfOrder) )
         myPTRACE(1, "T38Engine::HandlePacket indicator && modStreamIn->lastBuf != NULL");
 
