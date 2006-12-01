@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2005 Vyacheslav Frolov
+ * Copyright (c) 2001-2006 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.31  2005-11-22 16:39:36  vfrolov
- * Fixed MSVC compile warning
+ * Revision 1.32  2006-12-01 13:35:25  vfrolov
+ * Fixed modem locking after unexpected dial while connection
+ *
+ * Revision 1.32  2006/12/01 13:35:25  vfrolov
+ * Fixed modem locking after unexpected dial while connection
  *
  * Revision 1.31  2005/11/22 16:39:36  vfrolov
  * Fixed MSVC compile warning
@@ -355,7 +358,7 @@ class ModemEngineBody : public PObject
   //@{
     BOOL Request(PStringToString &request);
     BOOL Attach(T38Engine *_t38engine);
-    void Detach(T38Engine *_t38engine);
+    void Detach(T38Engine *_t38engine) { PWaitAndSignal mutexWait(Mutex); _Detach(_t38engine); }
     void HandleData(const PBYTEArray &buf, PBYTEArray &bresp);
     void CheckState(PBYTEArray &bresp);
     BOOL IsReady() const {
@@ -406,8 +409,8 @@ class ModemEngineBody : public PObject
       }
       return TRUE;
     }
-    
-    void ClearCall() { PWaitAndSignal mutexWait(Mutex); _ClearCall(); }
+
+    void _Detach(T38Engine *_t38engine);
     void _ClearCall();
 
     int NextSeq() { return seq = ++seq % T38Engine::cbpUserDataMod; }
@@ -591,11 +594,13 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
 
 ModemEngineBody::~ModemEngineBody()
 {
-  ClearCall();
+  PWaitAndSignal mutexWait(Mutex);
+
+  _ClearCall();
 
   if( t38engine ) {
     myPTRACE(1, "ModemEngineBody::~ModemEngineBody t38engine was not Detached");
-    Detach(t38engine);
+    _Detach(t38engine);
   }
 }
 
@@ -630,7 +635,7 @@ BOOL ModemEngineBody::Request(PStringToString &request)
   
   if( command == "call" ) {
     PWaitAndSignal mutexWait(Mutex);
-    if (CallToken().IsEmpty()) {
+    if (callDirection == cdUndefined && CallToken().IsEmpty()) {
       CallToken(request("calltoken"));
       SrcNum(request("srcnum"));
       DstNum(request("dstnum"));
@@ -702,14 +707,13 @@ BOOL ModemEngineBody::Attach(T38Engine *_t38engine)
   return TRUE;
 }
 
-void ModemEngineBody::Detach(T38Engine *_t38engine)
+void ModemEngineBody::_Detach(T38Engine *_t38engine)
 {
-  PWaitAndSignal mutexWait(Mutex);
   if( t38engine == _t38engine ) {
     t38engine = NULL;
-    myPTRACE(1, "ModemEngineBody::Detach t38engine Detached");
+    myPTRACE(1, "ModemEngineBody::_Detach t38engine Detached");
   } else {
-    myPTRACE(1, "ModemEngineBody::Detach other t38engine was Attached");
+    myPTRACE(1, "ModemEngineBody::_Detach other t38engine was Attached");
   }
   if( _t38engine )
     _t38engine->Detach(myCallback);
@@ -882,12 +886,12 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, BOOL &o
                     BOOL res = T ? SendStart(dt, br, _resp) : RecvStart(dt, br);
 
                     if (_resp.GetLength()) {
-                      if (crlf)
+                      if (crlf) {
                         resp += "\r\n";
-                      else
+                        crlf = FALSE;
+                      } else {
                         resp += RC_PREF();
-
-                      crlf = FALSE;
+                      }
 
                       resp += _resp;
                     }
@@ -1016,11 +1020,12 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           break;
         case 'D':	// Dial
           ok = FALSE;
-          forceFaxMode = FALSE;
+
           {
             PString num;
             PString LocalPartyName;
             BOOL local = FALSE;
+            BOOL setForceFaxMode = FALSE;
           
             for( char ch ; (ch = *pCmd) != 0 && !err ; pCmd++ ) {
               if( isdigit(ch) ) {
@@ -1037,10 +1042,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   case 'P':
                     break;
                   case 'F':
-                    forceFaxMode = TRUE;
+                    setForceFaxMode = TRUE;
                     break;
                   case 'V':
-                    forceFaxMode = FALSE;
+                    setForceFaxMode = FALSE;
                     break;
                   case 'L':
                     LocalPartyName = "";
@@ -1057,6 +1062,22 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             
             if (!err) {
               PWaitAndSignal mutexWait(Mutex);
+
+              if (!CallToken().IsEmpty()) {
+                _ClearCall();
+
+                if (crlf) {
+                  resp += "\r\n";
+                  crlf = FALSE;
+                } else {
+                  resp += RC_PREF();
+                }
+
+                resp += RC_NO_DIALTONE();
+                break;
+              }
+
+              forceFaxMode = setForceFaxMode;
               callDirection = cdOutgoing;
               timerRing.Stop();
               state = stConnectWait;
@@ -1082,6 +1103,13 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 timeout.Stop();
                 state = stCommand;
                 if (response == "reject") {
+                  if (crlf) {
+                    resp += "\r\n";
+                    crlf = FALSE;
+                  } else {
+                    resp += RC_PREF();
+                  }
+
                   PString diag = request("diag");
                   if( diag == "noroute" )
                     resp += RC_BUSY();
@@ -1099,8 +1127,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           break;
         case 'H':	// On/Off-hook
           if( ParseNum(&pCmd, 0, 1, 0) >= 0 ) {	// ATH & ATH0
-            if( callDirection != cdUndefined )
-              ClearCall();
+            PWaitAndSignal mutexWait(Mutex);
+
+            if (callDirection != cdUndefined)
+              _ClearCall();
           } else {
             err = TRUE;
           }
@@ -1237,8 +1267,11 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           {
             int val = ParseNum(&pCmd, 0, 1, sizeof(Profiles)/sizeof(Profiles[0]) - 1);
             if( val >= 0 ) {
-              if( callDirection != cdUndefined )
-                ClearCall();
+              PWaitAndSignal mutexWait(Mutex);
+
+              if (callDirection != cdUndefined)
+                _ClearCall();
+
               P = Profiles[val];
             } else {
               err = TRUE;
@@ -1493,9 +1526,14 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               }
               break;
             case 'F':					// &F
-              if( callDirection != cdUndefined )
-                ClearCall();
-              P = Profiles[0];
+              {
+                PWaitAndSignal mutexWait(Mutex);
+
+                if (callDirection != cdUndefined)
+                  _ClearCall();
+
+                P = Profiles[0];
+              }
               break;
             case 'H':					// &H
               {
