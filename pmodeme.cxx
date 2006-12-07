@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.32  2006-12-01 13:35:25  vfrolov
- * Fixed modem locking after unexpected dial while connection
+ * Revision 1.33  2006-12-07 10:53:24  vfrolov
+ * Added OnParentStop()
+ *
+ * Revision 1.33  2006/12/07 10:53:24  vfrolov
+ * Added OnParentStop()
  *
  * Revision 1.32  2006/12/01 13:35:25  vfrolov
  * Fixed modem locking after unexpected dial while connection
@@ -359,6 +362,7 @@ class ModemEngineBody : public PObject
     BOOL Request(PStringToString &request);
     BOOL Attach(T38Engine *_t38engine);
     void Detach(T38Engine *_t38engine) { PWaitAndSignal mutexWait(Mutex); _Detach(_t38engine); }
+    void OnParentStop();
     void HandleData(const PBYTEArray &buf, PBYTEArray &bresp);
     void CheckState(PBYTEArray &bresp);
     BOOL IsReady() const {
@@ -548,6 +552,8 @@ void ModemEngine::Main()
     WaitDataReady();
   }
 
+  body->OnParentStop();
+
   myPTRACE(1, "<-> Stopped" << GetThreadTimes(", CPU usage: "));
 }
 
@@ -596,12 +602,25 @@ ModemEngineBody::~ModemEngineBody()
 {
   PWaitAndSignal mutexWait(Mutex);
 
-  _ClearCall();
+  if (!CallToken().IsEmpty()) {
+    myPTRACE(1, "ModemEngineBody::~ModemEngineBody Call " << CallToken() << " was not cleared");
+    _ClearCall();
+  }
 
-  if( t38engine ) {
+  if (t38engine) {
     myPTRACE(1, "ModemEngineBody::~ModemEngineBody t38engine was not Detached");
     _Detach(t38engine);
   }
+}
+
+void ModemEngineBody::OnParentStop()
+{
+  PWaitAndSignal mutexWait(Mutex);
+
+  _ClearCall();
+
+  if (t38engine)
+    _Detach(t38engine);
 }
 
 void ModemEngineBody::_ClearCall()
@@ -711,9 +730,9 @@ void ModemEngineBody::_Detach(T38Engine *_t38engine)
 {
   if( t38engine == _t38engine ) {
     t38engine = NULL;
-    myPTRACE(1, "ModemEngineBody::_Detach t38engine Detached");
+    myPTRACE(1, "ModemEngineBody::_Detach t38engine Detaching");
   } else {
-    myPTRACE(1, "ModemEngineBody::_Detach other t38engine was Attached");
+    myPTRACE(1, "ModemEngineBody::_Detach " << (t38engine  ? "Other" : "No") << " t38engine was Attached");
   }
   if( _t38engine )
     _t38engine->Detach(myCallback);
