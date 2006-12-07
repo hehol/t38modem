@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.38  2006-10-20 10:04:00  vfrolov
- * Added code for ignoring repeated indicators
- * Added code for sending repeated indicators (disabled by default)
+ * Revision 1.39  2006-12-07 10:50:39  vfrolov
+ * Fixed possible dead lock
+ *
+ * Revision 1.39  2006/12/07 10:50:39  vfrolov
+ * Fixed possible dead lock
  *
  * Revision 1.38  2006/10/20 10:04:00  vfrolov
  * Added code for ignoring repeated indicators
@@ -500,10 +502,11 @@ void T38Engine::Detach(const PNotifier &callback)
     modemCallback = NULL;
     _ResetModemState();
     T38Mode = FALSE;
-    myPTRACE(1, name << " T38Engine::Detach T38Mode=FALSE");
+    myPTRACE(1, name << " T38Engine::Detach Detached");
     SignalOutDataReady();
   } else {
-    myPTRACE(1, name << " T38Engine::Detach modemCallback != callback");
+    myPTRACE(1, name << " T38Engine::Detach "
+      << (modemCallback.IsNULL() ? "Already Detached" : "modemCallback != callback"));
   }
 }
 ///////////////////////////////////////////////////////////////
@@ -835,11 +838,16 @@ done:
 void T38Engine::ModemCallbackWithUnlock(INT extra)
 {
   Mutex.Signal();
-  {
-    PWaitAndSignal mutexWaitModemCallback(MutexModemCallback);
-    if (!modemCallback.IsNULL())
-      modemCallback(*this, extra);
-  }
+
+  MutexModemCallback.Wait();
+
+  PNotifier _modemCallback = modemCallback;
+
+  MutexModemCallback.Signal();
+
+  if (!_modemCallback.IsNULL())
+    _modemCallback(*this, extra);
+
   Mutex.Wait();
 }
 
