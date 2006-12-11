@@ -3,7 +3,7 @@
  *
  * T38Modem simulator - main program
  *
- * Copyright (c) 2001-2005 Vyacheslav Frolov
+ * Copyright (c) 2001-2006 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.42  2006-04-29 20:31:28  dominance
- * add -v option to keep debian packaging happy ;)
+ * Revision 1.43  2006-12-11 10:23:38  vfrolov
+ * Fixed typo
+ *
+ * Revision 1.43  2006/12/11 10:23:38  vfrolov
+ * Fixed typo
  *
  * Revision 1.42  2006/04/29 20:31:28  dominance
  * add -v option to keep debian packaging happy ;)
@@ -277,10 +280,10 @@ BOOL T38Modem::Initialise()
         "  -u --username str         : Set the local endpoint name to str.\n"
 #if PTRACING
         "  -t --trace                : Enable trace, use multiple times for more detail.\n"
-        "  -o --output               : File for trace output, default is stderr.\n"
+        "  -o --output file          : File for trace output, default is stderr.\n"
 #endif
         "     --save                 : Save arguments in configuration file and exit.\n"
-         "  -v --version              : Display version.\n"
+        "  -v --version              : Display version.\n"
         "  -h --help                 : Display this help message.\n"
         "Drivers:\n";
 
@@ -709,10 +712,8 @@ H323Connection::AnswerCallResponse
     return AnswerCallDenied;
   }
 
-  PString old = PThread::Current()->GetThreadName();
   RenameCurrentThread(pmodem->ptyName() + "(c)");
-  PTRACE(2, "MyH323Connection::AnswerCallResponse old ThreadName=" << old);
-    
+
   PStringToString request;
   request.SetAt("command", "call");
   request.SetAt("calltoken", GetCallToken());
