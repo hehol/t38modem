@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2005 Vyacheslav Frolov
+ * Copyright (c) 2001-2006 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.cxx,v $
- * Revision 1.12  2005-02-03 11:32:12  vfrolov
- * Fixed MSVC compile warnings
+ * Revision 1.13  2006-12-11 10:27:35  vfrolov
+ * Disabled renaming thread if no PTRACING
+ *
+ * Revision 1.13  2006/12/11 10:27:35  vfrolov
+ * Disabled renaming thread if no PTRACING
  *
  * Revision 1.12  2005/02/03 11:32:12  vfrolov
  * Fixed MSVC compile warnings
@@ -231,11 +234,11 @@ void DataStream::Clean()
   diag = 0;
 }
 ///////////////////////////////////////////////////////////////
+#if PTRACING
 void RenameCurrentThread(const PString &newname)
 {
-#if PTRACING
   PString oldname = PThread::Current()->GetThreadName();
-#endif
+
   PThread::Current()->SetThreadName(PString(newname)
     #if defined(PROCESS_PER_THREAD)
         + ":" + PString((unsigned)getpid())
@@ -247,10 +250,9 @@ void RenameCurrentThread(const PString &newname)
       #endif
     #endif
   );
-#if PTRACING
   PTRACE(2, "RenameCurrentThread old ThreadName=" << oldname);
-#endif
 }
+#endif /* PTRACING */
 ///////////////////////////////////////////////////////////////
 #ifdef PROCESS_PER_THREAD
 #include <sys/times.h>

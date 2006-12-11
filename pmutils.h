@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2005 Vyacheslav Frolov
+ * Copyright (c) 2001-2006 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.16  2005-03-05 15:39:12  vfrolov
- * Ignore COUT_TRACE if not PTRACING
+ * Revision 1.17  2006-12-11 10:27:35  vfrolov
+ * Disabled renaming thread if no PTRACING
+ *
+ * Revision 1.17  2006/12/11 10:27:35  vfrolov
+ * Disabled renaming thread if no PTRACING
  *
  * Revision 1.16  2005/03/05 15:39:12  vfrolov
  * Ignore COUT_TRACE if not PTRACING
@@ -272,7 +275,11 @@ class DataStreamQ : public _DataStreamQ
 
 #define PRTHEX(data) " {\n" << setprecision(2) << hex << setfill('0') << data << dec << setfill(' ') << " }"
 ///////////////////////////////////////////////////////////////
+#if PTRACING
 extern void RenameCurrentThread(const PString &newname);
+#else
+#define RenameCurrentThread(newname)
+#endif /* PTRACING */
 
 #ifdef PROCESS_PER_THREAD
 extern const PString GetThreadTimes(const char *head = "", const char *tail = "");
