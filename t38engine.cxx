@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.39  2006-12-07 10:50:39  vfrolov
- * Fixed possible dead lock
+ * Revision 1.40  2006-12-11 11:19:48  vfrolov
+ * Fixed race condition with modem Callback
+ *
+ * Revision 1.40  2006/12/11 11:19:48  vfrolov
+ * Fixed race condition with modem Callback
  *
  * Revision 1.39  2006/12/07 10:50:39  vfrolov
  * Fixed possible dead lock
@@ -480,10 +483,9 @@ T38Engine::~T38Engine()
 BOOL T38Engine::Attach(const PNotifier &callback)
 {
   PTRACE(1, name << " T38Engine::Attach");
-  PWaitAndSignal mutexWaitModem(MutexModem);
-  PWaitAndSignal mutexWaitModemCallback(MutexModemCallback);
   PWaitAndSignal mutexWait(Mutex);
-  if( !modemCallback.IsNULL() ) {
+
+  if (!modemCallback.IsNULL()) {
     myPTRACE(1, name << " T38Engine::Attach !modemCallback.IsNULL()");
     return FALSE;
   }
@@ -495,10 +497,9 @@ BOOL T38Engine::Attach(const PNotifier &callback)
 void T38Engine::Detach(const PNotifier &callback)
 {
   PTRACE(1, name << " T38Engine::Detach");
-  PWaitAndSignal mutexWaitModem(MutexModem);
-  PWaitAndSignal mutexWaitModemCallback(MutexModemCallback);
   PWaitAndSignal mutexWait(Mutex);
-  if( modemCallback == callback ) {
+
+  if (modemCallback == callback) {
     modemCallback = NULL;
     _ResetModemState();
     T38Mode = FALSE;
@@ -508,6 +509,24 @@ void T38Engine::Detach(const PNotifier &callback)
     myPTRACE(1, name << " T38Engine::Detach "
       << (modemCallback.IsNULL() ? "Already Detached" : "modemCallback != callback"));
   }
+}
+
+BOOL T38Engine::TryLockModemCallback()
+{
+  MutexModem.Wait();
+
+  if (!MutexModemCallback.Wait(0)) {
+    MutexModem.Signal();
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+void T38Engine::UnlockModemCallback()
+{
+  MutexModemCallback.Signal();
+  MutexModem.Signal();
 }
 ///////////////////////////////////////////////////////////////
 void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
@@ -838,16 +857,12 @@ done:
 void T38Engine::ModemCallbackWithUnlock(INT extra)
 {
   Mutex.Signal();
-
   MutexModemCallback.Wait();
 
-  PNotifier _modemCallback = modemCallback;
+  if (!modemCallback.IsNULL())
+    modemCallback(*this, extra);
 
   MutexModemCallback.Signal();
-
-  if (!_modemCallback.IsNULL())
-    _modemCallback(*this, extra);
-
   Mutex.Wait();
 }
 
@@ -998,7 +1013,7 @@ BOOL T38Engine::SendStop(BOOL moreFrames, int _callbackParam)
   return TRUE;
 }
 ///////////////////////////////////////////////////////////////
-BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
+BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam, BOOL &done)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   if (!IsT38Mode())
@@ -1040,7 +1055,7 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
         modStreamIn->ModPars.dataTypeT38 =
             (modStreamIn->ModPars.msgType == T38D(e_v21) || t30.hdlcOnly()) ? dtHdlc : dtRaw;
         stateModem = stmInReadyData;
-        ModemCallbackWithUnlock(_callbackParam);
+        done = TRUE;
         return TRUE;
       }
     }
@@ -1070,7 +1085,7 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam)
       modStreamIn->PutEof(diagDiffSig);
     }
     stateModem = stmInReadyData;
-    ModemCallbackWithUnlock(_callbackParam);
+    done = TRUE;
     return TRUE;
   }
 

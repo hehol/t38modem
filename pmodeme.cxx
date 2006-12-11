@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.33  2006-12-07 10:53:24  vfrolov
- * Added OnParentStop()
+ * Revision 1.34  2006-12-11 11:19:48  vfrolov
+ * Fixed race condition with modem Callback
+ *
+ * Revision 1.34  2006/12/11 11:19:48  vfrolov
+ * Fixed race condition with modem Callback
  *
  * Revision 1.33  2006/12/07 10:53:24  vfrolov
  * Added OnParentStop()
@@ -400,17 +403,26 @@ class ModemEngineBody : public PObject
         return FALSE;
       }
     }
-    
+
     BOOL RecvStart(int _dataType, int br) {
+      BOOL done = FALSE;
+
       PWaitAndSignal mutexWait(Mutex);
       dataType = _dataType;
       state = stRecvBegWait;
       timeout.Start(60000);
-      if( !t38engine || !t38engine->RecvWait(dataType, br, NextSeq()) ) {
+      if (!t38engine || !t38engine->RecvWait(dataType, br, NextSeq(), done)) {
         state = stCommand;
         timeout.Stop();
         return FALSE;
       }
+
+      if (done) {
+        state = stRecvBegHandle;
+        timeout.Stop();
+        parent.SignalDataReady();
+      }
+
       return TRUE;
     }
 
@@ -702,40 +714,73 @@ BOOL ModemEngineBody::Request(PStringToString &request)
 
 BOOL ModemEngineBody::Attach(T38Engine *_t38engine)
 {
+  if (_t38engine == NULL) {
+    myPTRACE(1, "ModemEngineBody::Attach _t38engine==NULL");
+    return FALSE;
+  }
+
   PTRACE(1, "ModemEngineBody::Attach");
+
   PWaitAndSignal mutexWait(Mutex);
 
-  if( t38engine != NULL ) {
-    myPTRACE(1, "ModemEngineBody::Attach other t38engine already Attached");
-    return FALSE;
+  for (;;) {
+    if (t38engine != NULL) {
+      myPTRACE(1, "ModemEngineBody::Attach Other t38engine already Attached");
+      return FALSE;
+    }
+
+    if (_t38engine->TryLockModemCallback()) {
+      if (!_t38engine->Attach(myCallback)) {
+        myPTRACE(1, "ModemEngineBody::Attach Can't Attach myCallback to _t38engine");
+        _t38engine->UnlockModemCallback();
+        return FALSE;
+      }
+      _t38engine->UnlockModemCallback();
+      t38engine = _t38engine;
+      break;
+    }
+
+    Mutex.Signal();
+    PThread::Sleep(20);
+    Mutex.Wait();
   }
-  t38engine = _t38engine;
-  if( !t38engine || !t38engine->Attach(myCallback) ) {
-    myPTRACE(1, "ModemEngineBody::Attach can't Attach myCallback to t38engine");
-    t38engine = NULL;
-    return FALSE;
-  }
-  
-  if( state == stReqModeAckWait ) {
+
+  if (state == stReqModeAckWait) {
     state = stReqModeAckHandle;
     timeout.Stop();
     parent.SignalDataReady();
   }
-  
+
   myPTRACE(1, "ModemEngineBody::Attach t38engine Attached");
   return TRUE;
 }
 
 void ModemEngineBody::_Detach(T38Engine *_t38engine)
 {
-  if( t38engine == _t38engine ) {
-    t38engine = NULL;
-    myPTRACE(1, "ModemEngineBody::_Detach t38engine Detaching");
-  } else {
-    myPTRACE(1, "ModemEngineBody::_Detach " << (t38engine  ? "Other" : "No") << " t38engine was Attached");
+  if (_t38engine == NULL) {
+    myPTRACE(1, "ModemEngineBody::_Detach _t38engine==NULL");
+    return;
   }
-  if( _t38engine )
-    _t38engine->Detach(myCallback);
+
+  for (;;) {
+    if (t38engine != _t38engine) {
+      myPTRACE(1, "ModemEngineBody::_Detach " << (t38engine  ? "Other" : "No") << " t38engine was Attached");
+      return;
+    }
+
+    if (_t38engine->TryLockModemCallback()) {
+      _t38engine->Detach(myCallback);
+      _t38engine->UnlockModemCallback();
+      t38engine = NULL;
+      break;
+    }
+
+    Mutex.Signal();
+    PThread::Sleep(20);
+    Mutex.Wait();
+  }
+
+  myPTRACE(1, "ModemEngineBody::_Detach t38engine Detached");
 }
 
 void ModemEngineBody::OnMyCallback(PObject &from, INT extra)

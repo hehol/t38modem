@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2005 Vyacheslav Frolov
+ * Copyright (c) 2001-2006 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.20  2005-07-20 12:42:36  vfrolov
- * Done less strict comparison in MODPARS::IsEqual()
+ * Revision 1.21  2006-12-11 11:19:48  vfrolov
+ * Fixed race condition with modem Callback
+ *
+ * Revision 1.21  2006/12/11 11:19:48  vfrolov
+ * Fixed race condition with modem Callback
  *
  * Revision 1.20  2005/07/20 12:42:36  vfrolov
  * Done less strict comparison in MODPARS::IsEqual()
@@ -188,6 +191,9 @@ class T38Engine : public OpalT38Protocol
   //@{
     BOOL Attach(const PNotifier &callback);
     void Detach(const PNotifier &callback);
+    BOOL TryLockModemCallback();
+    void UnlockModemCallback();
+
     void ResetModemState();
     BOOL isOutBufFull() const;
 
@@ -196,7 +202,7 @@ class T38Engine : public OpalT38Protocol
     int Send(const void *pBuf, PINDEX count);
     BOOL SendStop(BOOL moreFrames, int _callbackParam);
 
-    BOOL RecvWait(int _dataType, int param, int _callbackParam);
+    BOOL RecvWait(int _dataType, int param, int _callbackParam, BOOL &done);
     BOOL RecvStart(int _callbackParam);
     int Recv(void *pBuf, PINDEX count);
     int RecvDiag();
