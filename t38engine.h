@@ -24,8 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.21  2006-12-11 11:19:48  vfrolov
- * Fixed race condition with modem Callback
+ * Revision 1.22  2006-12-22 12:51:00  vfrolov
+ * Fixed class of MutexModemCallback
+ * Added volatile to isCarrierIn
+ * Removed stateIn
+ *
+ * Revision 1.22  2006/12/22 12:51:00  vfrolov
+ * Fixed class of MutexModemCallback
+ * Added volatile to isCarrierIn
+ * Removed stateIn
  *
  * Revision 1.21  2006/12/11 11:19:48  vfrolov
  * Fixed race condition with modem Callback
@@ -278,9 +285,8 @@ class T38Engine : public OpalT38Protocol
     HDLC hdlcOut;
     PSyncPoint outDataReadySyncPoint;
 
-    int stateIn;
     int callbackParamIn;
-    int isCarrierIn;
+    volatile int isCarrierIn;
 #if PTRACING
     PTime timeBeginIn;
     PINDEX countIn;
@@ -299,7 +305,7 @@ class T38Engine : public OpalT38Protocol
     PMutex MutexOut;
     PMutex MutexIn;
     PMutex MutexModem;
-    PMutex MutexModemCallback;
+    PTimedMutex MutexModemCallback;
 
     const PString name;
 };
