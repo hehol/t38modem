@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.h,v $
- * Revision 1.2  2004-07-19 08:31:06  vfrolov
- * Fixed "friend declaration requires class-key"
+ * Revision 1.3  2007-01-29 12:44:41  vfrolov
+ * Added ability to put args to drivers
+ *
+ * Revision 1.3  2007/01/29 12:44:41  vfrolov
+ * Added ability to put args to drivers
  *
  * Revision 1.2  2004/07/19 08:31:06  vfrolov
  * Fixed "friend declaration requires class-key"
@@ -69,13 +72,19 @@ class PseudoModemPty : public PseudoModemBody
   public:
   /**@name Construction */
   //@{
-    PseudoModemPty(const PString &_tty, const PString &_route, const PNotifier &_callbackEndPoint);
+    PseudoModemPty(
+      const PString &_tty,
+      const PString &_route,
+      const PConfigArgs &args,
+      const PNotifier &_callbackEndPoint
+    );
     ~PseudoModemPty();
   //@}
 
   /**@name static functions */
   //@{
     static BOOL CheckTty(const PString &_tty);
+    static PString ArgSpec();
     static PStringArray Description();
   //@}
 

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004-2005 Vyacheslav Frolov
+ * Copyright (c) 2004-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,9 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.5  2005-03-03 16:12:46  vfrolov
- * Fixed potential handle leak
- * Fixed compiler warnings
+ * Revision 1.6  2007-01-29 12:44:41  vfrolov
+ * Added ability to put args to drivers
+ *
+ * Revision 1.6  2007/01/29 12:44:41  vfrolov
+ * Added ability to put args to drivers
  *
  * Revision 1.5  2005/03/03 16:12:46  vfrolov
  * Fixed potential handle leak
@@ -404,7 +406,12 @@ void OutC0C::Main()
   myPTRACE(1, "<-- Stopped" << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
-PseudoModemC0C::PseudoModemC0C(const PString &_tty, const PString &_route, const PNotifier &_callbackEndPoint)
+PseudoModemC0C::PseudoModemC0C(
+    const PString &_tty,
+    const PString &_route,
+    const PConfigArgs &/*args*/,
+    const PNotifier &_callbackEndPoint)
+
   : PseudoModemBody(_route, _callbackEndPoint),
     hC0C(INVALID_HANDLE_VALUE),
     inC0C(NULL),
@@ -436,6 +443,11 @@ inline const char *ttyPrefix()
 BOOL PseudoModemC0C::CheckTty(const PString &_tty)
 {
   return _tty.Find(ttyPrefix()) == 0 && _tty != ttyPrefix();
+}
+
+PString PseudoModemC0C::ArgSpec()
+{
+  return "";
 }
 
 PStringArray PseudoModemC0C::Description()

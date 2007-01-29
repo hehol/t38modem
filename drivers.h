@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004 Vyacheslav Frolov
+ * Copyright (c) 2004-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drivers.h,v $
- * Revision 1.1  2004-07-07 12:38:32  vfrolov
- * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ * Revision 1.2  2007-01-29 12:44:41  vfrolov
+ * Added ability to put args to drivers
+ *
+ * Revision 1.2  2007/01/29 12:44:41  vfrolov
+ * Added ability to put args to drivers
  *
  * Revision 1.1  2004/07/07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
@@ -46,9 +49,11 @@ class PseudoModemDrivers : protected PObject
     static PseudoModem *CreateModem(
       const PString &tty,
       const PString &route,
+      const PConfigArgs &args,
       const PNotifier &callbackEndPoint
     );
 
+    static PString ArgSpec();
     static PStringArray Descriptions();
 };
 ///////////////////////////////////////////////////////////////

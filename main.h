@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2005 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: main.h,v $
- * Revision 1.16  2005-04-28 09:12:06  vfrolov
- * Made tidy up
+ * Revision 1.17  2007-01-29 12:44:41  vfrolov
+ * Added ability to put args to drivers
+ *
+ * Revision 1.17  2007/01/29 12:44:41  vfrolov
+ * Added ability to put args to drivers
  *
  * Revision 1.16  2005/04/28 09:12:06  vfrolov
  * Made tidy up
@@ -114,7 +117,7 @@ class MyH323EndPoint : public H323EndPoint
     virtual H323Connection * CreateConnection(unsigned callReference, void *userData);
 
     // new functions
-    BOOL Initialise(PConfigArgs & args);
+    BOOL Initialise(const PConfigArgs &args);
 
     PseudoModem * PMAlloc(const PString &number) const;
     void PMFree(PseudoModem *pmodem) const;

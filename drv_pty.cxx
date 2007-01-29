@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2006 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.cxx,v $
- * Revision 1.4  2006-10-19 10:44:15  vfrolov
- * Fixed big file descriptors problem (replaced select() by poll())
+ * Revision 1.5  2007-01-29 12:44:41  vfrolov
+ * Added ability to put args to drivers
+ *
+ * Revision 1.5  2007/01/29 12:44:41  vfrolov
+ * Added ability to put args to drivers
  *
  * Revision 1.4  2006/10/19 10:44:15  vfrolov
  * Fixed big file descriptors problem (replaced select() by poll())
@@ -237,7 +240,12 @@ void OutPty::Main()
   myPTRACE(1, "<-- Stopped" << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
-PseudoModemPty::PseudoModemPty(const PString &_tty, const PString &_route, const PNotifier &_callbackEndPoint)
+PseudoModemPty::PseudoModemPty(
+    const PString &_tty,
+    const PString &_route,
+    const PConfigArgs &/*args*/,
+    const PNotifier &_callbackEndPoint)
+
   : PseudoModemBody(_route, _callbackEndPoint),
     hPty(-1),
     inPty(NULL),
@@ -285,6 +293,11 @@ BOOL PseudoModemPty::CheckTty(const PString &_tty)
   PRegularExpression reg(ttyPattern(), PRegularExpression::Extended);
 
   return _tty.FindRegEx(reg) == 0;
+}
+
+PString PseudoModemPty::ArgSpec()
+{
+  return "";
 }
 
 PStringArray PseudoModemPty::Description()

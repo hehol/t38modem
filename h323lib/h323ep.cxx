@@ -3,7 +3,7 @@
  *
  * T38Modem simulator - main program
  *
- * Copyright (c) 2001-2006 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.43  2006-12-11 10:23:38  vfrolov
- * Fixed typo
+ * Revision 1.44  2007-01-29 12:44:41  vfrolov
+ * Added ability to put args to drivers
+ *
+ * Revision 1.44  2007/01/29 12:44:41  vfrolov
+ * Added ability to put args to drivers
  *
  * Revision 1.43  2006/12/11 10:23:38  vfrolov
  * Fixed typo
@@ -196,7 +199,7 @@ BOOL T38Modem::Initialise()
 {
   PConfigArgs args(GetArguments());
 
-  args.Parse(
+  args.Parse(PseudoModemDrivers::ArgSpec() +
              "p-ptty:"
              "-route:"
              "-redundancy:"
@@ -525,7 +528,7 @@ void MyH323EndPoint::SetOptions(MyH323Connection &/*conn*/, OpalT38Protocol *t38
   }
 }
 
-BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
+BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
 {
   DisableFastStart(!args.HasOption('F'));
   DisableH245Tunneling(args.HasOption('T'));
@@ -569,7 +572,7 @@ BOOL MyH323EndPoint::Initialise(PConfigArgs & args)
         tty = atty[0];
       }
 
-      if (!pmodem_pool->CreateModem(tty, r, PCREATE_NOTIFIER(OnMyCallback)))
+      if (!pmodem_pool->CreateModem(tty, r, args, PCREATE_NOTIFIER(OnMyCallback)))
         cout << "Can't create modem for " << tty << endl;
     }
   }

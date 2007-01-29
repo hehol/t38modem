@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.cxx,v $
- * Revision 1.8  2006-05-23 14:48:54  vfrolov
- * Fixed race condition (reported by Tamas)
+ * Revision 1.9  2007-01-29 12:44:41  vfrolov
+ * Added ability to put args to drivers
+ *
+ * Revision 1.9  2007/01/29 12:44:41  vfrolov
+ * Added ability to put args to drivers
  *
  * Revision 1.8  2006/05/23 14:48:54  vfrolov
  * Fixed race condition (reported by Tamas)
@@ -134,10 +137,11 @@ PseudoModemQ::~PseudoModemQ()
 BOOL PseudoModemQ::CreateModem(
     const PString &tty,
     const PString &route,
+    const PConfigArgs &args,
     const PNotifier &callbackEndPoint
 )
 {
-  PseudoModem *modem = PseudoModemDrivers::CreateModem(tty, route, callbackEndPoint);
+  PseudoModem *modem = PseudoModemDrivers::CreateModem(tty, route, args, callbackEndPoint);
 
   if (!modem)
       return FALSE;

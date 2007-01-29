@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004-2005 Vyacheslav Frolov
+ * Copyright (c) 2004-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drv_c0c.h,v $
- * Revision 1.3  2005-02-10 15:04:58  vfrolov
- * Disabled I/C calls for closed ports
+ * Revision 1.4  2007-01-29 12:44:41  vfrolov
+ * Added ability to put args to drivers
+ *
+ * Revision 1.4  2007/01/29 12:44:41  vfrolov
+ * Added ability to put args to drivers
  *
  * Revision 1.3  2005/02/10 15:04:58  vfrolov
  * Disabled I/C calls for closed ports
@@ -61,13 +64,19 @@ class PseudoModemC0C : public PseudoModemBody
   public:
   /**@name Construction */
   //@{
-    PseudoModemC0C(const PString &_tty, const PString &_route, const PNotifier &_callbackEndPoint);
+    PseudoModemC0C(
+      const PString &_tty,
+      const PString &_route,
+      const PConfigArgs &args,
+      const PNotifier &_callbackEndPoint
+    );
     ~PseudoModemC0C();
   //@}
 
   /**@name static functions */
   //@{
     static BOOL CheckTty(const PString &_tty);
+    static PString ArgSpec();
     static PStringArray Description();
   //@}
 

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004 Vyacheslav Frolov
+ * Copyright (c) 2004-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drivers.cxx,v $
- * Revision 1.2  2004-07-07 13:45:17  vfrolov
- * Added C0C driver for Windows
+ * Revision 1.3  2007-01-29 12:44:41  vfrolov
+ * Added ability to put args to drivers
+ *
+ * Revision 1.3  2007/01/29 12:44:41  vfrolov
+ * Added ability to put args to drivers
  *
  * Revision 1.2  2004/07/07 13:45:17  vfrolov
  * Added C0C driver for Windows
@@ -58,10 +61,12 @@ static struct {
   BOOL (*CheckTty)(
     const PString &_tty
   );
+  PString (*ArgSpec)();
   PStringArray (*Description)();
   PseudoModem *(*CreatePseudoModem)(
     const PString &tty,
     const PString &route,
+    const PConfigArgs &args,
     const PNotifier &callbackEndPoint
   );
 } drivers[MAX_DRIVERS];
@@ -71,10 +76,12 @@ static int addDriver(
   BOOL (*CheckTty)(
     const PString &_tty
   ),
+  PString (*ArgSpec)(),
   PStringArray (*Description)(),
   PseudoModem *(*CreatePseudoModem)(
     const PString &tty,
     const PString &route,
+    const PConfigArgs &args,
     const PNotifier &callbackEndPoint
   )
 )
@@ -84,6 +91,7 @@ static int addDriver(
 
   drivers[numDrivers].name = name;
   drivers[numDrivers].CheckTty = CheckTty;
+  drivers[numDrivers].ArgSpec = ArgSpec;
   drivers[numDrivers].Description = Description;
   drivers[numDrivers].CreatePseudoModem = CreatePseudoModem;
   return numDrivers++;
@@ -94,14 +102,16 @@ static int addDriver(
   static PseudoModem *CreatePseudoModem##suffix(              \
       const PString &tty,                                     \
       const PString &route,                                   \
+      const PConfigArgs &args,                                \
       const PNotifier &callbackEndPoint)                      \
   {                                                           \
     return new                                                \
-      PseudoModem##suffix(tty, route, callbackEndPoint);      \
+      PseudoModem##suffix(tty, route, args, callbackEndPoint);\
   }                                                           \
   static const int ___addDriver##suffix = addDriver(          \
     name,                                                     \
     &PseudoModem##suffix::CheckTty,                           \
+    &PseudoModem##suffix::ArgSpec,                            \
     &PseudoModem##suffix::Description,                        \
     &CreatePseudoModem##suffix                                \
   );                                                          \
@@ -117,6 +127,7 @@ static int addDriver(
 PseudoModem *PseudoModemDrivers::CreateModem(
     const PString &tty,
     const PString &route,
+    const PConfigArgs &args,
     const PNotifier &callbackEndPoint
 )
 {
@@ -124,7 +135,7 @@ PseudoModem *PseudoModemDrivers::CreateModem(
 
   for (int i = 0 ; i < numDrivers ; i++) {
     if (drivers[i].CheckTty(tty)) {
-      modem = drivers[i].CreatePseudoModem(tty, route, callbackEndPoint);
+      modem = drivers[i].CreatePseudoModem(tty, route, args, callbackEndPoint);
 
       if (!modem) {
         myPTRACE(1, "PseudoModemDrivers::CreateModem " << tty << " was not created");
@@ -146,6 +157,16 @@ PseudoModem *PseudoModemDrivers::CreateModem(
   }
 
   return modem;
+}
+
+PString PseudoModemDrivers::ArgSpec()
+{
+  PString argSpec;
+
+  for (int i = 0 ; i < numDrivers ; i++)
+    argSpec += drivers[i].ArgSpec();
+
+  return argSpec;
 }
 
 PStringArray PseudoModemDrivers::Descriptions()
