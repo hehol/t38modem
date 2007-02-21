@@ -1,5 +1,5 @@
 /*
- * $Id: ReadMe.txt,v 1.11 2005-03-04 16:41:01 vfrolov Exp $
+ * $Id: ReadMe.txt,v 1.12 2007-02-21 08:21:47 vfrolov Exp $
  *
  * T38FAX Pseudo Modem
  *
@@ -40,6 +40,11 @@ Build t38modem.exe.
 $ ./obj_linux_x86_r/t38modem -n -o trace.log -p ttyx0,ttyx1 --route 0@127.0.0.1 --route all@172.16.33.21
 
 Creates two modems /dev/ttyx0 and /dev/ttyx1
+
+Q. I try to use T38modem, but after run "t38modem -p ttyx0" I get a message
+   "Could not open /dev/ptyx0: No such file or directory".
+A. Looks like you don't have legacy PTY devices compiled in your kernel.
+   You need to re-compile the kernel with 'Legacy PTY Support'.
 
 FreeBSD Users: You need to use  -p ttypa,ttypb instead of -p ttyx0,ttyx1.
                Remember to replace ttyx0 with ttypa and ttyx1 with ttypb
@@ -248,8 +253,11 @@ Examples:
 
 /*
  * $Log: ReadMe.txt,v $
- * Revision 1.11  2005-03-04 16:41:01  vfrolov
- * Implemented AT#DFRMC command
+ * Revision 1.12  2007-02-21 08:21:47  vfrolov
+ * Added question about 'Legacy PTY Support'
+ *
+ * Revision 1.12  2007/02/21 08:21:47  vfrolov
+ * Added question about 'Legacy PTY Support'
  *
  * Revision 1.11  2005/03/04 16:41:01  vfrolov
  * Implemented AT#DFRMC command
