@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.cxx,v $
- * Revision 1.5  2007-01-29 12:44:41  vfrolov
- * Added ability to put args to drivers
+ * Revision 1.6  2007-02-21 08:04:20  vfrolov
+ * Added printing message to stdout if no pty device
+ *
+ * Revision 1.6  2007/02/21 08:04:20  vfrolov
+ * Added printing message to stdout if no pty device
  *
  * Revision 1.5  2007/01/29 12:44:41  vfrolov
  * Added ability to put args to drivers
@@ -395,9 +398,11 @@ BOOL PseudoModemPty::OpenPty()
 
   while ((hPty = ::open(ptypath, O_RDWR | O_NOCTTY)) < 0) {
     int err = errno;
-    myPTRACE(delay + 1, "PseudoModemPty::OpenPty open " << ptypath << " ERROR:" << strerror(err));
-    if (err == ENOENT)
+    myPTRACE(delay + 1, "PseudoModemPty::OpenPty open " << ptypath << " ERROR: " << strerror(err));
+    if (err == ENOENT) {
+      cout << "Could not open " << ptypath << ": " << strerror(err) << endl;
       return FALSE;
+    }
     myPTRACE(delay + 1, "PseudoModemPty::OpenPty will try again to open " << ptypath);
     if (delay > 0)
       PThread::Sleep(delay * 1000);
@@ -418,7 +423,7 @@ BOOL PseudoModemPty::OpenPty()
 
   if (::tcgetattr(hPty, &Termios) != 0) {
     int err = errno;
-    myPTRACE(1, "PseudoModemPty::OpenPty tcgetattr " << ptypath << " ERROR:" << strerror(err));
+    myPTRACE(1, "PseudoModemPty::OpenPty tcgetattr " << ptypath << " ERROR: " << strerror(err));
     ClosePty();
     return FALSE;
   }
@@ -430,7 +435,7 @@ BOOL PseudoModemPty::OpenPty()
   Termios.c_cc[VTIME] = 0;
   if (::tcsetattr(hPty, TCSANOW, &Termios) != 0) {
     int err = errno;
-    myPTRACE(1, "PseudoModemPty::OpenPty tcsetattr " << ptypath << " ERROR:" << strerror(err));
+    myPTRACE(1, "PseudoModemPty::OpenPty tcsetattr " << ptypath << " ERROR: " << strerror(err));
     ClosePty();
     return FALSE;
   }
@@ -444,7 +449,7 @@ void PseudoModemPty::ClosePty()
 
   if (::close(hPty) != 0) {
     int err = errno;
-    myPTRACE(1, "PseudoModemPty::ClosePty close " << ptypath << " ERROR:" << strerror(err));
+    myPTRACE(1, "PseudoModemPty::ClosePty close " << ptypath << " ERROR: " << strerror(err));
   }
 
   hPty = -1;
