@@ -1,5 +1,5 @@
 /*
- * $Id: ReadMe.txt,v 1.12 2007-02-21 08:21:47 vfrolov Exp $
+ * $Id: ReadMe.txt,v 1.13 2007-02-22 16:00:33 vfrolov Exp $
  *
  * T38FAX Pseudo Modem
  *
@@ -248,13 +248,25 @@ Examples:
 #DFRMC=0	- disable delay (default).
 #DFRMC=25	- set delay to 250 ms.
 
+4.5. AT#HCLR command
+--------------------
+
+4.5.1 Set clear call mode for ATH command
+-----------------------------------------
+
+#HCLR=0	- ATH command will not clear not answered incoming call (default).
+#HCLR=1	- ATH command will clear not answered incoming call.
+
 
                          -----------------------------
 
 /*
  * $Log: ReadMe.txt,v $
- * Revision 1.12  2007-02-21 08:21:47  vfrolov
- * Added question about 'Legacy PTY Support'
+ * Revision 1.13  2007-02-22 16:00:33  vfrolov
+ * Implemented AT#HCLR command
+ *
+ * Revision 1.13  2007/02/22 16:00:33  vfrolov
+ * Implemented AT#HCLR command
  *
  * Revision 1.12  2007/02/21 08:21:47  vfrolov
  * Added question about 'Legacy PTY Support'

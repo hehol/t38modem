@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2006 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.34  2006-12-11 11:19:48  vfrolov
- * Fixed race condition with modem Callback
+ * Revision 1.35  2007-02-22 16:00:33  vfrolov
+ * Implemented AT#HCLR command
+ *
+ * Revision 1.35  2007/02/22 16:00:33  vfrolov
+ * Implemented AT#HCLR command
  *
  * Revision 1.34  2006/12/11 11:19:48  vfrolov
  * Fixed race condition with modem Callback
@@ -195,6 +198,7 @@ class Profile
       void name(BYTE val) { SetReg(byte, val); } \
       BYTE name() const { BYTE val; GetReg(byte, val); return val; }
 
+    DeclareRegisterByte(ClearMode, 47);
     DeclareRegisterByte(DelayFrmConnect, 48);
     DeclareRegisterByte(Flo, 49);
     DeclareRegisterByte(CidMode, 50);
@@ -1193,7 +1197,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           if( ParseNum(&pCmd, 0, 1, 0) >= 0 ) {	// ATH & ATH0
             PWaitAndSignal mutexWait(Mutex);
 
-            if (callDirection != cdUndefined)
+            if (callDirection != cdUndefined || P.ClearMode())
               _ClearCall();
           } else {
             err = TRUE;
@@ -1669,6 +1673,38 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 break;
               case '?':
                 resp.sprintf("\r\n%u", (unsigned)P.DelayFrmConnect());
+                crlf = TRUE;
+                break;
+              default:
+                err = TRUE;
+            }
+          } else
+          if (strncmp(pCmd, "HCLR", 4) == 0) {         // #HCLR
+            pCmd += 4;
+            switch( *pCmd++ ) {
+              case '=':
+                switch( *pCmd ) {
+                  case '?':
+                    pCmd++;
+                    resp += "\r\n(0,1)";
+                    crlf = TRUE;
+                    break;
+                  default:
+                    {
+                      int val = ParseNum(&pCmd);
+                      switch (val) {
+                        case 0:
+                        case 1:
+                          P.ClearMode((BYTE)val);
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                    }
+                }
+                break;
+              case '?':
+                resp.sprintf("\r\n%u", (unsigned)P.ClearMode());
                 crlf = TRUE;
                 break;
               default:
