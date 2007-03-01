@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.44  2007-01-29 12:44:41  vfrolov
- * Added ability to put args to drivers
+ * Revision 1.45  2007-03-01 14:03:06  vfrolov
+ * Added ability to set range of ports to use
+ *
+ * Revision 1.45  2007/03/01 14:03:06  vfrolov
+ * Added ability to set range of ports to use
  *
  * Revision 1.44  2007/01/29 12:44:41  vfrolov
  * Added ability to put args to drivers
@@ -217,6 +220,7 @@ BOOL T38Modem::Initialise()
              "i-interface:"          "-no-interface."
              "-listenport:"          "-no-listenport."
              "-connectport:"         "-no-connectport."
+             "-ports:"
 #if PMEMORY_CHECK
              "-setallocationbreakpoint:"
 #endif
@@ -262,14 +266,15 @@ BOOL T38Modem::Initialise()
         "                              Mandatory if not using GK.\n"
         "  --redundancy I[L[H]]      : Set redundancy for error recovery for\n"
         "                              (I)ndication, (L)ow speed and (H)igh\n"
-        "                              speed IFP packets.\n"
-        "                              'I', 'L' and 'H' are digits.\n"
+        "                              speed IFP packets. I, L and H are digits.\n"
         "  --old-asn                 : Use original ASN.1 sequence in T.38 (06/98)\n"
         "                              Annex A (w/o CORRIGENDUM No. 1 fix).\n"
         "  -i --interface ip         : Bind to a specific interface.\n"
         "  --no-listenport           : Disable listen for incoming calls.\n"
         "  --listenport port         : Listen on a specific port.\n"
         "  --connectport port        : Connect to a specific port.\n"
+        "  --ports T:B-M[,...]       : For (T)ype set (B)ase and (M)ax ports to use.\n"
+        "                              T is 'udp', 'rtp' or 'tcp'. B and M are numbers.\n"
         "  -g --gatekeeper host      : Specify gatekeeper host.\n"
         "  -n --no-gatekeeper        : Disable gatekeeper discovery.\n"
         "  --require-gatekeeper      : Exit if gatekeeper discovery fails.\n"
@@ -533,6 +538,29 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
   DisableFastStart(!args.HasOption('F'));
   DisableH245Tunneling(args.HasOption('T'));
   DisableDetectInBandDTMF(TRUE);
+
+  if (args.HasOption("ports")) {
+    PString p = args.GetOptionString("ports");
+    PStringArray ports = p.Tokenise(",\r\n", FALSE);
+
+    for (PINDEX i = 0 ; i < ports.GetSize() ; i++) {
+      p = ports[i];
+      PStringArray ps = p.Tokenise(":-", FALSE);
+      if (ps.GetSize() == 3) {
+        if (ps[0] == "udp")
+          SetUDPPorts(ps[1].AsUnsigned(), ps[2].AsUnsigned());
+        else
+        if (ps[0] == "rtp")
+          SetRtpIpPorts(ps[1].AsUnsigned(), ps[2].AsUnsigned());
+        else
+        if (ps[0] == "tcp")
+          SetTCPPorts(ps[1].AsUnsigned(), ps[2].AsUnsigned());
+      }
+    }
+    PTRACE(1, "UDP ports: " << GetUDPPortBase() << "-" << GetUDPPortMax());
+    PTRACE(1, "RTP ports: " << GetRtpIpPortBase() << "-" << GetRtpIpPortMax());
+    PTRACE(1, "TCP ports: " << GetTCPPortBase() << "-" << GetTCPPortMax());
+  }
 
   if (args.HasOption("connectport"))
     connectPort = (WORD)args.GetOptionString("connectport").AsInteger();
