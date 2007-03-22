@@ -7,6 +7,17 @@
  *
  */
 
+Changelog for t38modem 0.8.4
+
+* Fixed incompatibilities with some endpoints.
+* Fixed big file descriptors problem.
+* Fixed some possible dead locks.
+* Implemented AT#HCLR command.
+* Added ability to set range of IP ports to use.
+
+  NOTE: To compile t38modem since version 0.8.4 you need
+        openh323 since version 1.19.1.
+
 Changelog for t38modem 0.8.3
 
 * Fixed race condition on start up.
