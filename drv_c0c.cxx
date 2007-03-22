@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.6  2007-01-29 12:44:41  vfrolov
- * Added ability to put args to drivers
+ * Revision 1.7  2007-03-22 16:22:25  vfrolov
+ * Added some changes
+ *
+ * Revision 1.7  2007/03/22 16:22:25  vfrolov
+ * Added some changes
  *
  * Revision 1.6  2007/01/29 12:44:41  vfrolov
  * Added ability to put args to drivers
@@ -190,7 +193,7 @@ void InC0C::Main()
     SignalStop();
   }
 
-  char cbuf[1024];
+  char cbuf[32];
   DWORD cbufRead = 0;
   BOOL waitingRead = FALSE;
   DWORD maskStat = 0;
@@ -205,7 +208,7 @@ void InC0C::Main()
       break;
 
     if (!waitingRead) {
-      if (!ReadFile(hC0C, cbuf, 1024, &cbufRead, &overlaps[EVENT_READ])) {
+      if (!ReadFile(hC0C, cbuf, sizeof(cbuf), &cbufRead, &overlaps[EVENT_READ])) {
         DWORD err = ::GetLastError();
         if (err != ERROR_IO_PENDING) {
           myPTRACE(1, "ReadFile() ERROR " << strError(err));
@@ -543,6 +546,15 @@ BOOL PseudoModemC0C::OpenC0C()
     return FALSE;
   }
 
+  COMMPROP commProp;
+
+  dcb.XonLim = 64;
+
+  if (GetCommProperties(hC0C, &commProp)) {
+    myPTRACE(1, "CurrentRxQueue=" << commProp.dwCurrentRxQueue);
+    dcb.XoffLim = WORD(commProp.dwCurrentRxQueue - 128);
+  }
+
   dcb.BaudRate = CBR_19200;
   dcb.ByteSize = 8;
   dcb.Parity   = NOPARITY;
@@ -557,10 +569,10 @@ BOOL PseudoModemC0C::OpenC0C()
   dcb.fInX = TRUE;
   dcb.XonChar = 0x11;
   dcb.XoffChar = 0x13;
-  dcb.XonLim = 100;
-  dcb.XoffLim = 100;
   dcb.fParity = FALSE;
   dcb.fNull = FALSE;
+  dcb.fAbortOnError = FALSE;
+  dcb.fErrorChar = FALSE;
 
   if (!mySetCommState(hC0C, &dcb)) {
     CloseC0C();
