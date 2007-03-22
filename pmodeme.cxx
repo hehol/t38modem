@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.35  2007-02-22 16:00:33  vfrolov
- * Implemented AT#HCLR command
+ * Revision 1.36  2007-03-22 16:26:04  vfrolov
+ * Fixed compiler warnings
+ *
+ * Revision 1.36  2007/03/22 16:26:04  vfrolov
+ * Fixed compiler warnings
  *
  * Revision 1.35  2007/02/22 16:00:33  vfrolov
  * Implemented AT#HCLR command
@@ -838,7 +841,7 @@ static int ParseNum(const char **ppCmd,
       num = (num * 10) + (*pEnd - '0');
     }
     
-    PINDEX len = pEnd - *ppCmd;
+    PINDEX len = PINDEX(pEnd - *ppCmd);
     *ppCmd = pEnd;
     
     if( len < minDigits || len > maxDigits || num > maxNum) {
@@ -1757,7 +1760,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                 bresp.Concatenate(PBYTEArray(pBuf, len));
               len = 0;
             } else {
-              int rlen = pEnd - pBuf;
+              int rlen = int(pEnd - pBuf);
               if( rlen ) {
                 cmd += PString((const char *)pBuf, rlen);
                 if( Echo() ) {

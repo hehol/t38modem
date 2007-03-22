@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: dle.cxx,v $
- * Revision 1.8  2004-10-27 13:18:03  vfrolov
- * Fixed compiler warning
+ * Revision 1.9  2007-03-22 16:26:04  vfrolov
+ * Fixed compiler warnings
+ *
+ * Revision 1.9  2007/03/22 16:26:04  vfrolov
+ * Fixed compiler warnings
  *
  * Revision 1.8  2004/10/27 13:18:03  vfrolov
  * Fixed compiler warning
@@ -119,7 +122,7 @@ int DLEData::PutDleData(const void *pBuf, PINDEX count)
   
     if( pDle ) {
       dle = TRUE;
-      cPut = pDle - p;
+      cPut = PINDEX(pDle - p);
       cDone = cPut + 1;	// skip DLE
     } else {
       cDone = cPut = cRest;
@@ -153,9 +156,9 @@ int DLEData::GetDleData(void *pBuf, PINDEX count)
     return -1;
 
   BYTE *p = (BYTE *)pBuf;
-  PINDEX done;
+  int done;
 
-  for (done = 0 ; (count - done) >= 4 ; done = p - (BYTE *)pBuf ) {
+  for (done = 0 ; (count - done) >= 4 ; done = int(p - (BYTE *)pBuf)) {
     PINDEX cGet = (count - done - 2) / 2;
     BYTE tmp[1024];
 
@@ -167,9 +170,9 @@ int DLEData::GetDleData(void *pBuf, PINDEX count)
         *p++ = DLE;
         *p++ = ETX;
         recvEtx = TRUE;
-        return p - (BYTE *)pBuf;
+        return int(p - (BYTE *)pBuf);
       case 0:
-        return p - (BYTE *)pBuf;
+        return int(p - (BYTE *)pBuf);
       default:
         for( PINDEX i = 0 ; i < cGet ; i++ ) {
           BYTE b = bitRev ? BitRevTable[tmp[i]] : tmp[i];

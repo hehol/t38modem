@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.cxx,v $
- * Revision 1.9  2007-01-29 12:44:41  vfrolov
- * Added ability to put args to drivers
+ * Revision 1.10  2007-03-22 16:26:04  vfrolov
+ * Fixed compiler warnings
+ *
+ * Revision 1.10  2007/03/22 16:26:04  vfrolov
+ * Fixed compiler warnings
  *
  * Revision 1.9  2007/01/29 12:44:41  vfrolov
  * Added ability to put args to drivers
@@ -156,7 +159,7 @@ BOOL PseudoModemQ::CreateModem(
 
 void PseudoModemQ::Enqueue(PseudoModem *modem)
 {
-  myPTRACE(3, "PseudoModemQ::Enqueue "
+  myPTRACE((modem != NULL) ? 3 : 1, "PseudoModemQ::Enqueue "
     << ((modem != NULL) ? modem->ptyName() : "BAD"));
 
   PWaitAndSignal mutexWait(Mutex);
