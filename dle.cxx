@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: dle.cxx,v $
- * Revision 1.9  2007-03-22 16:26:04  vfrolov
- * Fixed compiler warnings
+ * Revision 1.10  2007-03-23 09:48:23  vfrolov
+ * Added deleting DLE shielded codes
+ *
+ * Revision 1.10  2007/03/23 09:48:23  vfrolov
+ * Added deleting DLE shielded codes
  *
  * Revision 1.9  2007/03/22 16:26:04  vfrolov
  * Fixed compiler warnings
@@ -103,18 +106,23 @@ int DLEData::PutDleData(const void *pBuf, PINDEX count)
   while( cRest > 0 ) {
     const BYTE *pScan = p;
     PINDEX cScan = cRest;
-    
-    if( dle ) {
+
+    if (dle) {
       dle = FALSE;
-      if( *p == ETX ) {
-        PutEof();
+      if (*p != DLE) {
+        if (*p == ETX) {
+          PutEof();
+          cRest--;
+          break;
+        }
+
+        p++;
         cRest--;
-        break;
       }
       pScan++;
       cScan--;
     }
-    
+
     const BYTE *pDle = (const BYTE *)memchr(pScan, DLE, cScan);
     
     PINDEX cPut;
