@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.17  2007-01-29 12:44:41  vfrolov
- * Added ability to put args to drivers
+ * Revision 1.18  2007-03-23 10:14:35  vfrolov
+ * Implemented voice mode functionality
+ *
+ * Revision 1.18  2007/03/23 10:14:35  vfrolov
+ * Implemented voice mode functionality
  *
  * Revision 1.17  2007/01/29 12:44:41  vfrolov
  * Added ability to put args to drivers
@@ -78,15 +81,10 @@
  *
  */
 
-// mostly "stolen" from OpenAM
-
 #ifndef _PM_MAIN_H
 #define _PM_MAIN_H
 
 #include <h323.h>
-#include <ptclib/delaychan.h>
-#include "pmutils.h"
-#include "t30tone.h"
 
 class T38Modem : public PProcess
 {
@@ -137,6 +135,7 @@ class MyH323EndPoint : public H323EndPoint
 };
 
 class OpalT38Protocol;
+class AudioEngine;
 
 class MyH323Connection : public H323Connection
 {
@@ -153,52 +152,20 @@ class MyH323Connection : public H323Connection
     void OnEstablished();
     BOOL OnStartLogicalChannel(H323Channel & channel);
     void OnClosedLogicalChannel(const H323Channel & channel);
+    void OnUserInputString(const PString & value);
 
     OpalT38Protocol * CreateT38ProtocolHandler();
     BOOL OpenAudioChannel(BOOL, unsigned, H323AudioCodec & codec);
 
   protected:
     const MyH323EndPoint & ep;
-    
+
     PMutex        connMutex;
     PseudoModem * pmodem;
-};
-
-///////////////////////////////////////////////////////////////
-
-class AudioRead : public PChannel
-{
-  PCLASSINFO(AudioRead, PChannel);
-
-  public:
-    AudioRead(T30Tone::Type type);
-    BOOL Read(void * buffer, PINDEX amount);
-    BOOL Close();
-
-  protected:
-    T30Tone t30Tone;
-    BOOL closed;
-    PAdaptiveDelay delay;
-    PMutex Mutex;
-};
-
-class AudioWrite : public PChannel
-{
-  PCLASSINFO(AudioWrite, PChannel)
-
-  public:
-    AudioWrite();
-    BOOL Write(const void * buf, PINDEX len);
-    BOOL Close();
-
-  protected:
-    BOOL closed;
-    PAdaptiveDelay delay;
-    PMutex Mutex;
+    AudioEngine * audioEngine;
 };
 
 #endif  // _PM_MAIN_H
-
 
 // End of File ///////////////////////////////////////////////////////////////
 

@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.45  2007-03-01 14:03:06  vfrolov
- * Added ability to set range of ports to use
+ * Revision 1.46  2007-03-23 10:14:35  vfrolov
+ * Implemented voice mode functionality
+ *
+ * Revision 1.46  2007/03/23 10:14:35  vfrolov
+ * Implemented voice mode functionality
  *
  * Revision 1.45  2007/03/01 14:03:06  vfrolov
  * Added ability to set range of ports to use
@@ -153,16 +156,15 @@
  * 
  */
 
-// mostly "stolen" from OpenAM
-
 #include <ptlib.h>
 #include <h323pdu.h>
 #include <h323t38.h>
 
+#include "main.h"
 #include "version.h"
 #include "t38engine.h"
+#include "audio.h"
 #include "pmodem.h"
-#include "main.h"
 #include "g7231_fake.h"
 #include "drivers.h"
 
@@ -538,6 +540,7 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
   DisableFastStart(!args.HasOption('F'));
   DisableH245Tunneling(args.HasOption('T'));
   DisableDetectInBandDTMF(TRUE);
+  SetSilenceDetectionMode(H323AudioCodec::NoSilenceDetection);
 
   if (args.HasOption("ports")) {
     PString p = args.GetOptionString("ports");
@@ -630,7 +633,10 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
 
   SetCapability(0, 0, new H323_T38Capability(H323_T38Capability::e_UDP));
   //SetCapability(0, 0, new H323_T38NonStandardCapability(181, 0, 18));
-    
+
+  SetCapability(0, 0, new H323_UserInputCapability(H323_UserInputCapability::BasicString));
+  //AddAllUserInputCapabilities(0, P_MAX_INDEX);
+
   capabilities.Remove(args.GetOptionString('D').Lines());
   capabilities.Reorder(args.GetOptionString('P').Lines());
 
@@ -643,7 +649,7 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
 
 MyH323Connection::MyH323Connection(MyH323EndPoint & _ep, unsigned callReference)
   : H323Connection(_ep, callReference), ep(_ep),
-    pmodem(NULL)
+    pmodem(NULL), audioEngine(NULL)
 {
 }
 
@@ -657,6 +663,9 @@ MyH323Connection::~MyH323Connection()
       pmodem->Detach((T38Engine *)t38handler);
     }
 
+    if (audioEngine != NULL)
+      pmodem->Detach(audioEngine);
+
     PStringToString request;
     request.SetAt("command", "clearcall");
     request.SetAt("calltoken", GetCallToken());
@@ -666,6 +675,9 @@ MyH323Connection::~MyH323Connection()
 
     ep.PMFree(pmodem);
   }
+
+  if (audioEngine != NULL)
+    delete audioEngine;
 }
 
 void MyH323Connection::OnEstablished()
@@ -683,9 +695,16 @@ BOOL MyH323Connection::Attach(PseudoModem *_pmodem)
 {
   PWaitAndSignal mutex(connMutex);
 
-  if( pmodem != NULL )
+  if (pmodem != NULL)
     return FALSE;
+
   pmodem = _pmodem;
+
+  if (audioEngine == NULL)
+    audioEngine = new AudioEngine(pmodem->ptyName());
+
+  pmodem->Attach(audioEngine);
+
   return TRUE;
 }
 
@@ -693,9 +712,9 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler()
 {
   PTRACE(2, "MyH323Connection::CreateT38ProtocolHandler");
 
-  PAssert(pmodem != NULL, "pmodem is NULL");
-
   PWaitAndSignal mutex(connMutex);
+
+  PAssert(pmodem != NULL, "pmodem is NULL");
   /*
    * we can't have more then one t38handler per connection
    * at the same time and we should delete it on connection clean
@@ -805,74 +824,21 @@ void MyH323Connection::OnClosedLogicalChannel(const H323Channel & channel)
 
 BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize */, H323AudioCodec & codec)
 {
-  //codec.SetSilenceDetectionMode(H323AudioCodec::NoSilenceDetection);
-
   PTRACE(2, "MyH323Connection::OpenAudioChannel " << codec);
 
-  if (isEncoding) {
-    codec.AttachChannel(new AudioRead(HadAnsweredCall() ? T30Tone::silence : T30Tone::cng), TRUE);
-  } else {
-    codec.AttachChannel(new AudioWrite(), TRUE);
-  }
+  PAssert(audioEngine != NULL, "audioEngine is NULL");
+
+  codec.AttachChannel(audioEngine, FALSE);
 
   return TRUE;
 }
 
-///////////////////////////////////////////////////////////////
-
-AudioRead::AudioRead(T30Tone::Type type)
-  : t30Tone(type), closed(FALSE)
+void MyH323Connection::OnUserInputString(const PString & value)
 {
+  PAssert(audioEngine != NULL, "audioEngine is NULL");
+
+  audioEngine->WriteUserInput(value);
 }
 
-BOOL AudioRead::Read(void * buffer, PINDEX amount)
-{
-  PWaitAndSignal mutex(Mutex);
-
-  if (closed)
-    return FALSE;
-
-  t30Tone.Read(buffer, amount);
-
-  delay.Delay(amount/16);
-
-  lastReadCount = amount;
-  return TRUE;
-}
-
-BOOL AudioRead::Close()
-{
-  PWaitAndSignal mutex(Mutex);
-  
-  closed = TRUE;
-  return TRUE;
-}
-
-///////////////////////////////////////////////////////////////
-
-AudioWrite::AudioWrite()
-  : closed(FALSE)
-{
-}
-
-BOOL AudioWrite::Write(const void * /*buffer*/, PINDEX len)
-{
-  PWaitAndSignal mutex(Mutex);
-
-  if (closed)
-    return FALSE;
-
-  delay.Delay(len/16);
-
-  return TRUE;
-}
-
-BOOL AudioWrite::Close()
-{
-  PWaitAndSignal mutex(Mutex);
-
-  closed = TRUE;
-  return TRUE;
-}
 // End of File ///////////////////////////////////////////////////////////////
 

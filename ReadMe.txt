@@ -1,5 +1,5 @@
 /*
- * $Id: ReadMe.txt,v 1.13 2007-02-22 16:00:33 vfrolov Exp $
+ * README
  *
  * T38FAX Pseudo Modem
  *
@@ -12,9 +12,9 @@
 
 What is t38modem?
 
-From your fax application view point it's a fax modem pool.
+From your fax or voice application view point it's a fax/voice modem pool.
 From IP network view point it's a H.323 endpoint with T.38 fax support.
-From your view point it's a gateway between a fax application and IP network.
+From your view point it's a gateway between an application and IP network.
 
 2. Building
 -----------
@@ -161,10 +161,14 @@ $ .../faxgetty -D ttyx1
 -------------------------------------
 
 #CID=0	- disables calling/called number reporting (default).
+#CID=1	- Enables only calling number reporting after the first RING.
 #CID=10	- Enables calling/called number reporting after the first RING.
+#CID=11	- Enables only called number reporting after the first RING.
 
 Example:
 
+<-- AT#CID=10
+--> OK
 --> RING
 --> NMBR = <calling number>
 --> NDID = <called number>
@@ -262,8 +266,11 @@ Examples:
 
 /*
  * $Log: ReadMe.txt,v $
- * Revision 1.13  2007-02-22 16:00:33  vfrolov
- * Implemented AT#HCLR command
+ * Revision 1.14  2007-03-23 10:14:35  vfrolov
+ * Implemented voice mode functionality
+ *
+ * Revision 1.14  2007/03/23 10:14:35  vfrolov
+ * Implemented voice mode functionality
  *
  * Revision 1.13  2007/02/22 16:00:33  vfrolov
  * Implemented AT#HCLR command

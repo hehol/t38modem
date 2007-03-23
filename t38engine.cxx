@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2006 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.40  2006-12-11 11:19:48  vfrolov
- * Fixed race condition with modem Callback
+ * Revision 1.41  2007-03-23 10:14:36  vfrolov
+ * Implemented voice mode functionality
+ *
+ * Revision 1.41  2007/03/23 10:14:36  vfrolov
+ * Implemented voice mode functionality
  *
  * Revision 1.40  2006/12/11 11:19:48  vfrolov
  * Fixed race condition with modem Callback
@@ -444,7 +447,7 @@ static void t38data(T38_IFPPacket &ifp, unsigned type, unsigned field_type, cons
 }
 ///////////////////////////////////////////////////////////////
 T38Engine::T38Engine(const PString &_name)
-  : OpalT38Protocol(), bufOut(2048), name(_name)
+  : EngineBase(_name), bufOut(2048)
 {
   PTRACE(2, name << " T38Engine::T38Engine");
   stateModem = stmIdle;
@@ -509,24 +512,6 @@ void T38Engine::Detach(const PNotifier &callback)
     myPTRACE(1, name << " T38Engine::Detach "
       << (modemCallback.IsNULL() ? "Already Detached" : "modemCallback != callback"));
   }
-}
-
-BOOL T38Engine::TryLockModemCallback()
-{
-  MutexModem.Wait();
-
-  if (!MutexModemCallback.Wait(0)) {
-    MutexModem.Signal();
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-void T38Engine::UnlockModemCallback()
-{
-  MutexModemCallback.Signal();
-  MutexModem.Signal();
 }
 ///////////////////////////////////////////////////////////////
 void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
@@ -857,12 +842,7 @@ done:
 void T38Engine::ModemCallbackWithUnlock(INT extra)
 {
   Mutex.Signal();
-  MutexModemCallback.Wait();
-
-  if (!modemCallback.IsNULL())
-    modemCallback(*this, extra);
-
-  MutexModemCallback.Signal();
+  ModemCallback(extra);
   Mutex.Wait();
 }
 
@@ -909,6 +889,8 @@ BOOL T38Engine::isOutBufFull() const
 ///////////////////////////////////////////////////////////////
 void T38Engine::SendOnIdle(int _dataType)
 {
+  PWaitAndSignal mutexWaitModem(MutexModem);
+  PWaitAndSignal mutexWait(Mutex);
   onIdleOut = _dataType;
   SignalOutDataReady();
 }
@@ -1168,15 +1150,15 @@ int T38Engine::RecvDiag()
   return modStreamIn->firstBuf->GetDiag();
 }
 
-BOOL T38Engine::RecvStop()
+void T38Engine::RecvStop()
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   if(!IsT38Mode())
-    return FALSE;
+    return;
 
   if(!isStateModemIn()) {
     myPTRACE(1, name << " T38Engine::RecvStop stateModem(" << stateModem << ") != stmIn");
-    return FALSE;
+    return;
   }
   PWaitAndSignal mutexWait(Mutex);
 
@@ -1184,7 +1166,6 @@ BOOL T38Engine::RecvStop()
     modStreamIn->DeleteFirstBuf();
   if( isStateModemIn() )
     stateModem = stmIdle;
-  return FALSE;
 }
 ///////////////////////////////////////////////////////////////
 int T38Engine::PreparePacket(T38_IFPPacket & ifp, BOOL enableTimeout)

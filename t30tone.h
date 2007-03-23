@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2002-2004 Vyacheslav Frolov
+ * Copyright (c) 2002-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.h,v $
- * Revision 1.2  2004-07-07 07:52:07  vfrolov
- * Moved ptlib.h including to *.cxx for precompiling
+ * Revision 1.3  2007-03-23 10:14:36  vfrolov
+ * Implemented voice mode functionality
+ *
+ * Revision 1.3  2007/03/23 10:14:36  vfrolov
+ * Implemented voice mode functionality
  *
  * Revision 1.2  2004/07/07 07:52:07  vfrolov
  * Moved ptlib.h including to *.cxx for precompiling
@@ -40,12 +43,15 @@
 #define _T30TONE_H
 
 ///////////////////////////////////////////////////////////////
+#define SIMPLES_PER_SEC		8000
+#define CNG_HZ			1100
+///////////////////////////////////////////////////////////////
 class T30Tone : public PObject
-{ 
+{
   PCLASSINFO(T30Tone, PObject);
 
   public:
-  
+
     enum Type {
       silence,
       cng
@@ -55,9 +61,30 @@ class T30Tone : public PObject
     void Read(void * buffer, PINDEX amount);
 
   protected:
-    
+
     Type type;
     PINDEX index;
+};
+///////////////////////////////////////////////////////////////
+class T30ToneDetect : public PObject
+{
+  PCLASSINFO(T30ToneDetect, PObject);
+
+  public:
+
+    T30ToneDetect();
+    BOOL Write(const void * buffer, PINDEX len);
+
+  protected:
+
+    #define CNG_FILTER_BUF_LEN ((((SIMPLES_PER_SEC + CNG_HZ - 1)/CNG_HZ + 1)/2)*2)
+
+    long cng_filter_buf[CNG_FILTER_BUF_LEN];
+    PINDEX index;
+    long power;
+    int cng_on_count;
+    int cng_off_count;
+    int cng_phase;
 };
 ///////////////////////////////////////////////////////////////
 

@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.h,v $
- * Revision 1.6  2007-01-29 12:44:41  vfrolov
- * Added ability to put args to drivers
+ * Revision 1.7  2007-03-23 10:14:35  vfrolov
+ * Implemented voice mode functionality
+ *
+ * Revision 1.7  2007/03/23 10:14:35  vfrolov
+ * Implemented voice mode functionality
  *
  * Revision 1.6  2007/01/29 12:44:41  vfrolov
  * Added ability to put args to drivers
@@ -58,6 +61,7 @@
 
 ///////////////////////////////////////////////////////////////
 class T38Engine;
+class AudioEngine;
 
 class PseudoModem : public ModemThread
 {
@@ -75,6 +79,8 @@ class PseudoModem : public ModemThread
     virtual BOOL Request(PStringToString &request) const = 0;
     virtual BOOL Attach(T38Engine *t38engine) const = 0;
     virtual void Detach(T38Engine *t38engine) const = 0;
+    virtual BOOL Attach(AudioEngine *audioEngine) const = 0;
+    virtual void Detach(AudioEngine *audioEngine) const = 0;
 
     const PString &ptyName() const { return ptyname; }
     const PString &modemToken() const { return ptyname; }

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2004 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.h,v $
- * Revision 1.5  2004-07-07 12:38:32  vfrolov
- * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
+ * Revision 1.6  2007-03-23 10:14:36  vfrolov
+ * Implemented voice mode functionality
+ *
+ * Revision 1.6  2007/03/23 10:14:36  vfrolov
+ * Implemented voice mode functionality
  *
  * Revision 1.5  2004/07/07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
@@ -78,6 +81,8 @@ class PseudoModemBody : public PseudoModem
     BOOL Request(PStringToString &request) const;
     BOOL Attach(T38Engine *t38engine) const;
     void Detach(T38Engine *t38engine) const;
+    BOOL Attach(AudioEngine *audioEngine) const;
+    void Detach(AudioEngine *audioEngine) const;
 
     const PNotifier &GetCallbackEndPoint() const { return callbackEndPoint; }
 

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2005 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.12  2005-02-03 11:32:12  vfrolov
- * Fixed MSVC compile warnings
+ * Revision 1.13  2007-03-23 10:14:35  vfrolov
+ * Implemented voice mode functionality
+ *
+ * Revision 1.13  2007/03/23 10:14:35  vfrolov
+ * Implemented voice mode functionality
  *
  * Revision 1.12  2005/02/03 11:32:12  vfrolov
  * Fixed MSVC compile warnings
@@ -120,6 +123,19 @@ void PseudoModemBody::Detach(T38Engine *t38engine) const
   PWaitAndSignal mutexWait(Mutex);
   if( engine )
     engine->Detach(t38engine);
+}
+
+BOOL PseudoModemBody::Attach(AudioEngine *audioEngine) const
+{
+  PWaitAndSignal mutexWait(Mutex);
+  return engine && engine->Attach(audioEngine);
+}
+
+void PseudoModemBody::Detach(AudioEngine *audioEngine) const
+{
+  PWaitAndSignal mutexWait(Mutex);
+  if (engine)
+    engine->Detach(audioEngine);
 }
 
 void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, BOOL OutQ)

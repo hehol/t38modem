@@ -3,6 +3,8 @@
 # 
 # T38FAX Pseudo Modem
 # 
+# Copyright (c) 2001-2007 Vyacheslav Frolov
+#
 # Open H323 Project
 # 
 # The contents of this file are subject to the Mozilla Public License
@@ -22,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.13  2006-10-20 10:06:43  vfrolov
-# Added REPEAT_INDICATOR_SENDING ifdef
+# Revision 1.14  2007-03-23 10:14:35  vfrolov
+# Implemented voice mode functionality
+#
+# Revision 1.14  2007/03/23 10:14:35  vfrolov
+# Implemented voice mode functionality
 #
 # Revision 1.13  2006/10/20 10:06:43  vfrolov
 # Added REPEAT_INDICATOR_SENDING ifdef
@@ -64,8 +69,9 @@
 PROG		= t38modem
 SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
 		   g7231_fake.cxx t30tone.cxx hdlc.cxx t30.cxx fcs.cxx \
-		   pmodeme.cxx t38engine.cxx main.cxx \
+		   pmodeme.cxx enginebase.cxx t38engine.cxx audio.cxx \
 		   drv_pty.cxx \
+		   main.cxx
 
 ifndef OPENH323DIR
 OPENH323DIR=$(HOME)/openh323

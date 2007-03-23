@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2006 Vyacheslav Frolov
+ * Copyright (c) 2001-2007 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,10 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.22  2006-12-22 12:51:00  vfrolov
- * Fixed class of MutexModemCallback
- * Added volatile to isCarrierIn
- * Removed stateIn
+ * Revision 1.23  2007-03-23 10:14:36  vfrolov
+ * Implemented voice mode functionality
+ *
+ * Revision 1.23  2007/03/23 10:14:36  vfrolov
+ * Implemented voice mode functionality
  *
  * Revision 1.22  2006/12/22 12:51:00  vfrolov
  * Fixed class of MutexModemCallback
@@ -114,6 +115,7 @@
 #include "pmutils.h"
 #include "hdlc.h"
 #include "t30.h"
+#include "enginebase.h"
 
 ///////////////////////////////////////////////////////////////
 class MODPARS
@@ -143,34 +145,10 @@ class MODPARS
 class PASN_OctetString;
 class ModStream;
 
-class T38Engine : public OpalT38Protocol
+class T38Engine : public OpalT38Protocol, public EngineBase
 {
   PCLASSINFO(T38Engine, OpalT38Protocol);
   public:
-    
-    enum {
-      diagOutOfOrder	= 0x01,
-      diagDiffSig	= 0x04,	// a different signal is detected
-      diagBadFcs	= 0x08,
-      diagNoCarrier	= 0x10,
-      diagError		= 0x80,	// bad usage
-    };
-
-    enum {
-      dtNone,
-      dtCed,
-      dtCng,
-      dtSilence,
-      dtHdlc,
-      dtRaw,
-    };
-
-    enum {
-      cbpUserDataMod	= 255,
-      cbpReset		= -1,
-      cbpOutBufEmpty	= -2,
-      cbpOutBufNoFull	= -3,
-    };
 
   /**@name Construction */
   //@{
@@ -198,8 +176,6 @@ class T38Engine : public OpalT38Protocol
   //@{
     BOOL Attach(const PNotifier &callback);
     void Detach(const PNotifier &callback);
-    BOOL TryLockModemCallback();
-    void UnlockModemCallback();
 
     void ResetModemState();
     BOOL isOutBufFull() const;
@@ -213,7 +189,7 @@ class T38Engine : public OpalT38Protocol
     BOOL RecvStart(int _callbackParam);
     int Recv(void *pBuf, PINDEX count);
     int RecvDiag();
-    BOOL RecvStop();
+    void RecvStop();
   //@}
     
   protected:
@@ -298,16 +274,11 @@ class T38Engine : public OpalT38Protocol
     ModStream *modStreamInSaved;
 
     volatile int stateModem;
-    PNotifier modemCallback;
     volatile BOOL T38Mode;
 
     PMutex Mutex;
     PMutex MutexOut;
     PMutex MutexIn;
-    PMutex MutexModem;
-    PTimedMutex MutexModemCallback;
-
-    const PString name;
 };
 ///////////////////////////////////////////////////////////////
 
