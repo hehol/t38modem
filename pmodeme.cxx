@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.37  2007-03-23 10:14:35  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.38  2007-03-23 14:54:20  vfrolov
+ * Fixed compiler warnings
+ *
+ * Revision 1.38  2007/03/23 14:54:20  vfrolov
+ * Fixed compiler warnings
  *
  * Revision 1.37  2007/03/23 10:14:35  vfrolov
  * Implemented voice mode functionality
@@ -923,7 +926,7 @@ void ModemEngineBody::_Detach(AudioEngine *_audioEngine)
   myPTRACE(1, "ModemEngineBody::_Detach audioEngine Detached");
 }
 
-void ModemEngineBody::OnEngineCallback(PObject &from, INT extra)
+void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
 {
   PTRACE(extra < 0 ? 2 : 4, "ModemEngineBody::OnEngineCallback " << from.GetClass() << " " << extra);
 
@@ -968,7 +971,7 @@ void ModemEngineBody::OnEngineCallback(PObject &from, INT extra)
   parent.SignalDataReady();
 }
 
-void ModemEngineBody::OnTimerCallback(PObject &from, INT PTRACE_PARAM(extra))
+void ModemEngineBody::OnTimerCallback(PObject & PTRACE_PARAM(from), INT PTRACE_PARAM(extra))
 {
   PTRACE(2, "ModemEngineBody::OnTimerCallback " << from.GetClass() << " " << extra);
 
@@ -2542,9 +2545,9 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                       PInt16 *ps = Buf2;
 
                       while (count--)
-                        *ps++ = alaw2linear(*pb++);
+                        *ps++ = (PInt16)alaw2linear(*pb++);
 
-                      count = pb - (const signed char *)Buf;
+                      count = int(pb - (const signed char *)Buf);
 
                       audioEngine->Send(Buf2, count*sizeof(*ps));
                     }
@@ -2955,7 +2958,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                 while (count--)
                   *pb++ = linear2alaw(*ps++);
 
-                count = pb - (signed char *)Buf;
+                count = int(pb - (signed char *)Buf);
 
                 dleData.PutData(Buf, count);
               }

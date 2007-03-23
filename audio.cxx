@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: audio.cxx,v $
- * Revision 1.1  2007-03-23 09:54:45  vfrolov
- * Initial revision
+ * Revision 1.2  2007-03-23 14:54:19  vfrolov
+ * Fixed compiler warnings
+ *
+ * Revision 1.2  2007/03/23 14:54:19  vfrolov
+ * Fixed compiler warnings
  *
  * Revision 1.1  2007/03/23 09:54:45  vfrolov
  * Initial revision
@@ -201,7 +204,7 @@ BOOL AudioEngine::Read(void * buffer, PINDEX amount)
   return TRUE;
 }
 
-void AudioEngine::SendOnIdle(int _dataType)
+void AudioEngine::SendOnIdle(int /*_dataType*/)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
