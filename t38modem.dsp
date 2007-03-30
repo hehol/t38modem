@@ -54,7 +54,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 /nologo /subsystem:windows /machine:I386
-# ADD LINK32 openh323.lib ptclib.lib ptlib.lib comdlg32.lib winspool.lib wsock32.lib kernel32.lib user32.lib gdi32.lib shell32.lib advapi32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 openh323.lib ptlib.lib comdlg32.lib winspool.lib wsock32.lib kernel32.lib user32.lib gdi32.lib shell32.lib advapi32.lib /nologo /subsystem:console /machine:I386
 
 !ELSEIF  "$(CFG)" == "t38modem - Win32 Debug"
 
@@ -80,7 +80,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 openh323d.lib ptclibd.lib ptlibd.lib comdlg32.lib winspool.lib wsock32.lib kernel32.lib user32.lib gdi32.lib shell32.lib advapi32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
+# ADD LINK32 openh323d.lib ptlibd.lib comdlg32.lib winspool.lib wsock32.lib kernel32.lib user32.lib gdi32.lib shell32.lib advapi32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
 
 !ELSEIF  "$(CFG)" == "t38modem - Win32 No Trace"
 
@@ -105,8 +105,8 @@ BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
 LINK32=link.exe
-# ADD BASE LINK32 ptclib.lib ptlib.lib comdlg32.lib winspool.lib wsock32.lib kernel32.lib user32.lib gdi32.lib shell32.lib advapi32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 openh323n.lib ptclib.lib ptlib.lib comdlg32.lib winspool.lib wsock32.lib kernel32.lib user32.lib gdi32.lib shell32.lib advapi32.lib /nologo /subsystem:console /machine:I386
+# ADD BASE LINK32 ptlib.lib comdlg32.lib winspool.lib wsock32.lib kernel32.lib user32.lib gdi32.lib shell32.lib advapi32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 openh323n.lib ptlib.lib comdlg32.lib winspool.lib wsock32.lib kernel32.lib user32.lib gdi32.lib shell32.lib advapi32.lib /nologo /subsystem:console /machine:I386
 
 !ENDIF 
 
@@ -181,7 +181,15 @@ SOURCE=.\t30tone.cxx
 # End Source File
 # Begin Source File
 
+SOURCE=.\enginebase.cxx
+# End Source File
+# Begin Source File
+
 SOURCE=.\t38engine.cxx
+# End Source File
+# Begin Source File
+
+SOURCE=.\audio.cxx
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -245,7 +253,15 @@ SOURCE=.\t30tone.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\enginebase.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\t38engine.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\audio.h
 # End Source File
 # Begin Source File
 
