@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.7  2007-03-22 16:22:25  vfrolov
- * Added some changes
+ * Revision 1.8  2007-03-30 11:01:12  vfrolov
+ * Replaced strerror() by FormatMessage()
+ *
+ * Revision 1.8  2007/03/30 11:01:12  vfrolov
+ * Replaced strerror() by FormatMessage()
  *
  * Revision 1.7  2007/03/22 16:22:25  vfrolov
  * Added some changes
@@ -97,7 +100,22 @@ UniC0C::UniC0C(PseudoModemC0C &_parent, HANDLE _hC0C)
 #if PTRACING
 static PString strError(DWORD err)
 {
-  return PString(strerror(err)) + " (" + PString(err) + ")";
+  LPVOID pMsgBuf;
+
+  FormatMessage(
+      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+      NULL,
+      err,
+      MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
+      (LPTSTR) &pMsgBuf,
+      0,
+      NULL);
+
+  PString str((const char *)pMsgBuf);
+
+  LocalFree(pMsgBuf);
+
+  return str.Trim() + " (" + PString(err) + ")";
 }
 
 static void TraceLastError(const PString &head)
