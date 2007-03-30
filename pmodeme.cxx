@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.38  2007-03-23 14:54:20  vfrolov
- * Fixed compiler warnings
+ * Revision 1.39  2007-03-30 07:56:36  vfrolov
+ * Included g711.c
+ *
+ * Revision 1.39  2007/03/30 07:56:36  vfrolov
+ * Included g711.c
  *
  * Revision 1.38  2007/03/23 14:54:20  vfrolov
  * Fixed compiler warnings
@@ -174,10 +177,7 @@
 #include "version.h"
 
 ///////////////////////////////////////////////////////////////
-extern "C" {
-  unsigned char linear2alaw(int pcm_val);
-  int alaw2linear(unsigned char u_val);
-};
+#include "g711.c"
 ///////////////////////////////////////////////////////////////
 static const char Manufacturer[] = "Vyacheslav Frolov";
 static const char Model[] = "T38FAX";
@@ -2956,7 +2956,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                 count /= sizeof(*ps);
 
                 while (count--)
-                  *pb++ = linear2alaw(*ps++);
+                  *pb++ = (signed char)linear2alaw(*ps++);
 
                 count = int(pb - (signed char *)Buf);
 
