@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: audio.cxx,v $
- * Revision 1.2  2007-03-23 14:54:19  vfrolov
- * Fixed compiler warnings
+ * Revision 1.3  2007-04-04 09:52:57  vfrolov
+ * Added missing lastWriteCount setting
+ *
+ * Revision 1.3  2007/04/04 09:52:57  vfrolov
+ * Added missing lastWriteCount setting
  *
  * Revision 1.2  2007/03/23 14:54:19  vfrolov
  * Fixed compiler warnings
@@ -268,6 +271,8 @@ BOOL AudioEngine::Write(const void * buffer, PINDEX len)
 
   if (cng)
     WriteUserInput('c');
+
+  lastWriteCount = len;
 
   writeDelay.Delay(len/16);
 
