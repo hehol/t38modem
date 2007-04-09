@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.39  2007-03-30 07:56:36  vfrolov
- * Included g711.c
+ * Revision 1.40  2007-04-09 08:07:12  vfrolov
+ * Added symbolic logging ModemCallbackParam
+ *
+ * Revision 1.40  2007/04/09 08:07:12  vfrolov
+ * Added symbolic logging ModemCallbackParam
  *
  * Revision 1.39  2007/03/30 07:56:36  vfrolov
  * Included g711.c
@@ -928,7 +931,8 @@ void ModemEngineBody::_Detach(AudioEngine *_audioEngine)
 
 void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
 {
-  PTRACE(extra < 0 ? 2 : 4, "ModemEngineBody::OnEngineCallback " << from.GetClass() << " " << extra);
+  PTRACE(extra < 0 ? 2 : 4, "ModemEngineBody::OnEngineCallback "
+      << from.GetClass() << " " << EngineBase::ModemCallbackParam(extra));
 
   PWaitAndSignal mutexWait(Mutex);
 

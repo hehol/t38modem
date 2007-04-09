@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: enginebase.h,v $
- * Revision 1.1  2007-03-23 09:54:45  vfrolov
- * Initial revision
+ * Revision 1.2  2007-04-09 08:07:12  vfrolov
+ * Added symbolic logging ModemCallbackParam
+ *
+ * Revision 1.2  2007/04/09 08:07:12  vfrolov
+ * Added symbolic logging ModemCallbackParam
  *
  * Revision 1.1  2007/03/23 09:54:45  vfrolov
  * Initial revision
@@ -63,13 +66,17 @@ class EngineBase : public PObject
       dtRaw,
     };
 
-    enum {
+    enum ModemCallbackParam {
       cbpUserDataMask	= 0xFF,
       cbpOutBufNoFull	= 256,
       cbpReset		= -1,
       cbpOutBufEmpty	= -2,
       cbpUserInput	= -3,
     };
+
+#if PTRACING
+    friend ostream & operator<<(ostream & o, ModemCallbackParam param);
+#endif
 
   /**@name Modem API */
   //@{

@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: enginebase.cxx,v $
- * Revision 1.1  2007-03-23 09:54:45  vfrolov
- * Initial revision
+ * Revision 1.2  2007-04-09 08:07:12  vfrolov
+ * Added symbolic logging ModemCallbackParam
+ *
+ * Revision 1.2  2007/04/09 08:07:12  vfrolov
+ * Added symbolic logging ModemCallbackParam
  *
  * Revision 1.1  2007/03/23 09:54:45  vfrolov
  * Initial revision
@@ -36,6 +39,21 @@
 #include <ptlib.h>
 #include "enginebase.h"
 
+///////////////////////////////////////////////////////////////
+#if PTRACING
+ostream & operator<<(ostream & out, EngineBase::ModemCallbackParam param)
+{
+  switch (param) {
+    case EngineBase::cbpUserDataMask:	break;
+    case EngineBase::cbpOutBufNoFull:	return out << "cbpOutBufNoFull";
+    case EngineBase::cbpReset:		return out << "cbpReset";
+    case EngineBase::cbpOutBufEmpty:	return out << "cbpOutBufEmpty";
+    case EngineBase::cbpUserInput:	return out << "cbpUserInput";
+  }
+
+  return out << INT(param);
+}
+#endif
 ///////////////////////////////////////////////////////////////
 BOOL EngineBase::TryLockModemCallback()
 {
