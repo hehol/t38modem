@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.23  2007-03-23 10:14:36  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.24  2007-04-11 14:19:15  vfrolov
+ * Changed for OPAL
+ *
+ * Revision 1.24  2007/04/11 14:19:15  vfrolov
+ * Changed for OPAL
  *
  * Revision 1.23  2007/03/23 10:14:36  vfrolov
  * Implemented voice mode functionality
@@ -106,9 +109,7 @@
 #ifndef _T38ENGINE_H
 #define _T38ENGINE_H
 
-#ifdef USE_OPAL
-  #include <t38/t38proto.h>
-#else
+#ifndef USE_OPAL
   #include <t38proto.h>
 #endif
 
@@ -142,12 +143,22 @@ class MODPARS
 };
 ///////////////////////////////////////////////////////////////
 
-class PASN_OctetString;
 class ModStream;
+
+#ifdef USE_OPAL
+class T38_IFPPacket;
+
+class T38Engine : public EngineBase
+{
+  PCLASSINFO(T38Engine, EngineBase);
+#else
+class PASN_OctetString;
 
 class T38Engine : public OpalT38Protocol, public EngineBase
 {
   PCLASSINFO(T38Engine, OpalT38Protocol);
+#endif
+
   public:
 
   /**@name Construction */
@@ -158,6 +169,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
   
   /**@name Operations */
   //@{
+#ifndef USE_OPAL
     void SetRedundancy(
       int indication,
       int low_speed,
@@ -170,6 +182,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
            +  t4-non-ecm-sig-end
      */
     void SetOldASN() { corrigendumASN = FALSE; }
+#endif
   //@}
   
   /**@name Modem API */
@@ -192,25 +205,19 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     void RecvStop();
   //@}
     
-  protected:
-  
+#ifndef USE_OPAL
     void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp) const;
-
-#ifdef USE_OPAL
-    #define CleanUpOnTerminationOrClose Close
-#else
-    #define CleanUpOnTerminationOrClose CleanUpOnTermination
-#endif
-
-    void CleanUpOnTerminationOrClose();
     BOOL Originate();
     BOOL Answer();
+#endif
+
+    void CleanUpOnTermination();
 
     /**Prepare outgoing T.38 packet.
 
        If returns  0, then the writing loop should be terminated.
        If returns >0, then the ifp packet is correct and should be sent.
-       If returns <0, then the ifp packet is not correct.
+       If returns <0, then the ifp packet is not correct (timeout).
       */
     int PreparePacket(
       T38_IFPPacket & ifp,
@@ -232,13 +239,15 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     BOOL HandlePacketLost(
       unsigned nLost
     );
-    
+
+  private:
+
+#ifndef USE_OPAL
     int in_redundancy;
     int ls_redundancy;
     int hs_redundancy;
+#endif
 
-  private:
-  
     void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }
     void WaitOutDataReady() { outDataReadySyncPoint.Wait(); }
     BOOL WaitOutDataReady(const PTimeInterval & timeout) {

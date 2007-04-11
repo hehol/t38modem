@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.41  2007-03-23 10:14:36  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.42  2007-04-11 14:19:15  vfrolov
+ * Changed for OPAL
+ *
+ * Revision 1.42  2007/04/11 14:19:15  vfrolov
+ * Changed for OPAL
  *
  * Revision 1.41  2007/03/23 10:14:36  vfrolov
  * Implemented voice mode functionality
@@ -168,7 +171,6 @@
 #include <ptlib.h>
 
 #ifdef USE_OPAL
-  #include <opal/transports.h>
   #include <asn/t38.h>
 #else
   #include <transports.h>
@@ -458,9 +460,11 @@ T38Engine::T38Engine(const PString &_name)
   modStreamIn = NULL;
   modStreamInSaved = NULL;
   
+#ifndef USE_OPAL
   in_redundancy = 0;
   ls_redundancy = 0;
   hs_redundancy = 0;
+#endif
 
   T38Mode = TRUE;
   isCarrierIn = 0;
@@ -514,6 +518,8 @@ void T38Engine::Detach(const PNotifier &callback)
   }
 }
 ///////////////////////////////////////////////////////////////
+#ifndef USE_OPAL
+
 void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
   if (indication >= 0)
     in_redundancy = indication;
@@ -771,7 +777,7 @@ BOOL T38Engine::Answer()
            << setprecision(2) << udptl);
 
     if (lost < 0) {
-      PTRACE(3, "T38\tRepeated packet");
+      PTRACE(3, "T38\tRepeated packet " << receivedSequenceNumber);
       repeated++;
       continue;
     }
@@ -837,6 +843,8 @@ done:
       << GetThreadTimes(", CPU usage: "));
   return FALSE;
 }
+
+#endif // USE_OPAL
 ///////////////////////////////////////////////////////////////
 //
 void T38Engine::ModemCallbackWithUnlock(INT extra)
@@ -846,10 +854,13 @@ void T38Engine::ModemCallbackWithUnlock(INT extra)
   Mutex.Wait();
 }
 
-void T38Engine::CleanUpOnTerminationOrClose()
+void T38Engine::CleanUpOnTermination()
 {
-  myPTRACE(1, name << " T38Engine::CleanUpOnTerminationOrClose");
-  OpalT38Protocol::CleanUpOnTerminationOrClose();
+  myPTRACE(1, name << " T38Engine::CleanUpOnTermination");
+
+#ifndef USE_OPAL
+  OpalT38Protocol::CleanUpOnTermination();
+#endif
 
   PWaitAndSignal mutexWait(Mutex);
   T38Mode = FALSE;
