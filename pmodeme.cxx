@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.40  2007-04-09 08:07:12  vfrolov
- * Added symbolic logging ModemCallbackParam
+ * Revision 1.41  2007-04-24 16:26:02  vfrolov
+ * Fixed unexpected state change
+ *
+ * Revision 1.41  2007/04/24 16:26:02  vfrolov
+ * Fixed unexpected state change
  *
  * Revision 1.40  2007/04/09 08:07:12  vfrolov
  * Added symbolic logging ModemCallbackParam
@@ -889,12 +892,6 @@ BOOL ModemEngineBody::Attach(AudioEngine *_audioEngine)
     Mutex.Signal();
     PThread::Sleep(20);
     Mutex.Wait();
-  }
-
-  if (state == stReqModeAckWait) {
-    state = stReqModeAckHandle;
-    timeout.Stop();
-    parent.SignalDataReady();
   }
 
   myPTRACE(1, "ModemEngineBody::Attach audioEngine Attached");
