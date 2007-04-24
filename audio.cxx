@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: audio.cxx,v $
- * Revision 1.3  2007-04-04 09:52:57  vfrolov
- * Added missing lastWriteCount setting
+ * Revision 1.4  2007-04-24 16:28:53  vfrolov
+ * Added more tracing
+ *
+ * Revision 1.4  2007/04/24 16:28:53  vfrolov
+ * Added more tracing
  *
  * Revision 1.3  2007/04/04 09:52:57  vfrolov
  * Added missing lastWriteCount setting
@@ -215,12 +218,15 @@ void AudioEngine::SendOnIdle(int /*_dataType*/)
   t30Tone = new T30Tone(T30Tone::cng);
 }
 
-BOOL AudioEngine::SendStart(int /*_dataType*/, int /*param*/)
+BOOL AudioEngine::SendStart(int PTRACE_PARAM(_dataType), int PTRACE_PARAM(param))
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
 
   sendAudio = new DataStream(1024*2);
+
+  PTRACE(3, name << " AudioEngine::SendStart _dataType=" << _dataType
+                 << " param=" << param);
 
   return TRUE;
 }
@@ -236,7 +242,7 @@ int AudioEngine::Send(const void *pBuf, PINDEX count)
   return count;
 }
 
-BOOL AudioEngine::SendStop(BOOL /*moreFrames*/, int _callbackParam)
+BOOL AudioEngine::SendStop(BOOL PTRACE_PARAM(moreFrames), int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
@@ -245,6 +251,9 @@ BOOL AudioEngine::SendStop(BOOL /*moreFrames*/, int _callbackParam)
     sendAudio->PutEof();
 
   callbackParam = _callbackParam;
+
+  PTRACE(3, name << " T38Engine::SendStop moreFrames=" << moreFrames
+                 << " callbackParam=" << callbackParam);
 
   return TRUE;
 }
