@@ -24,8 +24,13 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.14  2007-03-23 10:14:35  vfrolov
-# Implemented voice mode functionality
+# Revision 1.15  2007-05-03 09:21:47  vfrolov
+# Added compile time optimization for original ASN.1 sequence
+# in T.38 (06/98) Annex A or for CORRIGENDUM No. 1 fix
+#
+# Revision 1.15  2007/05/03 09:21:47  vfrolov
+# Added compile time optimization for original ASN.1 sequence
+# in T.38 (06/98) Annex A or for CORRIGENDUM No. 1 fix
 #
 # Revision 1.14  2007/03/23 10:14:35  vfrolov
 # Implemented voice mode functionality
@@ -85,6 +90,18 @@ include $(OPENH323DIR)/openh323u.mak
 #
 ifdef COUT_TRACE
 STDCCFLAGS += -DCOUT_TRACE
+endif
+
+#
+# By default the code will be optimized for original ASN.1
+# sequence in T.38 (06/98) Annex A (it's optimal if you use
+# --old-asn option).
+# If defined OPTIMIZE_CORRIGENDUM_IFP then the code will be
+# optimized for CORRIGENDUM No. 1 fix (it's optimal if you
+# do not use --old-asn option).
+#
+ifdef OPTIMIZE_CORRIGENDUM_IFP
+STDCCFLAGS += -DOPTIMIZE_CORRIGENDUM_IFP
 endif
 
 #

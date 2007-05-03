@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.24  2007-04-11 14:19:15  vfrolov
- * Changed for OPAL
+ * Revision 1.25  2007-05-03 09:21:47  vfrolov
+ * Added compile time optimization for original ASN.1 sequence
+ * in T.38 (06/98) Annex A or for CORRIGENDUM No. 1 fix
+ *
+ * Revision 1.25  2007/05/03 09:21:47  vfrolov
+ * Added compile time optimization for original ASN.1 sequence
+ * in T.38 (06/98) Annex A or for CORRIGENDUM No. 1 fix
  *
  * Revision 1.24  2007/04/11 14:19:15  vfrolov
  * Changed for OPAL
@@ -142,12 +147,19 @@ class MODPARS
     int br;
 };
 ///////////////////////////////////////////////////////////////
+#ifdef OPTIMIZE_CORRIGENDUM_IFP
+  #define T38_IFP       T38_IFPPacket
+  #define T38_IFP_NAME  "IFP"
+#else
+  #define T38_IFP       T38_PreCorrigendum_IFPPacket
+  #define T38_IFP_NAME  "Pre-corrigendum IFP"
+#endif
+///////////////////////////////////////////////////////////////
 
 class ModStream;
+class T38_IFP;
 
 #ifdef USE_OPAL
-class T38_IFPPacket;
-
 class T38Engine : public EngineBase
 {
   PCLASSINFO(T38Engine, EngineBase);
@@ -206,7 +218,8 @@ class T38Engine : public OpalT38Protocol, public EngineBase
   //@}
     
 #ifndef USE_OPAL
-    void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp) const;
+    void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFP &T38_ifp) const;
+    BOOL HandleRawIFP(const PASN_OctetString & pdu);
     BOOL Originate();
     BOOL Answer();
 #endif
@@ -220,7 +233,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
        If returns <0, then the ifp packet is not correct (timeout).
       */
     int PreparePacket(
-      T38_IFPPacket & ifp,
+      T38_IFP & ifp,
       BOOL enableTimeout
     );
 
@@ -229,7 +242,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
        If returns FALSE, then the reading loop should be terminated.
       */
     BOOL HandlePacket(
-      const T38_IFPPacket & ifp
+      const T38_IFP & ifp
     );
 
     /**Handle lost T.38 packets.

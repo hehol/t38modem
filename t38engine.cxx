@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.43  2007-04-26 13:57:17  vfrolov
- * Changed logging for OPAL
+ * Revision 1.44  2007-05-03 09:21:47  vfrolov
+ * Added compile time optimization for original ASN.1 sequence
+ * in T.38 (06/98) Annex A or for CORRIGENDUM No. 1 fix
+ *
+ * Revision 1.44  2007/05/03 09:21:47  vfrolov
+ * Added compile time optimization for original ASN.1 sequence
+ * in T.38 (06/98) Annex A or for CORRIGENDUM No. 1 fix
  *
  * Revision 1.43  2007/04/26 13:57:17  vfrolov
  * Changed logging for OPAL
@@ -423,27 +428,33 @@ static const MODPARS &GetModPars(int key, enum GetModParsBy by = by_val) {
   return invalidMods;
 }
 ///////////////////////////////////////////////////////////////
-static void t38indicator(T38_IFPPacket &ifp, unsigned type)
+static void t38indicator(T38_IFP &ifp, unsigned type)
 {
     ifp.m_type_of_msg.SetTag(T38_Type_of_msg::e_t30_indicator);
     (T38_Type_of_msg_t30_indicator &)ifp.m_type_of_msg = type;
 }
 
-static T38_Data_Field_subtype &t38data(T38_IFPPacket &ifp, unsigned type, unsigned field_type)
+#ifdef OPTIMIZE_CORRIGENDUM_IFP
+  #define T38_DATA_FIELD T38_Data_Field_subtype
+#else
+  #define T38_DATA_FIELD T38_PreCorrigendum_Data_Field_subtype
+#endif
+
+static T38_DATA_FIELD &t38data(T38_IFP &ifp, unsigned type, unsigned field_type)
 {
     ifp.m_type_of_msg.SetTag(T38_Type_of_msg::e_data);
     (T38_Type_of_msg_data &)ifp.m_type_of_msg = type;
     
     ifp.IncludeOptionalField(T38_IFPPacket::e_data_field);
     ifp.m_data_field.SetSize(ifp.m_data_field.GetSize()+1);
-    T38_Data_Field_subtype &Data_Field = ifp.m_data_field[0];
+    T38_DATA_FIELD &Data_Field = ifp.m_data_field[0];
     Data_Field.m_field_type = field_type;
     return Data_Field;
 }
 
-static void t38data(T38_IFPPacket &ifp, unsigned type, unsigned field_type, const PBYTEArray &data)
+static void t38data(T38_IFP &ifp, unsigned type, unsigned field_type, const PBYTEArray &data)
 {
-    T38_Data_Field_subtype &Data_Field = t38data(ifp, type, field_type);
+    T38_DATA_FIELD &Data_Field = t38data(ifp, type, field_type);
     
     if( data.GetSize() > 0 ) {
         Data_Field.IncludeOptionalField(T38_Data_Field_subtype::e_field_data);
@@ -536,19 +547,67 @@ void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
                                             << " high_speed=" << hs_redundancy);
 }
 
-void T38Engine::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFPPacket &T38_ifp) const
+#ifdef OPTIMIZE_CORRIGENDUM_IFP
+  #define T38_IFP_NOT_NATIVE       T38_PreCorrigendum_IFPPacket
+  #define T38_IFP_NOT_NATIVE_NAME  "Pre-corrigendum IFP"
+  #define IS_NATIVE_ASN            corrigendumASN
+  #define IS_EXTENDABLE            FALSE
+#else
+  #define T38_IFP_NOT_NATIVE       T38_IFPPacket
+  #define T38_IFP_NOT_NATIVE_NAME  "IFP"
+  #define IS_NATIVE_ASN            (!corrigendumASN)
+  #define IS_EXTENDABLE            TRUE
+#endif
+
+void T38Engine::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFP &T38_ifp) const
 {
-  if (!corrigendumASN && T38_ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
-    T38_IFPPacket ifp = T38_ifp;
+  if (!IS_NATIVE_ASN && T38_ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
+    T38_IFP ifp = T38_ifp;
     PINDEX count = ifp.m_data_field.GetSize();
 
     for( PINDEX i = 0 ; i < count ; i++ ) {
-      ifp.m_data_field[i].m_field_type.SetExtendable(FALSE);
+      ifp.m_data_field[i].m_field_type.SetExtendable(IS_EXTENDABLE);
     }
     ifp_packet.EncodeSubType(ifp);
   } else {
     ifp_packet.EncodeSubType(T38_ifp);
   }
+}
+
+BOOL T38Engine::HandleRawIFP(const PASN_OctetString & pdu)
+{
+  T38_IFP ifp;
+
+  if (IS_NATIVE_ASN) {
+    if (pdu.DecodeSubType(ifp))
+      return HandlePacket(ifp);
+
+    PTRACE(2, "T38\t" T38_IFP_NAME " decode failure:\n  " << setprecision(2) << ifp);
+    return TRUE;
+  }
+
+  T38_IFP_NOT_NATIVE old_ifp;
+  if (!pdu.DecodeSubType(old_ifp)) {
+    PTRACE(2, "T38\t" T38_IFP_NOT_NATIVE_NAME " decode failure:\n  " << setprecision(2) << old_ifp);
+    return TRUE;
+  }
+
+  ifp.m_type_of_msg = old_ifp.m_type_of_msg;
+
+  if (old_ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
+    ifp.IncludeOptionalField(T38_IFPPacket::e_data_field);
+    PINDEX count = old_ifp.m_data_field.GetSize();
+    ifp.m_data_field.SetSize(count);
+    for (PINDEX i = 0 ; i < count; i++) {
+      ifp.m_data_field[i].m_field_type = old_ifp.m_data_field[i].m_field_type;
+      if (old_ifp.m_data_field[i].HasOptionalField(T38_Data_Field_subtype::e_field_data)) {
+        ifp.m_data_field[i].IncludeOptionalField(T38_Data_Field_subtype::e_field_data);
+        ifp.m_data_field[i].m_field_data = old_ifp.m_data_field[i].m_field_data;
+      }
+    }
+  }
+
+  return HandlePacket(ifp);
 }
 
 BOOL T38Engine::Originate()
@@ -564,11 +623,11 @@ BOOL T38Engine::Originate()
   udptl.m_error_recovery.SetTag(T38_UDPTLPacket_error_recovery::e_secondary_ifp_packets);
 
 #if REPEAT_INDICATOR_SENDING
-  T38_IFPPacket lastifp;
+  T38_IFP lastifp;
 #endif
 
   for (;;) {
-    T38_IFPPacket ifp;
+    T38_IFP ifp;
     int res;
 
 #ifdef REPEAT_INDICATOR_SENDING
@@ -1188,7 +1247,7 @@ void T38Engine::RecvStop()
   #define PTNAME
 #endif
 ///////////////////////////////////////////////////////////////
-int T38Engine::PreparePacket(T38_IFPPacket & ifp, BOOL enableTimeout)
+int T38Engine::PreparePacket(T38_IFP & ifp, BOOL enableTimeout)
 {
   PWaitAndSignal mutexWaitOut(MutexOut);
 
@@ -1197,7 +1256,7 @@ int T38Engine::PreparePacket(T38_IFPPacket & ifp, BOOL enableTimeout)
   
   //myPTRACE(1, PTNAME "T38Engine::PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
   
-  ifp = T38_IFPPacket();
+  ifp = T38_IFP();
   BOOL doDalay = TRUE;
   BOOL wasCarrierIn = FALSE;
 
@@ -1557,7 +1616,7 @@ BOOL T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
   return TRUE;
 }
 ///////////////////////////////////////////////////////////////
-BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
+BOOL T38Engine::HandlePacket(const T38_IFP & ifp)
 {
 #if PTRACING
   if (PTrace::CanTrace(3)) {
@@ -1685,7 +1744,7 @@ BOOL T38Engine::HandlePacket(const T38_IFPPacket & ifp)
                   PTRACE(1, PTNAME "T38Engine::HandlePacket modStream == NULL");
                   break;
                 }
-                const T38_Data_Field_subtype &Data_Field = ifp.m_data_field[i];
+                const T38_DATA_FIELD &Data_Field = ifp.m_data_field[i];
 
                 switch( Data_Field.m_field_type ) {	// Handle data
                   case T38F(e_hdlc_data):
