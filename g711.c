@@ -52,6 +52,8 @@ static int seg_aend[8] = {0x1F, 0x3F, 0x7F, 0xFF,
 static int seg_uend[8] = {0x3F, 0x7F, 0xFF, 0x1FF,
 			    0x3FF, 0x7FF, 0xFFF, 0x1FFF};
 
+#if 0
+
 /* copy from CCITT G.711 specifications */
 unsigned char u2a[128] = {			/* u- to A-law conversions */
 	1,	1,	2,	2,	3,	3,	4,	4,
@@ -95,6 +97,8 @@ unsigned char a2u[128] = {			/* A- to u-law conversions */
 	104,	105,	106,	107,	108,	109,	110,	111,
 	112,	113,	114,	115,	116,	117,	118,	119,
 	120,	121,	122,	123,	124,	125,	126,	127};
+
+#endif
 
 static int
 search(
