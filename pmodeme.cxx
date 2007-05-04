@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.41  2007-04-24 16:26:02  vfrolov
- * Fixed unexpected state change
+ * Revision 1.42  2007-05-04 09:58:57  vfrolov
+ * Fixed Attach(audioEngine)
+ *
+ * Revision 1.42  2007/05/04 09:58:57  vfrolov
+ * Fixed Attach(audioEngine)
  *
  * Revision 1.41  2007/04/24 16:26:02  vfrolov
  * Fixed unexpected state change
@@ -893,6 +896,11 @@ BOOL ModemEngineBody::Attach(AudioEngine *_audioEngine)
     PThread::Sleep(20);
     Mutex.Wait();
   }
+
+  audioEngine->AudioClass(P.AudioClass());
+
+  if (callDirection == cdOutgoing)
+    audioEngine->SendOnIdle(EngineBase::dtCng);
 
   myPTRACE(1, "ModemEngineBody::Attach audioEngine Attached");
   return TRUE;
@@ -2753,9 +2761,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               parent.SignalDataReady();
             } else {
               state = stReqModeAckWait;
-
-              if (audioEngine && callDirection == cdOutgoing)
-                audioEngine->SendOnIdle(EngineBase::dtCng);
 
               if (!forceFaxMode) {
                 timeout.Start(60000);
