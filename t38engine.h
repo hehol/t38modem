@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.25  2007-05-03 09:21:47  vfrolov
- * Added compile time optimization for original ASN.1 sequence
- * in T.38 (06/98) Annex A or for CORRIGENDUM No. 1 fix
+ * Revision 1.26  2007-05-10 10:40:33  vfrolov
+ * Added ability to continuously resend last UDPTL packet
+ *
+ * Revision 1.26  2007/05/10 10:40:33  vfrolov
+ * Added ability to continuously resend last UDPTL packet
  *
  * Revision 1.25  2007/05/03 09:21:47  vfrolov
  * Added compile time optimization for original ASN.1 sequence
@@ -185,8 +187,10 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     void SetRedundancy(
       int indication,
       int low_speed,
-      int high_speed
+      int high_speed,
+      int repeat_interval
     );
+
     /**The calling SetOldASN() is aquivalent to the following change of the t38.asn:
 
            -  t4-non-ecm-sig-end,
@@ -232,10 +236,11 @@ class T38Engine : public OpalT38Protocol, public EngineBase
        If returns >0, then the ifp packet is correct and should be sent.
        If returns <0, then the ifp packet is not correct (timeout).
       */
-    int PreparePacket(
-      T38_IFP & ifp,
-      BOOL enableTimeout
-    );
+    int PreparePacket(T38_IFP & ifp);
+
+    void SetPreparePacketTimeout(int time) {
+      preparePacketTimeout = time;
+    }
 
     /**Handle incoming T.38 packet.
 
@@ -259,7 +264,10 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     int in_redundancy;
     int ls_redundancy;
     int hs_redundancy;
+    int re_interval;
 #endif
+
+    int preparePacketTimeout;
 
     void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }
     void WaitOutDataReady() { outDataReadySyncPoint.Wait(); }

@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: main.h,v $
- * Revision 1.18  2007-03-23 10:14:35  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.19  2007-05-10 10:40:33  vfrolov
+ * Added ability to continuously resend last UDPTL packet
+ *
+ * Revision 1.19  2007/05/10 10:40:33  vfrolov
+ * Added ability to continuously resend last UDPTL packet
  *
  * Revision 1.18  2007/03/23 10:14:35  vfrolov
  * Implemented voice mode functionality
@@ -129,6 +132,7 @@ class MyH323EndPoint : public H323EndPoint
     int in_redundancy;
     int ls_redundancy;
     int hs_redundancy;
+    int re_interval;
     BOOL old_asn;
 
     PDECLARE_NOTIFIER(PObject, MyH323EndPoint, OnMyCallback);

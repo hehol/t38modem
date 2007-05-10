@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.46  2007-03-23 10:14:35  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.47  2007-05-10 10:40:33  vfrolov
+ * Added ability to continuously resend last UDPTL packet
+ *
+ * Revision 1.47  2007/05/10 10:40:33  vfrolov
+ * Added ability to continuously resend last UDPTL packet
  *
  * Revision 1.46  2007/03/23 10:14:35  vfrolov
  * Implemented voice mode functionality
@@ -208,6 +211,7 @@ BOOL T38Modem::Initialise()
              "p-ptty:"
              "-route:"
              "-redundancy:"
+             "-repeat:"
              "-old-asn."
 
              "F-fastenable."
@@ -269,6 +273,8 @@ BOOL T38Modem::Initialise()
         "  --redundancy I[L[H]]      : Set redundancy for error recovery for\n"
         "                              (I)ndication, (L)ow speed and (H)igh\n"
         "                              speed IFP packets. I, L and H are digits.\n"
+        "  --repeat ms               : Continuously resend last UDPTL packet each ms\n"
+        "                              milliseconds.\n"
         "  --old-asn                 : Use original ASN.1 sequence in T.38 (06/98)\n"
         "                              Annex A (w/o CORRIGENDUM No. 1 fix).\n"
         "  -i --interface ip         : Bind to a specific interface.\n"
@@ -385,6 +391,7 @@ MyH323EndPoint::MyH323EndPoint()
   in_redundancy = -1;
   ls_redundancy = -1;
   hs_redundancy = -1;
+  re_interval = -1;
   old_asn = FALSE;
 }
 
@@ -529,7 +536,13 @@ void MyH323EndPoint::SetOptions(MyH323Connection &/*conn*/, OpalT38Protocol *t38
 
   if (t38handler != NULL) {
     PAssert(PIsDescendant(t38handler, T38Engine), PInvalidCast);
-    ((T38Engine *)t38handler)->SetRedundancy(in_redundancy, ls_redundancy, hs_redundancy);
+
+    ((T38Engine *)t38handler)->SetRedundancy(
+        in_redundancy,
+        ls_redundancy,
+        hs_redundancy,
+        re_interval);
+
     if (old_asn)
       ((T38Engine *)t38handler)->SetOldASN();
   }
@@ -620,6 +633,9 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
       }
     }
   }
+
+  if (args.HasOption("repeat"))
+    re_interval = (int)args.GetOptionString("repeat").AsInteger();
 
   if (args.HasOption("old-asn"))
     old_asn = TRUE;

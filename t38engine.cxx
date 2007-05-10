@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.44  2007-05-03 09:21:47  vfrolov
- * Added compile time optimization for original ASN.1 sequence
- * in T.38 (06/98) Annex A or for CORRIGENDUM No. 1 fix
+ * Revision 1.45  2007-05-10 10:40:33  vfrolov
+ * Added ability to continuously resend last UDPTL packet
+ *
+ * Revision 1.45  2007/05/10 10:40:33  vfrolov
+ * Added ability to continuously resend last UDPTL packet
  *
  * Revision 1.44  2007/05/03 09:21:47  vfrolov
  * Added compile time optimization for original ASN.1 sequence
@@ -193,7 +195,6 @@
 #define T38D(msg_data) T38_Type_of_msg_data::msg_data
 #define T38F(field_type) T38_Data_Field_subtype_field_type::field_type
 #define msPerOut 30
-#define msTimeout ((msPerOut) * 3)
 #define msMaxOutDelay 1000
 
 #ifdef P_LINUX
@@ -478,7 +479,10 @@ T38Engine::T38Engine(const PString &_name)
   in_redundancy = 0;
   ls_redundancy = 0;
   hs_redundancy = 0;
+  re_interval = -1;
 #endif
+
+  preparePacketTimeout = -1;
 
   T38Mode = TRUE;
   isCarrierIn = 0;
@@ -534,7 +538,8 @@ void T38Engine::Detach(const PNotifier &callback)
 ///////////////////////////////////////////////////////////////
 #ifndef USE_OPAL
 
-void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
+void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed, int repeat_interval)
+{
   if (indication >= 0)
     in_redundancy = indication;
   if (low_speed >= 0)
@@ -542,9 +547,13 @@ void T38Engine::SetRedundancy(int indication, int low_speed, int high_speed) {
   if (high_speed >= 0)
     hs_redundancy = high_speed;
 
+  re_interval = repeat_interval;
+
   myPTRACE(3, name << " T38Engine::SetRedundancy indication=" << in_redundancy
                                             << " low_speed=" << ls_redundancy
-                                            << " high_speed=" << hs_redundancy);
+                                            << " high_speed=" << hs_redundancy
+                                            << " repeat_interval=" << re_interval
+  );
 }
 
 #ifdef OPTIMIZE_CORRIGENDUM_IFP
@@ -617,7 +626,9 @@ BOOL T38Engine::Originate()
 
   long seq = -1;
   int maxRedundancy = 0;
+#if PTRACING
   int repeated = 0;
+#endif
 
   T38_UDPTLPacket udptl;
   udptl.m_error_recovery.SetTag(T38_UDPTLPacket_error_recovery::e_secondary_ifp_packets);
@@ -630,13 +641,20 @@ BOOL T38Engine::Originate()
     T38_IFP ifp;
     int res;
 
+    if (seq < 0) {
+      preparePacketTimeout = -1;
+    } else {
+      preparePacketTimeout = (
 #ifdef REPEAT_INDICATOR_SENDING
-    if (seq >= 0 && lastifp.m_type_of_msg.GetTag() == T38_Type_of_msg::e_t30_indicator)
-      res = PreparePacket(ifp, TRUE); // do not wait next ifp
-    else
+        lastifp.m_type_of_msg.GetTag() == T38_Type_of_msg::e_t30_indicator ||
 #endif
+        maxRedundancy > 0) ? msPerOut * 3 : -1;
 
-    res = PreparePacket(ifp, maxRedundancy > 0);
+      if (re_interval > 0 && (preparePacketTimeout <= 0 || preparePacketTimeout > re_interval))
+        preparePacketTimeout = re_interval;
+    }
+
+    res = PreparePacket(ifp);
 
 #ifdef REPEAT_INDICATOR_SENDING
     if (res > 0)
@@ -701,9 +719,8 @@ BOOL T38Engine::Originate()
 #endif
     }
     else if (res < 0) {
-      if (maxRedundancy <= 0)
-        continue;
-      maxRedundancy--;
+      if (maxRedundancy > 0)
+        maxRedundancy--;
 #if 1
       /*
        * Optimise repeated packet each time
@@ -723,7 +740,9 @@ BOOL T38Engine::Originate()
         continue;
       }
 #endif
+#if PTRACING
       repeated++;
+#endif
     }
     else
       break;
@@ -752,15 +771,9 @@ BOOL T38Engine::Originate()
       }
     }
     else {
-      if (PTrace::CanTrace(4)) {
-        PTRACE(4, "T38\tSending PDU again:\n  UDPTL = "
+      PTRACE(4, "T38\tSending PDU again:\n  UDPTL = "
              << setprecision(2) << udptl << "\n  "
              << setprecision(2) << rawData);
-      }
-      else {
-        PTRACE(2, "T38\tSending PDU again:"
-                " seq=" << seq);
-      }
     }
 #endif
 
@@ -790,7 +803,9 @@ BOOL T38Engine::Answer()
   long expectedSequenceNumber = 0;
   int totalrecovered = 0;
   int totallost = 0;
+#if PTRACING
   int repeated = 0;
+#endif
 
   for (;;) {
     PPER_Stream rawData;
@@ -839,8 +854,10 @@ BOOL T38Engine::Answer()
            << setprecision(2) << udptl);
 
     if (lost < 0) {
-      PTRACE(3, "T38\tRepeated packet " << receivedSequenceNumber);
+      PTRACE(4, "T38\tRepeated packet " << receivedSequenceNumber);
+#if PTRACING
       repeated++;
+#endif
       continue;
     }
     else if(lost > 0) {
@@ -962,8 +979,11 @@ BOOL T38Engine::isOutBufFull() const
 ///////////////////////////////////////////////////////////////
 void T38Engine::SendOnIdle(int _dataType)
 {
+  PTRACE(2, name << " T38Engine::SendOnIdle " << _dataType);
+
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
+
   onIdleOut = _dataType;
   SignalOutDataReady();
 }
@@ -1247,7 +1267,7 @@ void T38Engine::RecvStop()
   #define PTNAME
 #endif
 ///////////////////////////////////////////////////////////////
-int T38Engine::PreparePacket(T38_IFP & ifp, BOOL enableTimeout)
+int T38Engine::PreparePacket(T38_IFP & ifp)
 {
   PWaitAndSignal mutexWaitOut(MutexOut);
 
@@ -1290,10 +1310,9 @@ int T38Engine::PreparePacket(T38_IFP & ifp, BOOL enableTimeout)
       //myPTRACE(1, PTNAME "T38Engine::PreparePacket outDelay=" << outDelay);
 
       if (outDelay > 0) {
-        if (enableTimeout && outDelay > msTimeout) {
-          delayRestOut = outDelay - msTimeout;
-          outDelay = msTimeout;
-          mySleep(outDelay);
+        if (preparePacketTimeout > 0 && outDelay > preparePacketTimeout) {
+          delayRestOut = outDelay - preparePacketTimeout;
+          mySleep(preparePacketTimeout);
           return -1;
         } else {
           while(outDelay > msMaxOutDelay) {
@@ -1570,8 +1589,8 @@ int T38Engine::PreparePacket(T38_IFP & ifp, BOOL enableTimeout)
       }
       if (!waitData)
         break;
-      if (enableTimeout) {
-        if (!WaitOutDataReady(msTimeout))
+      if (preparePacketTimeout > 0) {
+        if (!WaitOutDataReady(preparePacketTimeout))
           return -1;
       } else
         WaitOutDataReady();
