@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.47  2007-05-10 10:40:33  vfrolov
- * Added ability to continuously resend last UDPTL packet
+ * Revision 1.48  2007-05-17 08:32:44  vfrolov
+ * Moved class T38Modem from main.h and main.cxx to main_process.cxx
+ *
+ * Revision 1.48  2007/05/17 08:32:44  vfrolov
+ * Moved class T38Modem from main.h and main.cxx to main_process.cxx
  *
  * Revision 1.47  2007/05/10 10:40:33  vfrolov
  * Added ability to continuously resend last UDPTL packet
@@ -164,50 +167,18 @@
 #include <h323t38.h>
 
 #include "main.h"
-#include "version.h"
 #include "t38engine.h"
 #include "audio.h"
 #include "pmodem.h"
 #include "g7231_fake.h"
 #include "drivers.h"
 
-PCREATE_PROCESS(T38Modem);
-
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-
-T38Modem::T38Modem()
-  : PProcess("OpenH323 Project", "T38Modem",
-             MAJOR_VERSION, MINOR_VERSION, BUILD_TYPE, BUILD_NUMBER)
+PString MyH323EndPoint::ArgSpec()
 {
-}
-
-
-T38Modem::~T38Modem()
-{
-}
-
-void T38Modem::Main()
-{
-  cout << GetName()
-       << " Version " << GetVersion(TRUE) << "\n"
-       << " by " << GetManufacturer()
-       << " on " << GetOSClass() << ' ' << GetOSName()
-       << " (" << GetOSVersion() << '-' << GetOSHardware() << ")\n\n";
-
-  if (!Initialise())
-    return;
-
-  for (;;)
-    PThread::Sleep(5000);
-}
-
-BOOL T38Modem::Initialise()
-{
-  PConfigArgs args(GetArguments());
-
-  args.Parse(PseudoModemDrivers::ArgSpec() +
+  return     PseudoModemDrivers::ArgSpec() +
              "p-ptty:"
              "-route:"
              "-redundancy:"
@@ -221,43 +192,17 @@ BOOL T38Modem::Initialise()
 
              "g-gatekeeper:"         "n-no-gatekeeper."
              "-require-gatekeeper."  "-no-require-gatekeeper."
-             "h-help."
-             "v-version."
              "i-interface:"          "-no-interface."
              "-listenport:"          "-no-listenport."
              "-connectport:"         "-no-connectport."
              "-ports:"
-#if PMEMORY_CHECK
-             "-setallocationbreakpoint:"
-#endif
-#if PTRACING
-             "t-trace."
-             "o-output:"
-#endif
-             "-save."
              "u-username:"           "-no-username."
-          , FALSE);
+  ;
+}
 
-#if PMEMORY_CHECK
-  if (args.HasOption("setallocationbreakpoint"))
-    PMemoryHeap::SetAllocationBreakpoint(args.GetOptionString("setallocationbreakpoint").AsInteger());
-#endif
-
-#if PTRACING
-  PTrace::Initialise(args.GetOptionCount('t'),
-                     args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL,
-                     PTrace::DateAndTime | PTrace::Thread | PTrace::Blocks);
-
-  PTRACE(1, GetName()
-      << " Version " << GetVersion(TRUE)
-      << " on " << GetOSClass() << " " << GetOSName()
-      << " (" << GetOSVersion() << '-' << GetOSHardware() << ")");
-#endif
-
-  if (args.HasOption('h')) {
-    cout << 
-        "Usage : " << GetName() << " [options]\n"
-        "Options:\n"
+PStringArray MyH323EndPoint::Descriptions()
+{
+  PStringArray descriptions = PString(
         "  -p --ptty [num@]tty[,...] : Pseudo ttys (mandatory).\n"
         "                              Can be used multiple times.\n"
         "                              If tty prefixed by num@ then tty will\n"
@@ -294,40 +239,30 @@ BOOL T38Modem::Initialise()
         "  -P --prefer codec         : Prefer the specified codec.\n"
         "                              Can be used multiple times.\n"
         "  -u --username str         : Set the local endpoint name to str.\n"
-#if PTRACING
-        "  -t --trace                : Enable trace, use multiple times for more detail.\n"
-        "  -o --output file          : File for trace output, default is stderr.\n"
-#endif
-        "     --save                 : Save arguments in configuration file and exit.\n"
-        "  -v --version              : Display version.\n"
-        "  -h --help                 : Display this help message.\n"
-        "Drivers:\n";
+        "Drivers:\n"
+  ).Lines();
 
-    PStringArray descriptions = PseudoModemDrivers::Descriptions();
+  PStringArray ds;
 
-    for (PINDEX i = 0 ; i < descriptions.GetSize() ; i++) {
-      cout << 
-        "  " << descriptions[i] << "\n";
-    }
-    return FALSE;
-  }
+  ds = PseudoModemDrivers::Descriptions();
 
- 
-  if (args.HasOption('v')) {
-	return FALSE;
-  }
- 
-  if (args.HasOption("save")) {
-    args.Save("save");
-    cout << "Arguments were saved in configuration file\n";
-    return FALSE;
-  }
+  for (PINDEX i = 0 ; i < ds.GetSize() ; i++)
+    descriptions.Append(new PString(PString("  ") + ds[i]));
 
+  return descriptions;
+}
+
+BOOL MyH323EndPoint::Create(const PConfigArgs &args)
+{
   MyH323EndPoint *endpoint = new MyH323EndPoint();
 
-  PString userName = "OpenH323 Answering Machine v" + GetVersion();
+  PString userName;
+
   if (args.HasOption('u'))
     userName = args.GetOptionString('u');
+  else
+    userName = PProcess::Current().GetName() + " v" + PProcess::Current().GetVersion();
+
   endpoint->SetLocalUserName(userName);
 
   if (!endpoint->Initialise(args))

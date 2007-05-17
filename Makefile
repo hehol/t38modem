@@ -24,9 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.15  2007-05-03 09:21:47  vfrolov
-# Added compile time optimization for original ASN.1 sequence
-# in T.38 (06/98) Annex A or for CORRIGENDUM No. 1 fix
+# Revision 1.16  2007-05-17 08:32:44  vfrolov
+# Moved class T38Modem from main.h and main.cxx to main_process.cxx
+#
+# Revision 1.16  2007/05/17 08:32:44  vfrolov
+# Moved class T38Modem from main.h and main.cxx to main_process.cxx
 #
 # Revision 1.15  2007/05/03 09:21:47  vfrolov
 # Added compile time optimization for original ASN.1 sequence
@@ -73,16 +75,36 @@
 
 PROG		= t38modem
 SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
-		   g7231_fake.cxx t30tone.cxx hdlc.cxx t30.cxx fcs.cxx \
+		   t30tone.cxx hdlc.cxx t30.cxx fcs.cxx \
 		   pmodeme.cxx enginebase.cxx t38engine.cxx audio.cxx \
 		   drv_pty.cxx \
-		   main.cxx
+		   main_process.cxx
 
-ifndef OPENH323DIR
-OPENH323DIR=$(HOME)/openh323
+#
+# Build t38modem for
+#  - Open Phone Abstraction Library if defined USE_OPAL
+#  - Open H323 Library if not defined USE_OPAL
+#
+ifdef USE_OPAL
+  VPATH_CXX := opal
+
+  ifndef OPALDIR
+    OPALDIR=$(HOME)/opal
+  endif
+
+  OBJDIR_SUFFIX = opal_$(OBJ_SUFFIX)
+  STDCCFLAGS += -DUSE_OPAL
+
+  include $(OPALDIR)/opal_inc.mak
+else
+  SOURCES += g7231_fake.cxx main.cxx
+
+  ifndef OPENH323DIR
+    OPENH323DIR=$(HOME)/openh323
+  endif
+
+  include $(OPENH323DIR)/openh323u.mak
 endif
-
-include $(OPENH323DIR)/openh323u.mak
 
 #
 # If defined COUT_TRACE then enable duplicate the

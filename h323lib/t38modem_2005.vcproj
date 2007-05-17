@@ -599,6 +599,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\main_process.cxx"
+				>
+			</File>
+			<File
 				RelativePath="pmodem.cxx"
 				>
 				<FileConfiguration

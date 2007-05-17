@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.19  2007-05-10 10:40:33  vfrolov
- * Added ability to continuously resend last UDPTL packet
+ * Revision 1.20  2007-05-17 08:32:44  vfrolov
+ * Moved class T38Modem from main.h and main.cxx to main_process.cxx
+ *
+ * Revision 1.20  2007/05/17 08:32:44  vfrolov
+ * Moved class T38Modem from main.h and main.cxx to main_process.cxx
  *
  * Revision 1.19  2007/05/10 10:40:33  vfrolov
  * Added ability to continuously resend last UDPTL packet
@@ -89,20 +92,6 @@
 
 #include <h323.h>
 
-class T38Modem : public PProcess
-{
-  PCLASSINFO(T38Modem, PProcess)
-
-  public:
-    T38Modem();
-    ~T38Modem();
-
-    void Main();
-
-  protected:
-    BOOL Initialise();
-};
-
 class PseudoModem;
 class PseudoModemQ;
 class MyH323Connection;
@@ -113,6 +102,10 @@ class MyH323EndPoint : public H323EndPoint
 
   public:
     MyH323EndPoint();
+
+    static PString ArgSpec();
+    static PStringArray Descriptions();
+    static BOOL Create(const PConfigArgs &args);
 
     // overrides from H323EndPoint
     virtual H323Connection * CreateConnection(unsigned callReference, void *userData);

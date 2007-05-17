@@ -152,6 +152,10 @@ SOURCE=.\main.cxx
 # End Source File
 # Begin Source File
 
+SOURCE=.\main_process.cxx
+# End Source File
+# Begin Source File
+
 SOURCE=.\pmodem.cxx
 # End Source File
 # Begin Source File
