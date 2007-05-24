@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.48  2007-05-17 08:32:44  vfrolov
- * Moved class T38Modem from main.h and main.cxx to main_process.cxx
+ * Revision 1.49  2007-05-24 17:05:51  vfrolov
+ * Fixed cout buffering delays
+ *
+ * Revision 1.49  2007/05/24 17:05:51  vfrolov
+ * Fixed cout buffering delays
  *
  * Revision 1.48  2007/05/17 08:32:44  vfrolov
  * Moved class T38Modem from main.h and main.cxx to main_process.cxx
@@ -522,13 +525,13 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
     PString r = args.GetOptionString("route");
     routes = r.Tokenise(",\r\n", FALSE);
 
-    cout << "Route O/G calls:\n";
+    cout << "Route O/G calls:" << endl;
 
     for( PINDEX i = 0 ; i < routes.GetSize() ; i++ ) {
       r = routes[i];
       PStringArray rs = r.Tokenise("@", FALSE);
       if( rs.GetSize() == 2 ) {
-        cout << "  " << rs[0] << " --> " << rs[1] << "\n";
+        cout << "  " << rs[0] << " --> " << rs[1] << endl;
         PTRACE(1, "Route " << rs[0] << " --> " << rs[1]);
         if( rs[0] == "all" )
           break;
@@ -685,20 +688,22 @@ H323Connection::AnswerCallResponse
                                     H323SignalPDU & /*connectPDU*/)
 {
   PString number;
-  cout << "I/C connection\n";
+  cout << "I/C connection";
   PTRACE(1, "I/C connection");
-  
+
   if (setupPDU.GetSourceE164(number)) {
-    cout << "From: " << number << "\n";
+    cout << " from " << number;
     PTRACE(1, "From: " << number);
   }
 
   if (setupPDU.GetDestinationE164(number)) {
-    cout << "To:   " << number << "\n";
+    cout << " to " << number;
     PTRACE(1, "To: " << number);
   } else {
     number = "";
   }
+
+  cout << endl;
 
   PseudoModem *_pmodem = ep.PMAlloc(number);
 
