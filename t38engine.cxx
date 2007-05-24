@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.45  2007-05-10 10:40:33  vfrolov
- * Added ability to continuously resend last UDPTL packet
+ * Revision 1.46  2007-05-24 17:03:54  vfrolov
+ * Added more PTRACING checks
+ *
+ * Revision 1.46  2007/05/24 17:03:54  vfrolov
+ * Added more PTRACING checks
  *
  * Revision 1.45  2007/05/10 10:40:33  vfrolov
  * Added ability to continuously resend last UDPTL packet
@@ -684,11 +687,9 @@ BOOL T38Engine::Originate()
           }
           secondary[0].SetValue(udptl.m_primary_ifp_packet.GetValue());
         }
+      } else {
+        PTRACE_IF(3, maxRedundancy > 0, "T38\tNot implemented yet " << recovery.GetTagName());
       }
-      else
-        if (maxRedundancy > 0) {
-          PTRACE(3, "T38\tNot implemented yet " << recovery.GetTagName());
-        }
 
       udptl.m_seq_number = ++seq & 0xFFFF;
 
@@ -737,7 +738,6 @@ BOOL T38Engine::Originate()
       }
       else {
         PTRACE(3, "T38\tNot implemented yet " << recovery.GetTagName());
-        continue;
       }
 #endif
 #if PTRACING
@@ -801,9 +801,9 @@ BOOL T38Engine::Answer()
 
   int consecutiveBadPackets = 0;
   long expectedSequenceNumber = 0;
+#if PTRACING
   int totalrecovered = 0;
   int totallost = 0;
-#if PTRACING
   int repeated = 0;
 #endif
 
@@ -868,7 +868,9 @@ BOOL T38Engine::Answer()
         if (lost > nRedundancy) {
           if (!HandlePacketLost(lost - nRedundancy))
             break;
+#if PTRACING
           totallost += lost - nRedundancy;
+#endif
           lost = nRedundancy;
         }
         else
@@ -882,7 +884,9 @@ BOOL T38Engine::Answer()
           if (!HandleRawIFP(secondary[i]))
             goto done;
 
+#if PTRACING
           totalrecovered++;
+#endif
           lost--;
           receivedSequenceNumber++;
         }
@@ -895,8 +899,10 @@ BOOL T38Engine::Answer()
       if (lost) {
         if (!HandlePacketLost(lost))
           break;
+#if PTRACING
         totallost += lost;
-      } 
+#endif
+      }
     }
 
 #if 0
