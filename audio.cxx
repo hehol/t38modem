@@ -24,8 +24,13 @@
  * Contributor(s): 
  *
  * $Log: audio.cxx,v $
- * Revision 1.4  2007-04-24 16:28:53  vfrolov
- * Added more tracing
+ * Revision 1.5  2007-05-28 12:44:24  vfrolov
+ * Added adaptive delay restarting
+ * Fixed SendOnIdle()
+ *
+ * Revision 1.5  2007/05/28 12:44:24  vfrolov
+ * Added adaptive delay restarting
+ * Fixed SendOnIdle()
  *
  * Revision 1.4  2007/04/24 16:28:53  vfrolov
  * Added more tracing
@@ -89,9 +94,9 @@ BOOL AudioEngine::Attach(const PNotifier &callback)
     return FALSE;
   }
 
+  readDelay.Restart();
+  writeDelay.Restart();
   modemCallback = callback;
-
-  PWaitAndSignal mutexWait(Mutex);
 
   return TRUE;
 }
@@ -210,12 +215,27 @@ BOOL AudioEngine::Read(void * buffer, PINDEX amount)
   return TRUE;
 }
 
-void AudioEngine::SendOnIdle(int /*_dataType*/)
+void AudioEngine::SendOnIdle(int _dataType)
 {
+  PTRACE(2, name << " AudioEngine::SendOnIdle " << _dataType);
+
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
 
-  t30Tone = new T30Tone(T30Tone::cng);
+  if (t30Tone) {
+    delete t30Tone;
+    t30Tone = NULL;
+  }
+
+  switch (_dataType) {
+    case dtCng:
+      t30Tone = new T30Tone(T30Tone::cng);
+      break;
+    case dtNone:
+      break;
+    default:
+      PTRACE(1, name << " AudioEngine::SendOnIdle dataType(" << _dataType << ") is not supported");
+  }
 }
 
 BOOL AudioEngine::SendStart(int PTRACE_PARAM(_dataType), int PTRACE_PARAM(param))
