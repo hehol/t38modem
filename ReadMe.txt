@@ -19,17 +19,31 @@ From your view point it's a gateway between an application and IP network.
 2. Building
 -----------
 
-2.1. Compiling for Unix
------------------------
+2.1. Building for Unix
+----------------------
 
-$ make opt
+Building with Open H323 Library:
 
-2.2. Compiling for Windows
---------------------------
+  $ make opt
 
-Start MSVC (v5 or v6) with t38modem.dsp file.
-Set Active Configuration to "t38modem - Win32 Release".
-Build t38modem.exe.
+Building with Open Phone Abstraction Library (OPAL):
+
+  $ make USE_OPAL=1 opt
+
+2.2. Building for Windows
+-------------------------
+
+Building with Open H323 Library:
+
+  Start Microsoft Visual C++ 2005 with t38modem_2005.vcproj file.
+  Set Active Configuration to "t38modem - Win32 Release".
+  Build t38modem.exe.
+
+Building with Open Phone Abstraction Library (OPAL):
+
+  Start Microsoft Visual C++ 2005 with opal\t38modem_2005.vcproj file.
+  Set Active Configuration to "t38modem - Win32 Release".
+  Build t38modem.exe.
 
 3. Examples
 -----------
@@ -266,8 +280,11 @@ Examples:
 
 /*
  * $Log: ReadMe.txt,v $
- * Revision 1.14  2007-03-23 10:14:35  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.15  2007-05-28 13:44:53  vfrolov
+ * Added OPAL support
+ *
+ * Revision 1.15  2007/05/28 13:44:53  vfrolov
+ * Added OPAL support
  *
  * Revision 1.14  2007/03/23 10:14:35  vfrolov
  * Implemented voice mode functionality
