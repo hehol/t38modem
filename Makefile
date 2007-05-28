@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.16  2007-05-17 08:32:44  vfrolov
-# Moved class T38Modem from main.h and main.cxx to main_process.cxx
+# Revision 1.17  2007-05-28 12:52:27  vfrolov
+# Added OPAL support
+#
+# Revision 1.17  2007/05/28 12:52:27  vfrolov
+# Added OPAL support
 #
 # Revision 1.16  2007/05/17 08:32:44  vfrolov
 # Moved class T38Modem from main.h and main.cxx to main_process.cxx
@@ -87,6 +90,12 @@ SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
 #
 ifdef USE_OPAL
   VPATH_CXX := opal
+
+  SOURCES += ifptranscoder.cxx ifpmediafmt.cxx t38session.cxx \
+             modemep.cxx modemstrm.cxx \
+             h323cap.cxx h323ep.cxx \
+             sipep.cxx \
+             manager.cxx
 
   ifndef OPALDIR
     OPALDIR=$(HOME)/opal
