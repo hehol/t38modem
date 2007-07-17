@@ -51,14 +51,29 @@ Building with Open Phone Abstraction Library (OPAL):
 3.1. Starting
 -------------
 
-$ ./obj_linux_x86_r/t38modem -n -o trace.log -p ttyx0,ttyx1 --route 0@127.0.0.1 --route all@172.16.33.21
+Starting with Open H323 Library:
 
-Creates two modems /dev/ttyx0 and /dev/ttyx1
+  $ ./obj_linux_x86_r/t38modem -n -o trace.log -p ttyx0,ttyx1 \
+                               --route 0@127.0.0.1 --route all@172.16.33.21
+
+Starting with OPAL:
+
+  $ ./obj_linux_x86_opal_r/t38modem --no-sip -n -o trace.log -p ttyx0,ttyx1 \
+                               --route "modem:0.*=h323:<dn!1>@127.0.0.1" \
+                               --route "modem:.*=h323:<dn>@172.16.33.21" \
+                               --route "h323:.*=modem:<dn>"
+
+This will create two modems (/dev/ttyx0 and /dev/ttyx1) and H.323 endpoint.
+If dialed number begins with '0' then it will be routed to a local host
+(leading '0' will be discarded). Other dialed numbers will be routed to
+172.16.33.21.
 
 Q. I try to use T38modem, but after run "t38modem -p ttyx0" I get a message
    "Could not open /dev/ptyx0: No such file or directory".
 A. Looks like you don't have legacy PTY devices compiled in your kernel.
    You need to re-compile the kernel with 'Legacy PTY Support'.
+   Alternatively, you can build t38modem with USE_UNIX98_PTY=1 option and use
+   -p +/dev/ttyx0,+/dev/ttyx1 instead of -p ttyx0,ttyx1.
 
 FreeBSD Users: You need to use  -p ttypa,ttypb instead of -p ttyx0,ttyx1.
                Remember to replace ttyx0 with ttypa and ttyx1 with ttypb
@@ -75,10 +90,8 @@ Windows Users: You need two COM ports connected via Null-modem cable to create o
                Q. What model of modem to select in Add Hardware Wizard?
                A. Select "Standard 1440 bps Modem".
 
-Cisco Users:   You additionaly need to use --old-asn and --h245tunneldisable options.
-
-If dialed number begins with '0' then it will be routed to local host ('0' will be discarded).
-If not then it will be routed to 172.16.33.21.
+Cisco Users:   You additionaly need to use --old-asn (--h323-old-asn with OPAL) and
+               --h245tunneldisable options.
 
 3.2. Testing (you need two consoles)
 ------------------------------------
@@ -280,8 +293,13 @@ Examples:
 
 /*
  * $Log: ReadMe.txt,v $
- * Revision 1.15  2007-05-28 13:44:53  vfrolov
- * Added OPAL support
+ * Revision 1.16  2007-07-17 10:05:26  vfrolov
+ * Added Unix98 PTY support
+ * Added OPAL example
+ *
+ * Revision 1.16  2007/07/17 10:05:26  vfrolov
+ * Added Unix98 PTY support
+ * Added OPAL example
  *
  * Revision 1.15  2007/05/28 13:44:53  vfrolov
  * Added OPAL support
