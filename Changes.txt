@@ -7,6 +7,17 @@
  *
  */
 
+Changelog for t38modem 1.0.0
+
+* Added OPAL support.
+* Implemented voice mode functionality.
+* The code optimized for original ASN.1 sequence in T.38 (06/98)
+  Annex A (it's optimal if you use --old-asn option). Compiling
+  with OPTIMIZE_CORRIGENDUM_IFP will optimize for CORRIGENDUM No. 1
+  fix (it's optimal if you do not use --old-asn option).
+* Added ability to continuously re-send last UDPTL packet.
+* Added Unix98 PTY support.
+
 Changelog for t38modem 0.8.4
 
 * Fixed incompatibilities with some endpoints.
