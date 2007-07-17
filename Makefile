@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.17  2007-05-28 12:52:27  vfrolov
-# Added OPAL support
+# Revision 1.18  2007-07-17 10:03:22  vfrolov
+# Added Unix98 PTY support
+#
+# Revision 1.18  2007/07/17 10:03:22  vfrolov
+# Added Unix98 PTY support
 #
 # Revision 1.17  2007/05/28 12:52:27  vfrolov
 # Added OPAL support
@@ -166,5 +169,22 @@ endif
 #
 ifdef REPEAT_INDICATOR_SENDING
 STDCCFLAGS += -DREPEAT_INDICATOR_SENDING
+endif
+
+#
+# If defined USE_UNIX98_PTY then t38modem will use
+# Unix98 scheme for pty devices.
+# If defined USE_LEGACY_PTY or not defined USE_UNIX98_PTY
+# then t38modem will use legacy scheme for pty devices.
+# Both schemes cen be used simultaneously.
+#
+ifdef USE_UNIX98_PTY
+  STDCCFLAGS += -DUSE_UNIX98_PTY
+
+  ifdef USE_LEGACY_PTY
+    STDCCFLAGS += -DUSE_LEGACY_PTY
+  endif
+else
+  STDCCFLAGS += -DUSE_LEGACY_PTY
 endif
 

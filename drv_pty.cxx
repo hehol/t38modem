@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.cxx,v $
- * Revision 1.6  2007-02-21 08:04:20  vfrolov
- * Added printing message to stdout if no pty device
+ * Revision 1.7  2007-07-17 10:03:22  vfrolov
+ * Added Unix98 PTY support
+ *
+ * Revision 1.7  2007/07/17 10:03:22  vfrolov
+ * Added Unix98 PTY support
  *
  * Revision 1.6  2007/02/21 08:04:20  vfrolov
  * Added printing message to stdout if no pty device
@@ -243,40 +246,8 @@ void OutPty::Main()
   myPTRACE(1, "<-- Stopped" << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
-PseudoModemPty::PseudoModemPty(
-    const PString &_tty,
-    const PString &_route,
-    const PConfigArgs &/*args*/,
-    const PNotifier &_callbackEndPoint)
-
-  : PseudoModemBody(_route, _callbackEndPoint),
-    hPty(-1),
-    inPty(NULL),
-    outPty(NULL)
-{
-  if (CheckTty(_tty)) {
-    if (_tty[0] != '/')
-      ttypath = "/dev/" + _tty;
-    else
-      ttypath = _tty;
-
-    (ptypath = ttypath)[5] = 'p';
-    ptyname = &ptypath[5];
-
-    valid = TRUE;
-  } else {
-    myPTRACE(1, "PseudoModemPty::PseudoModemPty bad on " << _tty);
-    valid = FALSE;
-  }
-}
-
-PseudoModemPty::~PseudoModemPty()
-{
-  StopAll();
-  ClosePty();
-}
-
-inline const char *ttyPattern()
+#ifdef USE_LEGACY_PTY
+static const char *ttyPatternLegacy()
 {
 #if defined(P_LINUX)
   #define TTY_PATTERN "^(/dev/)?tty[pqrstuvwxyzabcde][0123456789abcdef]$"
@@ -289,28 +260,153 @@ inline const char *ttyPattern()
 #endif
 
   return TTY_PATTERN;
+#undef TTY_PATTERN
+}
+
+static BOOL ttyCheckLegacy(const PString &_tty)
+{
+  PRegularExpression regLegacy(ttyPatternLegacy(), PRegularExpression::Extended);
+
+  return _tty.FindRegEx(regLegacy) == 0;
+}
+#endif // USE_LEGACY_PTY
+///////////////////////////////////////////////////////////////
+#ifdef USE_UNIX98_PTY
+static const char *ttyPatternUnix98()
+{
+  return "^\\+.+$";
+}
+
+static BOOL ttyCheckUnix98(const PString &_tty)
+{
+  PRegularExpression regUnix98(ttyPatternUnix98(), PRegularExpression::Extended);
+
+  return _tty.FindRegEx(regUnix98) == 0;
+}
+
+static const char *ptyPathUnix98()
+{
+  return "/dev/ptmx";
+}
+
+static void ttyUnlinkUnix98(const char *ttypath)
+{
+    char ptsName[64];
+
+    memset(ptsName, 0, sizeof(ptsName));
+
+    if (readlink(ttypath, ptsName, sizeof(ptsName) - 1) >= 0 && ::unlink(ttypath) == 0)
+      myPTRACE(1, "PseudoModemPty::OpenPty removed link " << ttypath << " -> " << ptsName);
+}
+#endif // USE_UNIX98_PTY
+///////////////////////////////////////////////////////////////
+PseudoModemPty::PseudoModemPty(
+    const PString &_tty,
+    const PString &_route,
+#ifdef USE_UNIX98_PTY
+    const PConfigArgs &args,
+#else
+    const PConfigArgs &/*args*/,
+#endif
+    const PNotifier &_callbackEndPoint)
+
+  : PseudoModemBody(_route, _callbackEndPoint),
+    hPty(-1),
+    inPty(NULL),
+    outPty(NULL)
+{
+  valid = TRUE;
+
+#ifdef USE_LEGACY_PTY
+  if (ttyCheckLegacy(_tty)) {
+    if (_tty[0] != '/')
+      ttypath = "/dev/" + _tty;
+    else
+      ttypath = _tty;
+
+    (ptypath = ttypath)[5] = 'p';
+    ptyname = &ptypath[5];
+  }
+  else
+#endif // USE_LEGACY_PTY
+#ifdef USE_UNIX98_PTY
+  if (ttyCheckUnix98(_tty)) {
+    if (args.HasOption("pts-dir")) {
+      ttypath = args.GetOptionString("pts-dir");
+
+      if (!ttypath.IsEmpty() && ttypath.Right(1) != "/")
+        ttypath += "/";
+    }
+
+    ttypath += _tty.Mid(1);
+    ptypath = ptyPathUnix98();
+
+    PINDEX i = ttypath.FindLast('/');
+
+    if (i == P_MAX_INDEX)
+      i = 0;
+    else
+      i++;
+
+    ptyname = ttypath.Mid(i);
+  }
+  else
+#endif // USE_UNIX98_PTY
+  {
+    myPTRACE(1, "PseudoModemPty::PseudoModemPty bad on " << _tty);
+    valid = FALSE;
+  }
+}
+
+PseudoModemPty::~PseudoModemPty()
+{
+  StopAll();
+  ClosePty();
 }
 
 BOOL PseudoModemPty::CheckTty(const PString &_tty)
 {
-  PRegularExpression reg(ttyPattern(), PRegularExpression::Extended);
+#ifdef USE_LEGACY_PTY
+  if (ttyCheckLegacy(_tty))
+    return TRUE;
+#endif
 
-  return _tty.FindRegEx(reg) == 0;
+#ifdef USE_UNIX98_PTY
+  if (ttyCheckUnix98(_tty))
+    return TRUE;
+#endif
+
+  return FALSE;
 }
 
 PString PseudoModemPty::ArgSpec()
 {
-  return "";
+  return
+#ifdef USE_UNIX98_PTY
+        "-pts-dir:"
+#endif
+        "";
 }
 
 PStringArray PseudoModemPty::Description()
 {
-  PStringArray description;
+  PStringArray descriptions = PString(
+        "Uses pseudo-tty (pty) devices to communicate with a fax application.\n"
+#ifdef USE_LEGACY_PTY
+        "For legacy ptys the tty should match to the regexp\n"
+        "  '" + PString(ttyPatternLegacy()) + "'\n"
+#endif
+#ifdef USE_UNIX98_PTY
+        "For Unix98 ptys the tty should match to the regexp\n"
+        "  '" + PString(ttyPatternUnix98()) + "'\n"
+        "(the first character '+' will be replaced by a base directory).\n"
+        "Options:\n"
+        "  --pts-dir dir         : Set a base directory for Unix98 scheme,\n"
+        "                          default is empty.\n"
+#endif
+  ).Lines();
 
-  description.Append(new PString("Uses pseudo-tty (pty) devices to communicate with fax application."));
-  description.Append(new PString(PString("The tty should match to regexp '") + ttyPattern() + "'."));
-
-  return description;
+  return descriptions;
 }
 
 const PString &PseudoModemPty::ttyPath() const
@@ -423,7 +519,7 @@ BOOL PseudoModemPty::OpenPty()
 
   if (::tcgetattr(hPty, &Termios) != 0) {
     int err = errno;
-    myPTRACE(1, "PseudoModemPty::OpenPty tcgetattr " << ptypath << " ERROR: " << strerror(err));
+    myPTRACE(1, "PseudoModemPty::OpenPty tcgetattr " << ptyname << " ERROR: " << strerror(err));
     ClosePty();
     return FALSE;
   }
@@ -435,10 +531,42 @@ BOOL PseudoModemPty::OpenPty()
   Termios.c_cc[VTIME] = 0;
   if (::tcsetattr(hPty, TCSANOW, &Termios) != 0) {
     int err = errno;
-    myPTRACE(1, "PseudoModemPty::OpenPty tcsetattr " << ptypath << " ERROR: " << strerror(err));
+    myPTRACE(1, "PseudoModemPty::OpenPty tcsetattr " << ptyname << " ERROR: " << strerror(err));
     ClosePty();
     return FALSE;
   }
+
+#ifdef USE_UNIX98_PTY
+  if (ptypath == ptyPathUnix98()) {
+    ttyUnlinkUnix98(ttypath);
+
+    if (::unlockpt(hPty) != 0) {
+      int err = errno;
+      myPTRACE(1, "PseudoModemPty::OpenPty unlockpt " << ptyname << " ERROR: " << strerror(err));
+      ClosePty();
+      return FALSE;
+    }
+
+    char ptsName[64];
+
+    if (::ptsname_r(hPty, ptsName, sizeof(ptsName)) != 0) {
+      int err = errno;
+      myPTRACE(1, "PseudoModemPty::OpenPty ptsname_r " << ptyname << " ERROR: " << strerror(err));
+      ClosePty();
+      return FALSE;
+    }
+
+    if (::symlink(ptsName, ttypath) != 0) {
+      int err = errno;
+      myPTRACE(1, "PseudoModemPty::OpenPty symlink " << ttypath << " -> " << ptsName << " ERROR: " << strerror(err));
+      ClosePty();
+      return FALSE;
+    }
+
+    myPTRACE(1, "PseudoModemPty::OpenPty added link " << ttypath << " -> " << ptsName);
+  }
+#endif // USE_UNIX98_PTY
+
   return TRUE;
 }
 
@@ -447,9 +575,13 @@ void PseudoModemPty::ClosePty()
   if (!IsOpenPty())
     return;
 
+#ifdef USE_UNIX98_PTY
+  ttyUnlinkUnix98(ttypath);
+#endif
+
   if (::close(hPty) != 0) {
     int err = errno;
-    myPTRACE(1, "PseudoModemPty::ClosePty close " << ptypath << " ERROR: " << strerror(err));
+    myPTRACE(1, "PseudoModemPty::ClosePty close " << ptyname << " ERROR: " << strerror(err));
   }
 
   hPty = -1;
