@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2007-07-20 14:34:45  vfrolov
+ * Added setting of calling number of an outgoing connection
+ *
+ * Revision 1.2  2007/07/20 14:34:45  vfrolov
+ * Added setting of calling number of an outgoing connection
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
@@ -40,6 +43,7 @@
 #include "ifpmediafmt.h"
 #include "t38session.h"
 #include "sipep.h"
+#include "opalutils.h"
 
 #define new PNEW
 
@@ -63,6 +67,7 @@ class MySIPConnection : public SIPConnection
     : SIPConnection(call, endpoint, token, address, transport, options, stringOptions) {}
   //@}
 
+    virtual BOOL SetUpConnection();
     virtual PString GetDestinationAddress();
 
     virtual RTP_Session * CreateSession(
@@ -208,6 +213,8 @@ SIPConnection * MySIPEndPoint::CreateConnection(
     unsigned int options,
     OpalConnection::StringOptions * stringOptions)
 {
+  PTRACE(2, "MySIPEndPoint::CreateConnection for " << call);
+
   MySIPConnection * connection =
       new MySIPConnection(call, *this, token, destination, transport, options, stringOptions);
 
@@ -230,23 +237,34 @@ BOOL MySIPEndPoint::RequestModeChangeT38(OpalConnection & connection)
   return ((MySIPConnection &)connection).RequestModeChangeT38();
 }
 /////////////////////////////////////////////////////////////////////////////
+BOOL MySIPConnection::SetUpConnection()
+{
+  PTRACE(2, "MySIPConnection::SetUpConnection " << *this << " name=" << GetLocalPartyName());
+
+  PSafePtr<OpalConnection> conn = GetCall().GetConnection(0);
+
+  if (conn != NULL && conn != this) {
+    // Set the calling number of an outgoing connection
+
+    PString name = conn->GetRemotePartyNumber();
+
+    if (!name.IsEmpty() && name != "*") {
+      SetLocalPartyName(name);
+
+      PTRACE(1, "MySIPConnection::SetUpConnection new name=" << GetLocalPartyName());
+    }
+  }
+
+  return SIPConnection::SetUpConnection();
+}
+
 PString MySIPConnection::GetDestinationAddress()
 {
+  // Get the destination address of an incoming (!) connection
+
   PTRACE(2, "MySIPConnection::GetDestinationAddress " << localPartyAddress);
 
-  PINDEX begNumber = localPartyAddress.Find(':');
-
-  if (begNumber != P_MAX_INDEX)
-    begNumber++;
-
-  PINDEX endNumber = localPartyAddress.Find('@');
-
-  if (endNumber != P_MAX_INDEX)
-    endNumber--;
-
-  PString number = localPartyAddress(begNumber, endNumber);
-
-  return number;
+  return GetPartyName(localPartyAddress);
 }
 
 RTP_Session * MySIPConnection::CreateSession(
@@ -383,7 +401,8 @@ BOOL MySIPInvite::OnReceivedResponse(SIP_PDU & response)
     }
   }
 
-  /* Handle response to outgoing call cancellation */
+  // Handle response to outgoing call cancellation
+
   if (response.GetStatusCode() == Failure_RequestTerminated)
     SetTerminated(Terminated_Success);
 

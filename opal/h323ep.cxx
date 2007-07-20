@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2007-07-20 14:34:45  vfrolov
+ * Added setting of calling number of an outgoing connection
+ *
+ * Revision 1.2  2007/07/20 14:34:45  vfrolov
+ * Added setting of calling number of an outgoing connection
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
@@ -67,6 +70,8 @@ class MyH323Connection : public H323Connection
     )
     : H323Connection(call, endpoint, token, alias, address, options, stringOptions) {}
   //@}
+
+    virtual BOOL SetUpConnection();
 
     virtual RTP_Session * CreateSession(
       const OpalTransport & transport,
@@ -251,6 +256,27 @@ BOOL MyH323EndPoint::RequestModeChangeT38(OpalConnection & connection)
   return ((MyH323Connection &)connection).RequestModeChangeT38();
 }
 /////////////////////////////////////////////////////////////////////////////
+BOOL MyH323Connection::SetUpConnection()
+{
+  PTRACE(2, "MyH323Connection::SetUpConnection " << *this << " name=" << GetLocalPartyName());
+
+  PSafePtr<OpalConnection> conn = GetCall().GetConnection(0);
+
+  if (conn != NULL && conn != this) {
+    // Set the calling number of an outgoing connection
+
+    PString name = conn->GetRemotePartyNumber();
+
+    if (!name.IsEmpty() && name != "*") {
+      SetLocalPartyName(name);
+
+      PTRACE(1, "MyH323Connection::SetUpConnection new name=" << GetLocalPartyName());
+    }
+  }
+
+  return H323Connection::SetUpConnection();
+}
+
 RTP_Session * MyH323Connection::CreateSession(
     const OpalTransport & transport,
     unsigned sessionID,
