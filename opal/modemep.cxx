@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2007-07-20 14:30:25  vfrolov
+ * Moved GetPartyName() to opalutils.cxx
+ *
+ * Revision 1.2  2007/07/20 14:30:25  vfrolov
+ * Moved GetPartyName() to opalutils.cxx
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
@@ -42,6 +45,7 @@
 #include "manager.h"
 #include "modemstrm.h"
 #include "modemep.h"
+#include "opalutils.h"
 
 #define new PNEW
 
@@ -323,21 +327,6 @@ OpalMediaFormatList ModemEndPoint::GetMediaFormats() const
   formats += T38ModemMediaStream::GetT38MediaFormat();
 
   return formats;
-}
-/////////////////////////////////////////////////////////////////////////////
-static PString GetPartyName(const PString & party)
-{
-  PINDEX beg = party.Find(':');
-
-  if (beg != P_MAX_INDEX)
-    beg++;
-
-  PINDEX end = party.Find('@');
-
-  if (end != P_MAX_INDEX)
-    end--;
-
-  return party(beg, end);
 }
 /////////////////////////////////////////////////////////////////////////////
 ModemConnection::ModemConnection(
