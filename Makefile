@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.18  2007-07-17 10:03:22  vfrolov
-# Added Unix98 PTY support
+# Revision 1.19  2007-07-20 14:28:38  vfrolov
+# Added opalutils.cxx
+#
+# Revision 1.19  2007/07/20 14:28:38  vfrolov
+# Added opalutils.cxx
 #
 # Revision 1.18  2007/07/17 10:03:22  vfrolov
 # Added Unix98 PTY support
@@ -95,6 +98,7 @@ ifdef USE_OPAL
   VPATH_CXX := opal
 
   SOURCES += ifptranscoder.cxx ifpmediafmt.cxx t38session.cxx \
+             opalutils.cxx \
              modemep.cxx modemstrm.cxx \
              h323cap.cxx h323ep.cxx \
              sipep.cxx \
