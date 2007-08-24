@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.42  2007-05-04 09:58:57  vfrolov
- * Fixed Attach(audioEngine)
+ * Revision 1.43  2007-08-24 16:12:14  vfrolov
+ * Disabled CNG sending in voice class mode
+ *
+ * Revision 1.43  2007/08/24 16:12:14  vfrolov
+ * Disabled CNG sending in voice class mode
  *
  * Revision 1.42  2007/05/04 09:58:57  vfrolov
  * Fixed Attach(audioEngine)
@@ -899,7 +902,7 @@ BOOL ModemEngineBody::Attach(AudioEngine *_audioEngine)
 
   audioEngine->AudioClass(P.AudioClass());
 
-  if (callDirection == cdOutgoing)
+  if (callDirection == cdOutgoing && P.FaxClass())
     audioEngine->SendOnIdle(EngineBase::dtCng);
 
   myPTRACE(1, "ModemEngineBody::Attach audioEngine Attached");
