@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.43  2007-08-24 16:12:14  vfrolov
- * Disabled CNG sending in voice class mode
+ * Revision 1.44  2007-08-27 10:55:21  vfrolov
+ * Added missing moreFrames = FALSE
+ *
+ * Revision 1.44  2007/08/27 10:55:21  vfrolov
+ * Added missing moreFrames = FALSE
  *
  * Revision 1.43  2007/08/24 16:12:14  vfrolov
  * Disabled CNG sending in voice class mode
@@ -1353,6 +1356,7 @@ BOOL ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, BOOL &o
 
                 PWaitAndSignal mutexWait(Mutex);
                 dataType = EngineBase::dtRaw;
+                moreFrames = FALSE;
                 state = stSend;
                 if (audioEngine && audioEngine->SendStart(dataType, 0)) {
                   state = stSendAckWait;
