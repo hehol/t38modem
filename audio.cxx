@@ -24,9 +24,11 @@
  * Contributor(s): 
  *
  * $Log: audio.cxx,v $
- * Revision 1.5  2007-05-28 12:44:24  vfrolov
- * Added adaptive delay restarting
- * Fixed SendOnIdle()
+ * Revision 1.6  2007-08-27 10:52:13  vfrolov
+ * Fixed typo
+ *
+ * Revision 1.6  2007/08/27 10:52:13  vfrolov
+ * Fixed typo
  *
  * Revision 1.5  2007/05/28 12:44:24  vfrolov
  * Added adaptive delay restarting
@@ -272,7 +274,7 @@ BOOL AudioEngine::SendStop(BOOL PTRACE_PARAM(moreFrames), int _callbackParam)
 
   callbackParam = _callbackParam;
 
-  PTRACE(3, name << " T38Engine::SendStop moreFrames=" << moreFrames
+  PTRACE(3, name << " AudioEngine::SendStop moreFrames=" << moreFrames
                  << " callbackParam=" << callbackParam);
 
   return TRUE;
