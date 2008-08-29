@@ -19,6 +19,12 @@ From your view point it's a gateway between an application and IP network.
 2. Building
 -----------
 
+NOTE: To build t38modem version 1.0.0 with OPAL you need a special version of
+      OPAL. You can download it by command:
+
+  cvs -z9 -d :pserver:anonymous@openh323.cvs.sourceforge.net:/cvsroot/openh323 \
+                                               co -D "5/21/2007 23:59:59" opal
+
 2.1. Building for Unix
 ----------------------
 
@@ -293,9 +299,11 @@ Examples:
 
 /*
  * $Log: ReadMe.txt,v $
- * Revision 1.16  2007-07-17 10:05:26  vfrolov
- * Added Unix98 PTY support
- * Added OPAL example
+ * Revision 1.17  2008-08-29 06:58:02  vfrolov
+ * Added NOTE about OPAL version
+ *
+ * Revision 1.17  2008/08/29 06:58:02  vfrolov
+ * Added NOTE about OPAL version
  *
  * Revision 1.16  2007/07/17 10:05:26  vfrolov
  * Added Unix98 PTY support
