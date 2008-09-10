@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: audio.cxx,v $
- * Revision 1.6  2007-08-27 10:52:13  vfrolov
- * Fixed typo
+ * Revision 1.7  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.7  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.6  2007/08/27 10:52:13  vfrolov
  * Fixed typo
@@ -45,7 +48,6 @@
  *
  * Revision 1.1  2007/03/23 09:54:45  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -87,7 +89,7 @@ AudioEngine::~AudioEngine()
     delete t30ToneDetect;
 }
 
-BOOL AudioEngine::Attach(const PNotifier &callback)
+PBoolean AudioEngine::Attach(const PNotifier &callback)
 {
   PTRACE(1, name << " AudioEngine::Attach");
 
@@ -153,7 +155,7 @@ void AudioEngine::ModemCallbackWithUnlock(INT extra)
   Mutex.Wait();
 }
 
-void AudioEngine::AudioClass(BOOL _audioClass)
+void AudioEngine::AudioClass(PBoolean _audioClass)
 {
   PWaitAndSignal mutexWait(Mutex);
 
@@ -180,12 +182,12 @@ void AudioEngine::AudioClass(BOOL _audioClass)
   }
 }
 ///////////////////////////////////////////////////////////////
-BOOL AudioEngine::Read(void * buffer, PINDEX amount)
+PBoolean AudioEngine::Read(void * buffer, PINDEX amount)
 {
   Mutex.Wait();
 
   if (sendAudio) {
-    BOOL wasFull = sendAudio->isFull();
+    PBoolean wasFull = sendAudio->isFull();
 
     int count = sendAudio->GetData(buffer, amount);
 
@@ -240,7 +242,7 @@ void AudioEngine::SendOnIdle(int _dataType)
   }
 }
 
-BOOL AudioEngine::SendStart(int PTRACE_PARAM(_dataType), int PTRACE_PARAM(param))
+PBoolean AudioEngine::SendStart(int PTRACE_PARAM(_dataType), int PTRACE_PARAM(param))
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
@@ -264,7 +266,7 @@ int AudioEngine::Send(const void *pBuf, PINDEX count)
   return count;
 }
 
-BOOL AudioEngine::SendStop(BOOL PTRACE_PARAM(moreFrames), int _callbackParam)
+PBoolean AudioEngine::SendStop(PBoolean PTRACE_PARAM(moreFrames), int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
@@ -280,14 +282,14 @@ BOOL AudioEngine::SendStop(BOOL PTRACE_PARAM(moreFrames), int _callbackParam)
   return TRUE;
 }
 
-BOOL AudioEngine::isOutBufFull() const
+PBoolean AudioEngine::isOutBufFull() const
 {
   PWaitAndSignal mutexWait(Mutex);
 
   return sendAudio && sendAudio->isFull();
 }
 ///////////////////////////////////////////////////////////////
-BOOL AudioEngine::Write(const void * buffer, PINDEX len)
+PBoolean AudioEngine::Write(const void * buffer, PINDEX len)
 {
   Mutex.Wait();
 
@@ -296,7 +298,7 @@ BOOL AudioEngine::Write(const void * buffer, PINDEX len)
     ModemCallbackWithUnlock(callbackParam);
   }
 
-  BOOL cng = t30ToneDetect && t30ToneDetect->Write(buffer, len);
+  PBoolean cng = t30ToneDetect && t30ToneDetect->Write(buffer, len);
 
   Mutex.Signal();
 
@@ -310,13 +312,13 @@ BOOL AudioEngine::Write(const void * buffer, PINDEX len)
   return TRUE;
 }
 
-BOOL AudioEngine::RecvWait(int /*_dataType*/, int /*param*/, int /*_callbackParam*/, BOOL &done)
+PBoolean AudioEngine::RecvWait(int /*_dataType*/, int /*param*/, int /*_callbackParam*/, PBoolean &done)
 {
   done = TRUE;
   return TRUE;
 }
 
-BOOL AudioEngine::RecvStart(int _callbackParam)
+PBoolean AudioEngine::RecvStart(int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);

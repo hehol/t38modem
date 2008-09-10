@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,16 +24,21 @@
  * Contributor(s):
  *
  * $Log: h323cap.cxx,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
  *
- *
  */
 
 #include <ptlib.h>
+
+#include <opal/buildopts.h>
+
 #include <h323/h323.h>
 #include <t38/h323t38.h>
 #include "ifpmediafmt.h"
@@ -93,8 +98,8 @@ class MyH323_T38CapabilityPre : public MyH323_T38Capability {
     MyH323_T38CapabilityPre() : MyH323_T38Capability(OpalT38_IFP_PRE) {}
 };
 
-H323_REGISTER_CAPABILITY(MyH323_T38CapabilityCor, OpalT38_IFP_COR)
-H323_REGISTER_CAPABILITY(MyH323_T38CapabilityPre, OpalT38_IFP_PRE)
+H323_REGISTER_CAPABILITY(MyH323_T38CapabilityCor, (const char *)OpalT38_IFP_COR)
+H323_REGISTER_CAPABILITY(MyH323_T38CapabilityPre, (const char *)OpalT38_IFP_PRE)
 
 /////////////////////////////////////////////////////////////////////////////
 //

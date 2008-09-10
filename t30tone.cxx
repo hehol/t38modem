@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2002-2007 Vyacheslav Frolov
+ * Copyright (c) 2002-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.cxx,v $
- * Revision 1.5  2007-03-23 10:14:36  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.6  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.6  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.5  2007/03/23 10:14:36  vfrolov
  * Implemented voice mode functionality
@@ -42,7 +45,6 @@
  *
  * Revision 1.1  2002/04/30 10:59:07  vfrolov
  * Initial revision
- *
  * 
  */
 
@@ -72,7 +74,7 @@ typedef	PInt16			SIMPLE_TYPE;
 
 static BYTE CngTone[CNG_SIMPLES_PER_REPEATE*BYTES_PER_SIMPLE];
 
-static BOOL initCngTone()
+static PBoolean initCngTone()
 {
   for( size_t i = 0 ; i < sizeof(CngTone)/BYTES_PER_SIMPLE ; i++ ) {
     double Sin = sin(double((CNG_HZ*TWO_PI*i)/SIMPLES_PER_SEC));
@@ -81,7 +83,7 @@ static BOOL initCngTone()
   return TRUE;
 }
 
-static const BOOL ___InitCngTone = initCngTone();
+static const PBoolean ___InitCngTone = initCngTone();
 ///////////////////////////////////////////////////////////////
 T30Tone::T30Tone(T30Tone::Type _type)
 {
@@ -170,9 +172,9 @@ T30ToneDetect::T30ToneDetect()
 #define CNG_ON_CHUNKS_MAX	(((CNG_HZ*CNG_ON_MSEC)*140)/((CNG_FILTER_CHUNK_LEN*1000)*100))
 #define CNG_OFF_CHUNKS_MIN	(((CNG_HZ*CNG_OFF_MSEC)*30)/((CNG_FILTER_CHUNK_LEN*1000)*100))
 
-BOOL T30ToneDetect::Write(const void * buffer, PINDEX len)
+PBoolean T30ToneDetect::Write(const void * buffer, PINDEX len)
 {
-  BOOL detected = FALSE;
+  PBoolean detected = FALSE;
 
   SIMPLE_TYPE *pBuf = (SIMPLE_TYPE *)buffer;
   len /= BYTES_PER_SIMPLE;

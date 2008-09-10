@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2003 Vyacheslav Frolov
+ * Copyright (c) 2003-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,15 +24,17 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30.h,v $
- * Revision 1.2  2003-12-04 15:51:54  vfrolov
- * Removed unused DIS member
+ * Revision 1.3  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.3  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.2  2003/12/04 15:51:54  vfrolov
  * Removed unused DIS member
  *
  * Revision 1.1  2003/12/04 13:38:52  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -47,13 +49,13 @@ class T30
   public:
     void v21Begin() { v21frame = PBYTEArray(); }
     void v21Data(void *pBuf, PINDEX len) { v21frame.Concatenate(PBYTEArray((BYTE *)pBuf, len)); }
-    void v21End(BOOL sent);
-    BOOL hdlcOnly() const { return cfr && ecm; }
+    void v21End(PBoolean sent);
+    PBoolean hdlcOnly() const { return cfr && ecm; }
 
   private:
     PBYTEArray v21frame;
-    BOOL cfr;
-    BOOL ecm;
+    PBoolean cfr;
+    PBoolean ecm;
 };
 ///////////////////////////////////////////////////////////////
 

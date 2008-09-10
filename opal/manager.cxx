@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,16 +24,20 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
  *
- *
  */
 
 #include <ptlib.h>
+
+#include <opal/buildopts.h>
 
 #include "../pmutils.h"
 #include "h323ep.h"
@@ -100,7 +104,7 @@ PStringArray MyManager::Descriptions()
   return descriptions;
 }
 
-BOOL MyManager::Initialise(const PConfigArgs & args)
+PBoolean MyManager::Initialise(const PConfigArgs & args)
 {
   DisableDetectInBandDTMF(TRUE);
   silenceDetectParams.m_mode = OpalSilenceDetector::NoSilenceDetection;
@@ -158,6 +162,7 @@ BOOL MyManager::Initialise(const PConfigArgs & args)
   return TRUE;
 }
 
+/*
 void MyManager::SetWriteInterval(
     OpalConnection &connection,
     const PTimeInterval &interval)
@@ -169,27 +174,36 @@ void MyManager::SetWriteInterval(
       ((ModemEndPoint &)pOtherConn->GetEndPoint()).SetReadTimeout(*pOtherConn, interval);
   }
 }
+*/
 
-PString MyManager::OnRouteConnection(OpalConnection & connection)
+bool MyManager::OnRouteConnection(const PString & a_party,
+                                  const PString & b_party,
+                                  OpalCall & call,
+                                  unsigned options,
+                                  OpalConnection::StringOptions * stringOptions)
 {
-  PString src = connection.GetRemotePartyCallbackURL();
-  PString dst = OpalManager::OnRouteConnection(connection);
-  OpalCall &call = connection.GetCall();
   const PString &token = call.GetToken();
-  PString addr = call.GetPartyB();
 
-  if (addr.IsEmpty())
-    addr = connection.GetDestinationAddress();
-
-  if (!dst.IsEmpty()) {
-    cout << "Call[" << token << "] from " << src << " to " << addr << ", route to " << dst << endl;
-    PTRACE(1, "Call[" << token << "] from " << src << " to " << addr << ", route to " << dst);
-  } else {
-    cout << "Call[" << token << "] from " << src << " to " << addr << ", no route!" << endl;
-    PTRACE(1, "Call[" << token << "] from " << src << " to " << addr << ", no route!");
+  if (!OpalManager::OnRouteConnection(a_party, b_party, call, options, stringOptions)) {
+    cout << "Call[" << token << "] from " << a_party << " to " << b_party << ", no route!" << endl;
+    PTRACE(1, "Call[" << token << "] from " << a_party << " to " << b_party << ", no route!");
+    return false;
   }
 
-  return dst;
+  PString dst;
+  PSafePtr<OpalConnection> dst_conn = call.GetConnection(1);
+
+  if (dst_conn != NULL) {
+    if (dst_conn->GetRemotePartyAddress().NumCompare(dst_conn->GetPrefixName() + ":") != EqualTo)
+      dst = dst_conn->GetPrefixName() + ":" + dst_conn->GetRemotePartyAddress();
+    else
+      dst = dst_conn->GetRemotePartyAddress();
+  }
+
+  cout << "Call[" << token << "] from " << a_party << " to " << b_party << ", route to " << dst << endl;
+  PTRACE(1, "Call[" << token << "] from " << a_party << " to " << b_party << ", route to " << dst);
+
+  return true;
 }
 
 void MyManager::OnClearedCall(OpalCall & call)
@@ -200,7 +214,7 @@ void MyManager::OnClearedCall(OpalCall & call)
   OpalManager::OnClearedCall(call);
 }
 
-BOOL MyManager::OnOpenMediaStream(OpalConnection & connection, OpalMediaStream & stream)
+PBoolean MyManager::OnOpenMediaStream(OpalConnection & connection, OpalMediaStream & stream)
 {
   OpalCall &call = connection.GetCall();
 
@@ -210,13 +224,15 @@ BOOL MyManager::OnOpenMediaStream(OpalConnection & connection, OpalMediaStream &
 
 void MyManager::OnClosedMediaStream(const OpalMediaStream & stream)
 {
-  cout << "Close " << stream << endl;
+  OpalCall &call = stream.GetConnection().GetCall();
+
+  cout << "Close " << stream << " for Call[" << call.GetToken() << "]" << endl;
   OpalManager::OnClosedMediaStream(stream);
 }
 
-PString MyManager::ApplyRouteTable(const PString & proto, const PString & addr)
+PString MyManager::ApplyRouteTable(const PString & proto, const PString & addr, PINDEX & routeIndex)
 {
-  PString destination = OpalManager::ApplyRouteTable(proto, addr);
+  PString destination = OpalManager::ApplyRouteTable(proto, addr, routeIndex);
 
   PINDEX pos;
 
@@ -232,31 +248,41 @@ PString MyManager::ApplyRouteTable(const PString & proto, const PString & addr)
 
   return destination;
 }
-
-BOOL MyManager::OnRequestModeChange(
+/////////////////////////////////////////////////////////////////////////////
+PBoolean MyManager::OnRequestModeChange(
     OpalConnection & connection,
-    const OpalMediaFormatList & /*mediaFormatList*/)
+    const OpalMediaType & mediaType)
 {
-  PSafePtr<OpalConnection> pOtherConn = connection.GetCall().GetOtherPartyConnection(connection);
+  PSafePtr<OpalConnection> pOtherConn = connection.GetOtherPartyConnection();
 
   if (pOtherConn != NULL) {
     if (PIsDescendant(&pOtherConn->GetEndPoint(), MyH323EndPoint)) {
-      if (((MyH323EndPoint &)pOtherConn->GetEndPoint()).RequestModeChangeT38(*pOtherConn)) {
-        myPTRACE(2, "MyManager::RequestModeChange RequestMode T38 - OK for " << connection);
-        return TRUE;
+      if (((MyH323EndPoint &)pOtherConn->GetEndPoint()).RequestModeChange(*pOtherConn, mediaType)) {
+        myPTRACE(2, "MyManager::RequestModeChange(" << connection << ", " <<  mediaType << ")"
+                    " RequestModeChange(" << *pOtherConn << ") - OK");
+        return PTrue;
       }
     }
     else
     if (PIsDescendant(&pOtherConn->GetEndPoint(), MySIPEndPoint)) {
-      if (((MySIPEndPoint &)pOtherConn->GetEndPoint()).RequestModeChangeT38(*pOtherConn)) {
-        myPTRACE(2, "MyManager::RequestModeChange RequestMode T38 - OK for " << connection);
-        return TRUE;
+      if (((MySIPEndPoint &)pOtherConn->GetEndPoint()).RequestModeChange(*pOtherConn, mediaType)) {
+        myPTRACE(2, "MyManager::RequestModeChange(" << connection << ", " <<  mediaType << ")"
+                    " RequestModeChange(" << *pOtherConn << ") - OK");
+        return PTrue;
       }
     }
+    else {
+        myPTRACE(1, "MyManager::RequestModeChange(" << connection << ", " <<  mediaType << ")"
+                    " RequestModeChange(" << *pOtherConn << ") - not implemented");
+    }
+  } else {
+    myPTRACE(1, "MyManager::RequestModeChange(" << connection << ", " <<  mediaType << ")"
+                " GetOtherPartyConnection - fail");
   }
 
-  myPTRACE(1, "MyManager::RequestModeChange RequestMode T38 - fail for " << connection);
-  return FALSE;
+  myPTRACE(1, "MyManager::RequestModeChange(" << connection << ", " <<  mediaType << ")"
+              " - fail");
+  return PFalse;
 }
 /////////////////////////////////////////////////////////////////////////////
 

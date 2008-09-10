@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.h,v $
- * Revision 1.5  2007-03-23 10:14:35  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.6  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.6  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.5  2007/03/23 10:14:35  vfrolov
  * Implemented voice mode functionality
@@ -68,11 +71,11 @@ class ModemEngine : public ModemThreadChild
 
   /**@name Operations */
   //@{
-    BOOL IsReady() const;
-    BOOL Request(PStringToString &request) const;
-    BOOL Attach(T38Engine *t38engine) const;
+    PBoolean IsReady() const;
+    PBoolean Request(PStringToString &request) const;
+    PBoolean Attach(T38Engine *t38engine) const;
     void Detach(T38Engine *t38engine) const;
-    BOOL Attach(AudioEngine *audioEngine) const;
+    PBoolean Attach(AudioEngine *audioEngine) const;
     void Detach(AudioEngine *audioEngine) const;
     const PString &modemToken() const { return Parent().modemToken(); }
   //@}

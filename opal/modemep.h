@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,12 +24,14 @@
  * Contributor(s):
  *
  * $Log: modemep.h,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -58,8 +60,8 @@ class ModemEndPoint : public OpalEndPoint
 
     static PString ArgSpec();
     static PStringArray Descriptions();
-    static BOOL Create(OpalManager & mgr, const PConfigArgs & args);
-    BOOL Initialise(const PConfigArgs & args);
+    static PBoolean Create(OpalManager & mgr, const PConfigArgs & args);
+    PBoolean Initialise(const PConfigArgs & args);
 
     PseudoModem * PMAlloc(const PString &number) const;
     void PMFree(PseudoModem *pmodem) const;
@@ -71,7 +73,7 @@ class ModemEndPoint : public OpalEndPoint
 
   /**@name Overrides from OpalEndPoint */
   //@{
-    virtual BOOL MakeConnection(
+    virtual PBoolean MakeConnection(
       OpalCall & call,        /// Owner of connection
       const PString & party,  /// Remote party to call
       void * userData = NULL,  /// Arbitrary data to pass to connection

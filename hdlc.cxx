@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2003-2005 Vyacheslav Frolov
+ * Copyright (c) 2003-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: hdlc.cxx,v $
- * Revision 1.5  2005-02-03 11:32:11  vfrolov
- * Fixed MSVC compile warnings
+ * Revision 1.6  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.6  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.5  2005/02/03 11:32:11  vfrolov
  * Fixed MSVC compile warnings
@@ -41,7 +44,6 @@
  *
  * Revision 1.1  2003/12/04 13:38:33  vfrolov
  * Initial revision
- *
  * 
  */
 
@@ -54,7 +56,7 @@
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-void HDLC::pack(const void *_pBuf, PINDEX count, BOOL flag)
+void HDLC::pack(const void *_pBuf, PINDEX count, PBoolean flag)
 {
   WORD w = WORD((WORD)rawByte << 8);
   const BYTE *pBuf = (const BYTE *)_pBuf;
@@ -93,7 +95,7 @@ void HDLC::pack(const void *_pBuf, PINDEX count, BOOL flag)
     rawOnes = 0;
 }
 
-BOOL HDLC::sync(BYTE b)
+PBoolean HDLC::sync(BYTE b)
 {
   WORD w = WORD(((WORD)rawByte << 8) | (b & 0xFF));
   PINDEX j = 8 - rawByteLen;
@@ -112,7 +114,7 @@ BOOL HDLC::sync(BYTE b)
   return FALSE;
 }
 
-BOOL HDLC::skipFlag(BYTE b)
+PBoolean HDLC::skipFlag(BYTE b)
 {
   WORD w = WORD(((WORD)rawByte << 8) | (b & 0xFF));
   PINDEX j = 8 - rawByteLen;
@@ -126,7 +128,7 @@ BOOL HDLC::skipFlag(BYTE b)
   return FALSE;
 }
 
-BOOL HDLC::unpack(BYTE b)
+PBoolean HDLC::unpack(BYTE b)
 {
   //myPTRACE(1, "unpack det " << hex << (WORD)b);
   WORD w = WORD(((WORD)rawByte << 8) | (b & 0xFF));
@@ -353,7 +355,7 @@ HDLC::HDLC() :
 {
 }
 
-BOOL HDLC::isFcsOK()
+PBoolean HDLC::isFcsOK()
 {
   if (hdlcChunkLen != 16) {
     myPTRACE(1, "isFcsOK(): hdlcChunkLen(" << hdlcChunkLen << ") != 16");
@@ -393,7 +395,7 @@ void HDLC::GetRawStart(PINDEX flags)
   }
 }
 
-void HDLC::GetHdlcStart(BOOL sync)
+void HDLC::GetHdlcStart(PBoolean sync)
 {
   outDataType = T38Engine::dtHdlc;
   outData.Clean();

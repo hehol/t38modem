@@ -3,7 +3,7 @@
 # 
 # T38FAX Pseudo Modem
 # 
-# Copyright (c) 2001-2007 Vyacheslav Frolov
+# Copyright (c) 2001-2008 Vyacheslav Frolov
 #
 # Open H323 Project
 # 
@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.19  2007-07-20 14:28:38  vfrolov
-# Added opalutils.cxx
+# Revision 1.20  2008-09-10 11:15:00  frolov
+# Ported to OPAL SVN trunk
+#
+# Revision 1.20  2008/09/10 11:15:00  frolov
+# Ported to OPAL SVN trunk
 #
 # Revision 1.19  2007/07/20 14:28:38  vfrolov
 # Added opalutils.cxx
@@ -97,7 +100,7 @@ SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
 ifdef USE_OPAL
   VPATH_CXX := opal
 
-  SOURCES += ifptranscoder.cxx ifpmediafmt.cxx t38session.cxx \
+  SOURCES += ifptranscoder.cxx ifpmediafmt.cxx \
              opalutils.cxx \
              modemep.cxx modemstrm.cxx \
              h323cap.cxx h323ep.cxx \
@@ -120,6 +123,8 @@ else
   endif
 
   include $(OPENH323DIR)/openh323u.mak
+
+  STDCCFLAGS += -DPBoolean=BOOL
 endif
 
 #

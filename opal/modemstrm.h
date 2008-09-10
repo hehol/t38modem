@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,12 +24,14 @@
  * Contributor(s):
  *
  * $Log: modemstrm.h,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -47,12 +49,12 @@ class AudioModemMediaStream : public OpalRawMediaStream
       OpalConnection & conn,
       const OpalMediaFormat & mediaFormat, ///<  Media format for stream
       unsigned sessionID,                  ///<  Session number for stream
-      BOOL isSource,                       ///<  Is a source stream
+      PBoolean isSource,                   ///<  Is a source stream
       PChannel * channel                   ///<  I/O channel to stream to/from
     )
     : OpalRawMediaStream(conn, mediaFormat, sessionID, isSource, channel, FALSE) {}
 
-    virtual BOOL IsSynchronous() const { return FALSE; }
+    virtual PBoolean IsSynchronous() const { return FALSE; }
 };
 /////////////////////////////////////////////////////////////////////////////
 class T38Engine;
@@ -68,7 +70,7 @@ class T38ModemMediaStream : public OpalMediaStream
     T38ModemMediaStream(
       OpalConnection & conn,
       unsigned sessionID,                  ///<  Session number for stream
-      BOOL isSource,                       ///<  Is a source stream
+      PBoolean isSource,                   ///<  Is a source stream
       T38Engine *_t38engine
     );
   //@}
@@ -77,18 +79,18 @@ class T38ModemMediaStream : public OpalMediaStream
 
   /**@name Overrides of OpalMediaStream class */
   //@{
-    virtual BOOL Open();
-    virtual BOOL Close();
+    virtual PBoolean Open();
+    virtual PBoolean Close();
 
-    virtual BOOL ReadPacket(
+    virtual PBoolean ReadPacket(
       RTP_DataFrame & packet
     );
 
-    virtual BOOL WritePacket(
+    virtual PBoolean WritePacket(
       RTP_DataFrame & packet
     );
 
-    virtual BOOL IsSynchronous() const;
+    virtual PBoolean IsSynchronous() const;
   //@}
 
   protected:

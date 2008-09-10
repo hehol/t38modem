@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2002-2007 Vyacheslav Frolov
+ * Copyright (c) 2002-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.h,v $
- * Revision 1.3  2007-03-23 10:14:36  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.4  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.4  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.3  2007/03/23 10:14:36  vfrolov
  * Implemented voice mode functionality
@@ -35,7 +38,6 @@
  *
  * Revision 1.1  2002/04/30 10:59:10  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -73,7 +75,7 @@ class T30ToneDetect : public PObject
   public:
 
     T30ToneDetect();
-    BOOL Write(const void * buffer, PINDEX len);
+    PBoolean Write(const void * buffer, PINDEX len);
 
   protected:
 

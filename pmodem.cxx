@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.cxx,v $
- * Revision 1.10  2007-03-22 16:26:04  vfrolov
- * Fixed compiler warnings
+ * Revision 1.11  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.11  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.10  2007/03/22 16:26:04  vfrolov
  * Fixed compiler warnings
@@ -137,7 +140,7 @@ PseudoModemQ::~PseudoModemQ()
   delete pmodem_list;
 }
 
-BOOL PseudoModemQ::CreateModem(
+PBoolean PseudoModemQ::CreateModem(
     const PString &tty,
     const PString &route,
     const PConfigArgs &args,
@@ -166,7 +169,7 @@ void PseudoModemQ::Enqueue(PseudoModem *modem)
   _PseudoModemQ::Enqueue(modem);
 }
 
-BOOL PseudoModemQ::Enqueue(const PString &modemToken)
+PBoolean PseudoModemQ::Enqueue(const PString &modemToken)
 {
   PseudoModem *modem = pmodem_list->Find(modemToken);
 

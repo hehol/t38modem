@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,16 +24,21 @@
  * Contributor(s):
  *
  * $Log: ifptranscoder.cxx,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
  *
- *
  */
 
 #include <ptlib.h>
+
+#include <opal/buildopts.h>
+
 #include <opal/transcoders.h>
 #include <asn/t38.h>
 
@@ -48,21 +53,21 @@ class T38_IFPTranscoder : public OpalTranscoder {
     T38_IFPTranscoder(
       const OpalMediaFormat & inputMediaFormat,  ///<  Input media format
       const OpalMediaFormat & outputMediaFormat, ///<  Output media format
-      BOOL _cor2pre)
+      PBoolean _cor2pre)
     : OpalTranscoder(inputMediaFormat, outputMediaFormat),
       cor2pre(_cor2pre) {}
 
     virtual PINDEX GetOptimalDataFrameSize(
-      BOOL /*input*/      ///<  Flag for input or output data size
+      PBoolean /*input*/      ///<  Flag for input or output data size
     ) const { return 0; }
 
-    virtual BOOL Convert(
+    virtual PBoolean Convert(
       const RTP_DataFrame & input,  ///<  Input data
       RTP_DataFrame & output        ///<  Output data
     );
 
   protected:
-    BOOL cor2pre;
+    PBoolean cor2pre;
 };
 
 class T38_IFP_Cor_Pre : public T38_IFPTranscoder {
@@ -75,8 +80,8 @@ class T38_IFP_Pre_Cor : public T38_IFPTranscoder {
     T38_IFP_Pre_Cor() : T38_IFPTranscoder(OpalT38_IFP_PRE, OpalT38_IFP_COR, FALSE) {}
 };
 /////////////////////////////////////////////////////////////////////////////
-static BOOL IfpTranscode(
-    BOOL cor2pre,
+static PBoolean IfpTranscode(
+    PBoolean cor2pre,
     const PASN_OctetString &ifp_packet_src,
     PASN_OctetString &ifp_packet_dst)
 {
@@ -138,7 +143,7 @@ static BOOL IfpTranscode(
   return TRUE;
 }
 
-BOOL T38_IFPTranscoder::Convert(const RTP_DataFrame & input, RTP_DataFrame & output)
+PBoolean T38_IFPTranscoder::Convert(const RTP_DataFrame & input, RTP_DataFrame & output)
 {
   PASN_OctetString ifp_packet_src((const char *)input.GetPayloadPtr(), input.GetPayloadSize());
   PASN_OctetString ifp_packet_dst;

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,12 +24,14 @@
  * Contributor(s):
  *
  * $Log: manager.h,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -48,24 +50,30 @@ class MyManager : public OpalManager
 
     static PString ArgSpec();
     static PStringArray Descriptions();
-    BOOL Initialise(const PConfigArgs & args);
+    PBoolean Initialise(const PConfigArgs & args);
 
     void SetWriteInterval(
         OpalConnection &connection,
         const PTimeInterval &interval
     );
 
-    virtual PString OnRouteConnection(OpalConnection & connection);
+    virtual bool OnRouteConnection(
+      const PString & a_party,      ///< Source local address
+      const PString & b_party,      ///< Destination indicated by source
+      OpalCall & call,              ///< Call for new connection
+      unsigned options,             ///< Options for new connection (can't use default as overrides will fail)
+      OpalConnection::StringOptions * stringOptions
+    );
     virtual void OnClearedCall(OpalCall & call);
 
-    virtual BOOL OnOpenMediaStream(OpalConnection & connection, OpalMediaStream & stream);
+    virtual PBoolean OnOpenMediaStream(OpalConnection & connection, OpalMediaStream & stream);
     virtual void OnClosedMediaStream(const OpalMediaStream & stream);
 
-    virtual PString ApplyRouteTable(const PString & proto, const PString & addr);
+    virtual PString ApplyRouteTable(const PString & proto, const PString & addr, PINDEX & entry);
 
-    virtual BOOL OnRequestModeChange(
+    PBoolean OnRequestModeChange(
       OpalConnection & connection,
-      const OpalMediaFormatList & mediaFormatList
+      const OpalMediaType & mediaType
     );
 };
 /////////////////////////////////////////////////////////////////////////////

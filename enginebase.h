@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,15 +24,17 @@
  * Contributor(s): 
  *
  * $Log: enginebase.h,v $
- * Revision 1.2  2007-04-09 08:07:12  vfrolov
- * Added symbolic logging ModemCallbackParam
+ * Revision 1.3  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.3  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.2  2007/04/09 08:07:12  vfrolov
  * Added symbolic logging ModemCallbackParam
  *
  * Revision 1.1  2007/03/23 09:54:45  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -80,7 +82,7 @@ class EngineBase : public PObject
 
   /**@name Modem API */
   //@{
-    BOOL TryLockModemCallback();
+    PBoolean TryLockModemCallback();
     void UnlockModemCallback();
   //@}
 

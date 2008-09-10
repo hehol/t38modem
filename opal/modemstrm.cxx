@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,16 +24,21 @@
  * Contributor(s):
  *
  * $Log: modemstrm.cxx,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
  *
- *
  */
 
 #include <ptlib.h>
+
+#include <opal/buildopts.h>
+
 #include <asn/t38.h>
 
 #include "../t38engine.h"
@@ -46,7 +51,7 @@
 T38ModemMediaStream::T38ModemMediaStream(
     OpalConnection & conn,
     unsigned sessionID,
-    BOOL isSource,
+    PBoolean isSource,
     T38Engine *_t38engine)
   : OpalMediaStream(conn, GetT38MediaFormat(), sessionID, isSource),
     t38engine(_t38engine)
@@ -65,7 +70,7 @@ const OpalMediaFormat & T38ModemMediaStream::GetT38MediaFormat()
 #endif
 }
 
-BOOL T38ModemMediaStream::Open()
+PBoolean T38ModemMediaStream::Open()
 {
   if (isOpen)
     return TRUE;
@@ -85,7 +90,7 @@ BOOL T38ModemMediaStream::Open()
   return OpalMediaStream::Open();
 }
 
-BOOL T38ModemMediaStream::Close()
+PBoolean T38ModemMediaStream::Close()
 {
   if (isOpen) {
     PTRACE(3, "T38ModemMediaStream::Close " << *this);
@@ -105,7 +110,7 @@ BOOL T38ModemMediaStream::Close()
   return OpalMediaStream::Close();
 }
 
-BOOL T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
+PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
 {
   T38_IFP ifp;
   int res;
@@ -149,7 +154,7 @@ BOOL T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
   return TRUE;
 }
 
-BOOL T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
+PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
 {
   PTRACE(5, "T38ModemMediaStream::WritePacket "
             " packet " << packet.GetSequenceNumber() <<
@@ -172,7 +177,7 @@ BOOL T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
   if (lost < 0) {
 #if PTRACING
     if (PTrace::CanTrace(5)) {
-      BOOL fake = packet.GetPayloadSize() == 1 && packet.GetPayloadPtr()[0] == 0xFF;
+      PBoolean fake = packet.GetPayloadSize() == 1 && packet.GetPayloadPtr()[0] == 0xFF;
 
       PTRACE(5, "T38ModemMediaStream::WritePacket " << (fake ? "Fake" : "Repeated")
           << " packet " << packedSequenceNumber << " (expected " << currentSequenceNumber << ")");
@@ -205,7 +210,7 @@ BOOL T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
   return t38engine->HandlePacket(ifp);
 }
 
-BOOL T38ModemMediaStream::IsSynchronous() const
+PBoolean T38ModemMediaStream::IsSynchronous() const
 {
   PTRACE(3, "T38ModemMediaStream::IsSynchronous " << *this);
 

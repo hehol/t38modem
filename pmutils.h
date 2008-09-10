@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2006 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmutils.h,v $
- * Revision 1.17  2006-12-11 10:27:35  vfrolov
- * Disabled renaming thread if no PTRACING
+ * Revision 1.18  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.18  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.17  2006/12/11 10:27:35  vfrolov
  * Disabled renaming thread if no PTRACING
@@ -113,8 +116,8 @@ class ModemThread : public PThread
     virtual void Main() = 0;
     void WaitDataReady();
 
-    volatile BOOL stop;		// *this was requested to stop
-    volatile BOOL childstop;	// there is a child that was requested to stop
+    volatile PBoolean stop;		// *this was requested to stop
+    volatile PBoolean childstop;	// there is a child that was requested to stop
     PSyncPoint dataReadySyncPoint;
 };
 ///////////////////////////////////////////////////////////////
@@ -202,7 +205,7 @@ class DataStream : public PObject
     void PutEof() { eof = TRUE; }
     int GetDiag() const { return diag; }
     DataStream &SetDiag(int _diag) { diag = _diag; return *this; }
-    BOOL isFull() const { return threshold && threshold < busy; }
+    PBoolean isFull() const { return threshold && threshold < busy; }
     virtual void Clean();
 
   private:
@@ -212,7 +215,7 @@ class DataStream : public PObject
     PINDEX busy;
 
     PINDEX threshold;
-    BOOL eof;
+    PBoolean eof;
     int diag;
 };
 ///////////////////////////////////////////////////////////////

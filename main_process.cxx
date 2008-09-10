@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,12 +24,14 @@
  * Contributor(s):
  *
  * $Log: main_process.cxx,v $
- * Revision 1.1  2007-05-17 08:32:44  vfrolov
- * Moved class T38Modem from main.h and main.cxx to main_process.cxx
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/17 08:32:44  vfrolov
  * Moved class T38Modem from main.h and main.cxx to main_process.cxx
- *
  *
  */
 
@@ -56,7 +58,7 @@ class T38Modem : public PProcess
     void Main();
 
   protected:
-    BOOL Initialise();
+    PBoolean Initialise();
 };
 
 PCREATE_PROCESS(T38Modem);
@@ -82,7 +84,7 @@ void T38Modem::Main()
     PThread::Sleep(5000);
 }
 
-BOOL T38Modem::Initialise()
+PBoolean T38Modem::Initialise()
 {
   PConfigArgs args(GetArguments());
 

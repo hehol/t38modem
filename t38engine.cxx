@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.46  2007-05-24 17:03:54  vfrolov
- * Added more PTRACING checks
+ * Revision 1.47  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.47  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.46  2007/05/24 17:03:54  vfrolov
  * Added more PTRACING checks
@@ -238,12 +241,12 @@ class ModStream
     ~ModStream();
     
     void PushBuf();
-    BOOL DeleteFirstBuf();
-    BOOL PopBuf();
+    PBoolean DeleteFirstBuf();
+    PBoolean PopBuf();
     int GetData(void *pBuf, PINDEX count);
     int PutData(const void *pBuf, PINDEX count);
-    BOOL SetDiag(int diag);
-    BOOL PutEof(int diag = 0);
+    PBoolean SetDiag(int diag);
+    PBoolean PutEof(int diag = 0);
     void Move(ModStream &from);
 
     DataStream *firstBuf;
@@ -274,7 +277,7 @@ void ModStream::PushBuf()
   bufQ.Enqueue(lastBuf);
 }
 
-BOOL ModStream::DeleteFirstBuf()
+PBoolean ModStream::DeleteFirstBuf()
 {
   if (firstBuf != NULL) {
     if (lastBuf == firstBuf)
@@ -286,7 +289,7 @@ BOOL ModStream::DeleteFirstBuf()
   return FALSE;
 }
 
-BOOL ModStream::PopBuf()
+PBoolean ModStream::PopBuf()
 {
   if (DeleteFirstBuf()) {
     PTRACE(1, "ModStream::PopBuf DeleteFirstBuf(), clean");
@@ -352,7 +355,7 @@ int ModStream::PutData(const void *pBuf, PINDEX count)
   return lastBuf->PutData(pBuf, count);
 }
 
-BOOL ModStream::SetDiag(int diag)
+PBoolean ModStream::SetDiag(int diag)
 {
   if( lastBuf == NULL )
     return FALSE;
@@ -360,7 +363,7 @@ BOOL ModStream::SetDiag(int diag)
   return TRUE;
 }
 
-BOOL ModStream::PutEof(int diag)
+PBoolean ModStream::PutEof(int diag)
 {
   if( lastBuf == NULL )
     return FALSE;
@@ -508,7 +511,7 @@ T38Engine::~T38Engine()
     myPTRACE(1, name << " T38Engine::~T38Engine !modemCallback.IsNULL()");
 }
 
-BOOL T38Engine::Attach(const PNotifier &callback)
+PBoolean T38Engine::Attach(const PNotifier &callback)
 {
   PTRACE(1, name << " T38Engine::Attach");
   PWaitAndSignal mutexWait(Mutex);
@@ -586,7 +589,7 @@ void T38Engine::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFP &T38
   }
 }
 
-BOOL T38Engine::HandleRawIFP(const PASN_OctetString & pdu)
+PBoolean T38Engine::HandleRawIFP(const PASN_OctetString & pdu)
 {
   T38_IFP ifp;
 
@@ -622,7 +625,7 @@ BOOL T38Engine::HandleRawIFP(const PASN_OctetString & pdu)
   return HandlePacket(ifp);
 }
 
-BOOL T38Engine::Originate()
+PBoolean T38Engine::Originate()
 {
   RenameCurrentThread(name + "(tx)");
   PTRACE(2, "T38\tOriginate, transport=" << *transport);
@@ -790,7 +793,7 @@ BOOL T38Engine::Originate()
   return FALSE;
 }
 
-BOOL T38Engine::Answer()
+PBoolean T38Engine::Answer()
 {
   RenameCurrentThread(name + "(rx)");
   PTRACE(2, "T38\tAnswer, transport=" << *transport);
@@ -977,7 +980,7 @@ void T38Engine::_ResetModemState() {
   callbackParamOut = -1;
 }
 
-BOOL T38Engine::isOutBufFull() const
+PBoolean T38Engine::isOutBufFull() const
 {
   PWaitAndSignal mutexWait(Mutex);
   return bufOut.isFull();
@@ -994,7 +997,7 @@ void T38Engine::SendOnIdle(int _dataType)
   SignalOutDataReady();
 }
 
-BOOL T38Engine::SendStart(int _dataType, int param)
+PBoolean T38Engine::SendStart(int _dataType, int param)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   if (!IsT38Mode())
@@ -1070,7 +1073,7 @@ int T38Engine::Send(const void *pBuf, PINDEX count)
   return res;
 }
 
-BOOL T38Engine::SendStop(BOOL moreFrames, int _callbackParam)
+PBoolean T38Engine::SendStop(PBoolean moreFrames, int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   if(!IsT38Mode())
@@ -1094,7 +1097,7 @@ BOOL T38Engine::SendStop(BOOL moreFrames, int _callbackParam)
   return TRUE;
 }
 ///////////////////////////////////////////////////////////////
-BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam, BOOL &done)
+PBoolean T38Engine::RecvWait(int _dataType, int param, int _callbackParam, PBoolean &done)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   if (!IsT38Mode())
@@ -1174,7 +1177,7 @@ BOOL T38Engine::RecvWait(int _dataType, int param, int _callbackParam, BOOL &don
   return TRUE;
 }
 
-BOOL T38Engine::RecvStart(int _callbackParam)
+PBoolean T38Engine::RecvStart(int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   if (!IsT38Mode())
@@ -1283,11 +1286,11 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
   //myPTRACE(1, PTNAME "T38Engine::PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
   
   ifp = T38_IFP();
-  BOOL doDalay = TRUE;
-  BOOL wasCarrierIn = FALSE;
+  PBoolean doDalay = TRUE;
+  PBoolean wasCarrierIn = FALSE;
 
   for(;;) {
-    BOOL redo = FALSE;
+    PBoolean redo = FALSE;
     
     if (doDalay) {
       int outDelay;
@@ -1339,7 +1342,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
       return 0;
 
     for(;;) {
-      BOOL waitData = FALSE;
+      PBoolean waitData = FALSE;
       {
         PWaitAndSignal mutexWait(Mutex);
         if( isStateModemOut() || stateOut != stOutIdle ) {
@@ -1457,7 +1460,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                 PINDEX len = (msPerOut * ModParsOut.br)/(8*1000);
                 if (len > PINDEX(sizeof(b)))
                   len = sizeof(b);
-                BOOL wasFull = bufOut.isFull();
+                PBoolean wasFull = bufOut.isFull();
                 int count = hdlcOut.GetData(b, len);
                 if (wasFull && !bufOut.isFull())
                   ModemCallbackWithUnlock(cbpOutBufNoFull);
@@ -1618,7 +1621,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
   return 1;
 }
 ///////////////////////////////////////////////////////////////
-BOOL T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
+PBoolean T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
 {
   PWaitAndSignal mutexWaitIn(MutexIn);
 
@@ -1641,7 +1644,7 @@ BOOL T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
   return TRUE;
 }
 ///////////////////////////////////////////////////////////////
-BOOL T38Engine::HandlePacket(const T38_IFP & ifp)
+PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
 {
 #if PTRACING
   if (PTrace::CanTrace(3)) {

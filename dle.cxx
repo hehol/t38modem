@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: dle.cxx,v $
- * Revision 1.10  2007-03-23 09:48:23  vfrolov
- * Added deleting DLE shielded codes
+ * Revision 1.11  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.11  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.10  2007/03/23 09:48:23  vfrolov
  * Added deleting DLE shielded codes
@@ -74,7 +77,7 @@
 ///////////////////////////////////////////////////////////////
 static BYTE BitRevTable[256];
 
-static BOOL initBitRevTable()
+static PBoolean initBitRevTable()
 {
   for( unsigned i = 0 ; i < sizeof(BitRevTable) ; i++ ) {
     unsigned in = i, out = 0;
@@ -88,7 +91,7 @@ static BOOL initBitRevTable()
   return TRUE;
 }
 
-static const BOOL ___InitBitRevTable = initBitRevTable();
+static const PBoolean ___InitBitRevTable = initBitRevTable();
 ///////////////////////////////////////////////////////////////
 enum {
   ETX = 0x03,

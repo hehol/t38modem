@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,63 +24,117 @@
  * Contributor(s):
  *
  * $Log: ifpmediafmt.cxx,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
  *
- *
  */
 
 #include <ptlib.h>
+
+#include <opal/buildopts.h>
+
 #include <opal/mediafmt.h>
 #include "ifpmediafmt.h"
 
 /////////////////////////////////////////////////////////////////////////////
 // OPAL's SIP does not support multiple media formats with
-// the same RTP encoding name, so we can set it to "t38"
-// only for one of them.
+// the same RTP encoding name, so we need to workaround it
 
-static char encodingName_COR[7] = "t38";
-static char encodingName_PRE[7] = "t38pre";
+static PString t38_IFP_FormatForSip = GetOpalT38_IFP_COR().GetName();
 
-// Fortunately we can change it while initialization
+// Fortunately we can set valid while initialization
 
 void SetT38_IFP_PRE()
 {
-  strcpy(encodingName_COR, "t38cor");
-  strcpy(encodingName_PRE, "t38");
+  t38_IFP_FormatForSip = GetOpalT38_IFP_PRE().GetName();
+
+  PTRACE(2, "SetT38_IFP_PRE() t38_IFP_FormatForSip" << " = " << t38_IFP_FormatForSip);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+class T38_IFP_OpalMediaFormatInternal : public OpalMediaFormatInternal
+{
+    PCLASSINFO(T38_IFP_OpalMediaFormatInternal, OpalMediaFormatInternal);
+  public:
+    T38_IFP_OpalMediaFormatInternal(
+      const char * fullName,                      ///<  Full name of media format
+      const OpalMediaType & mediaType,            ///<  media type for this format
+      RTP_DataFrame::PayloadTypes rtpPayloadType, ///<  RTP payload type code
+      const char * encodingName,                  ///<  RTP encoding name
+      PBoolean     needsJitter,                   ///<  Indicate format requires a jitter buffer
+      unsigned bandwidth,                         ///<  Bandwidth in bits/second
+      PINDEX   frameSize,                         ///<  Size of frame in bytes (if applicable)
+      unsigned frameTime,                         ///<  Time for frame in RTP units (if applicable)
+      unsigned clockRate,                         ///<  Clock rate for data (if applicable)
+      time_t timeStamp = 0                        ///<  timestamp (for versioning)
+    )
+    : OpalMediaFormatInternal(fullName,
+                              mediaType,
+                              rtpPayloadType,
+                              encodingName,
+                              needsJitter,
+                              bandwidth,
+                              frameSize,
+                              frameTime,
+                              clockRate,
+                              timeStamp)
+    {}
+
+    virtual bool IsValidForProtocol(const PString & protocol) const;
+};
+
+bool T38_IFP_OpalMediaFormatInternal::IsValidForProtocol(const PString & protocol) const
+{
+  if (!OpalMediaFormatInternal::IsValidForProtocol(protocol))
+    return false;
+
+  if (protocol *= "sip") {
+    PWaitAndSignal m(media_format_mutex);
+
+    if (formatName != t38_IFP_FormatForSip) {
+      PTRACE(2, "T38_IFP_OpalMediaFormatInternal::IsValidForProtocol(" << protocol << ") " <<
+                formatName << " != " << t38_IFP_FormatForSip);
+      return false;
+    }
+  }
+
+  return true;
 }
 /////////////////////////////////////////////////////////////////////////////
 const OpalMediaFormat & GetOpalT38_IFP_COR()
 {
-  static const OpalMediaFormat opalT38_IFP(
+  static const OpalMediaFormat opalT38_IFP(new T38_IFP_OpalMediaFormatInternal(
     "T.38-IFP-COR",
-    OpalMediaFormat::DefaultDataSessionID,
-    RTP_DataFrame::IllegalPayloadType,
-    encodingName_COR,
-    FALSE, // No jitter for data
-    1440, // 100's bits/sec
+    "fax",
+    RTP_DataFrame::DynamicBase,
+    "t38",
+    PFalse, // No jitter for data
+    1440,   // 100's bits/sec
     0,
     0,
-    0);
+    0));
 
   return opalT38_IFP;
 }
 
 const OpalMediaFormat & GetOpalT38_IFP_PRE()
 {
-  static const OpalMediaFormat opalT38_IFP(
+  static const OpalMediaFormat opalT38_IFP(new T38_IFP_OpalMediaFormatInternal(
     "T.38-IFP-PRE",
-    OpalMediaFormat::DefaultDataSessionID,
-    RTP_DataFrame::IllegalPayloadType,
-    encodingName_PRE,
-    FALSE, // No jitter for data
-    1440, // 100's bits/sec
+    "fax",
+    RTP_DataFrame::DynamicBase,
+    "t38",
+    PFalse, // No jitter for data
+    1440,   // 100's bits/sec
     0,
     0,
-    0);
+    0));
 
   return opalT38_IFP;
 }

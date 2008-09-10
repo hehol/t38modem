@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,12 +24,14 @@
  * Contributor(s):
  *
  * $Log: sipep.h,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -49,17 +51,20 @@ class MySIPEndPoint : public SIPEndPoint
     MySIPEndPoint(
       OpalManager & manager
     )
-    : SIPEndPoint(manager),
-      in_redundancy(0),
-      ls_redundancy(0),
-      hs_redundancy(0),
-      re_interval(0) {}
+    : SIPEndPoint(manager)
+      /*
+      ,in_redundancy(0)
+      ,ls_redundancy(0)
+      ,hs_redundancy(0)
+      ,re_interval(0)
+      */
+      {}
   //@}
 
     static PString ArgSpec();
     static PStringArray Descriptions();
-    static BOOL Create(OpalManager & mgr, const PConfigArgs & args);
-    BOOL Initialise(const PConfigArgs & args);
+    static PBoolean Create(OpalManager & mgr, const PConfigArgs & args);
+    PBoolean Initialise(const PConfigArgs & args);
 
     virtual SIPConnection * CreateConnection(
       OpalCall & call,                         ///<  Owner of connection
@@ -70,11 +75,11 @@ class MySIPEndPoint : public SIPEndPoint
       SIP_PDU * invite,                        ///<  Original INVITE pdu
       unsigned int options = 0,                ///<  connection options
       OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
-
     );
 
     void AddMediaFormatList(const OpalMediaFormatList & list) { mediaFormatList += list; }
 
+    /*
     int InRedundancy() { return in_redundancy; }
     int LsRedundancy() { return ls_redundancy; }
     int HsRedundancy() { return hs_redundancy; }
@@ -84,16 +89,22 @@ class MySIPEndPoint : public SIPEndPoint
         OpalConnection &connection,
         const PTimeInterval &interval
     );
+    */
 
-    BOOL RequestModeChangeT38(OpalConnection & connection);
+    PBoolean RequestModeChange(
+      OpalConnection & connection,
+      const OpalMediaType & mediaType
+    );
 
   protected:
     OpalMediaFormatList mediaFormatList;
 
+    /*
     int in_redundancy;
     int ls_redundancy;
     int hs_redundancy;
     int re_interval;
+    */
 };
 /////////////////////////////////////////////////////////////////////////////
 

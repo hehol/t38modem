@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.13  2007-03-23 10:14:35  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.14  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.14  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.13  2007/03/23 10:14:35  vfrolov
  * Implemented voice mode functionality
@@ -95,24 +98,24 @@ PseudoModemBody::~PseudoModemBody()
   PseudoModemBody::StopAll();
 }
 
-BOOL PseudoModemBody::IsReady() const
+PBoolean PseudoModemBody::IsReady() const
 {
   PWaitAndSignal mutexWait(Mutex);
   return engine && engine->IsReady();
 }
 
-BOOL PseudoModemBody::CheckRoute(const PString &number) const
+PBoolean PseudoModemBody::CheckRoute(const PString &number) const
 {
   return route.IsEmpty() || number.Find(route) == 0;
 }
 
-BOOL PseudoModemBody::Request(PStringToString &request) const
+PBoolean PseudoModemBody::Request(PStringToString &request) const
 {
   PWaitAndSignal mutexWait(Mutex);
   return engine && engine->Request(request);
 }
 
-BOOL PseudoModemBody::Attach(T38Engine *t38engine) const
+PBoolean PseudoModemBody::Attach(T38Engine *t38engine) const
 {
   PWaitAndSignal mutexWait(Mutex);
   return engine && engine->Attach(t38engine);
@@ -125,7 +128,7 @@ void PseudoModemBody::Detach(T38Engine *t38engine) const
     engine->Detach(t38engine);
 }
 
-BOOL PseudoModemBody::Attach(AudioEngine *audioEngine) const
+PBoolean PseudoModemBody::Attach(AudioEngine *audioEngine) const
 {
   PWaitAndSignal mutexWait(Mutex);
   return engine && engine->Attach(audioEngine);
@@ -138,7 +141,7 @@ void PseudoModemBody::Detach(AudioEngine *audioEngine) const
     engine->Detach(audioEngine);
 }
 
-void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, BOOL OutQ)
+void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, PBoolean OutQ)
 {
   if( count == 0 )
     return;
@@ -186,7 +189,7 @@ void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, BOOL OutQ)
   }
 }
 
-BOOL PseudoModemBody::StartAll()
+PBoolean PseudoModemBody::StartAll()
 {
   if (engine)
     return TRUE;
@@ -213,7 +216,7 @@ void PseudoModemBody::StopAll()
   childstop = FALSE;
 }
 
-BOOL PseudoModemBody::AddModem() const
+PBoolean PseudoModemBody::AddModem() const
 {
   PStringToString request;
   request.SetAt("modemtoken", modemToken());

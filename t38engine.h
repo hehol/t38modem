@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.26  2007-05-10 10:40:33  vfrolov
- * Added ability to continuously resend last UDPTL packet
+ * Revision 1.27  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.27  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.26  2007/05/10 10:40:33  vfrolov
  * Added ability to continuously resend last UDPTL packet
@@ -137,8 +140,8 @@ class MODPARS
           int _br = -1
     );
 
-    BOOL IsModValid() const { return val >= 0; }
-    BOOL IsEqual(const MODPARS &mp) const { return msgType == mp.msgType; }
+    PBoolean IsModValid() const { return val >= 0; }
+    PBoolean IsEqual(const MODPARS &mp) const { return msgType == mp.msgType; }
 
     int dataType;
     int dataTypeT38;
@@ -203,19 +206,19 @@ class T38Engine : public OpalT38Protocol, public EngineBase
   
   /**@name Modem API */
   //@{
-    BOOL Attach(const PNotifier &callback);
+    PBoolean Attach(const PNotifier &callback);
     void Detach(const PNotifier &callback);
 
     void ResetModemState();
-    BOOL isOutBufFull() const;
+    PBoolean isOutBufFull() const;
 
     void SendOnIdle(int _dataType);
-    BOOL SendStart(int _dataType, int param);
+    PBoolean SendStart(int _dataType, int param);
     int Send(const void *pBuf, PINDEX count);
-    BOOL SendStop(BOOL moreFrames, int _callbackParam);
+    PBoolean SendStop(PBoolean moreFrames, int _callbackParam);
 
-    BOOL RecvWait(int _dataType, int param, int _callbackParam, BOOL &done);
-    BOOL RecvStart(int _callbackParam);
+    PBoolean RecvWait(int _dataType, int param, int _callbackParam, PBoolean &done);
+    PBoolean RecvStart(int _callbackParam);
     int Recv(void *pBuf, PINDEX count);
     int RecvDiag();
     void RecvStop();
@@ -223,9 +226,9 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     
 #ifndef USE_OPAL
     void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFP &T38_ifp) const;
-    BOOL HandleRawIFP(const PASN_OctetString & pdu);
-    BOOL Originate();
-    BOOL Answer();
+    PBoolean HandleRawIFP(const PASN_OctetString & pdu);
+    PBoolean Originate();
+    PBoolean Answer();
 #endif
 
     void CleanUpOnTermination();
@@ -246,7 +249,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
 
        If returns FALSE, then the reading loop should be terminated.
       */
-    BOOL HandlePacket(
+    PBoolean HandlePacket(
       const T38_IFP & ifp
     );
 
@@ -254,7 +257,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
 
        If returns FALSE, then the reading loop should be terminated.
       */
-    BOOL HandlePacketLost(
+    PBoolean HandlePacketLost(
       unsigned nLost
     );
 
@@ -271,11 +274,11 @@ class T38Engine : public OpalT38Protocol, public EngineBase
 
     void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }
     void WaitOutDataReady() { outDataReadySyncPoint.Wait(); }
-    BOOL WaitOutDataReady(const PTimeInterval & timeout) {
+    PBoolean WaitOutDataReady(const PTimeInterval & timeout) {
       return outDataReadySyncPoint.Wait(timeout);
     }
 
-    BOOL IsT38Mode() const { return T38Mode; }
+    PBoolean IsT38Mode() const { return T38Mode; }
     void ModemCallbackWithUnlock(INT extra);
     void _ResetModemState();
 
@@ -287,7 +290,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     MODPARS ModParsOut;
     PTime timeBeginOut;
     PINDEX countOut;
-    BOOL moreFramesOut;
+    PBoolean moreFramesOut;
     HDLC hdlcOut;
     PSyncPoint outDataReadySyncPoint;
 
@@ -304,7 +307,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     ModStream *modStreamInSaved;
 
     volatile int stateModem;
-    volatile BOOL T38Mode;
+    volatile PBoolean T38Mode;
 
     PMutex Mutex;
     PMutex MutexOut;

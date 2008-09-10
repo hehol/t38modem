@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.cxx,v $
- * Revision 1.7  2007-07-17 10:03:22  vfrolov
- * Added Unix98 PTY support
+ * Revision 1.8  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.8  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.7  2007/07/17 10:03:22  vfrolov
  * Added Unix98 PTY support
@@ -263,7 +266,7 @@ static const char *ttyPatternLegacy()
 #undef TTY_PATTERN
 }
 
-static BOOL ttyCheckLegacy(const PString &_tty)
+static PBoolean ttyCheckLegacy(const PString &_tty)
 {
   PRegularExpression regLegacy(ttyPatternLegacy(), PRegularExpression::Extended);
 
@@ -277,7 +280,7 @@ static const char *ttyPatternUnix98()
   return "^\\+.+$";
 }
 
-static BOOL ttyCheckUnix98(const PString &_tty)
+static PBoolean ttyCheckUnix98(const PString &_tty)
 {
   PRegularExpression regUnix98(ttyPatternUnix98(), PRegularExpression::Extended);
 
@@ -364,7 +367,7 @@ PseudoModemPty::~PseudoModemPty()
   ClosePty();
 }
 
-BOOL PseudoModemPty::CheckTty(const PString &_tty)
+PBoolean PseudoModemPty::CheckTty(const PString &_tty)
 {
 #ifdef USE_LEGACY_PTY
   if (ttyCheckLegacy(_tty))
@@ -419,7 +422,7 @@ ModemThreadChild *PseudoModemPty::GetPtyNotifier()
   return outPty;
 }
 
-BOOL PseudoModemPty::StartAll()
+PBoolean PseudoModemPty::StartAll()
 {
   if (IsOpenPty()
      && (inPty = new InPty(*this, hPty))
@@ -454,7 +457,7 @@ void PseudoModemPty::StopAll()
   PseudoModemBody::StopAll();
 }
 
-BOOL PseudoModemPty::OpenPty()
+PBoolean PseudoModemPty::OpenPty()
 {
   if (IsOpenPty()) {
     // check hPty health

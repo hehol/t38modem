@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.h,v $
- * Revision 1.7  2007-03-23 10:14:35  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.8  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.8  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.7  2007/03/23 10:14:35  vfrolov
  * Implemented voice mode functionality
@@ -74,24 +77,24 @@ class PseudoModem : public ModemThread
   //@}
 
   /**@name Operations */
-    virtual BOOL IsReady() const = 0;
-    virtual BOOL CheckRoute(const PString &number) const = 0;
-    virtual BOOL Request(PStringToString &request) const = 0;
-    virtual BOOL Attach(T38Engine *t38engine) const = 0;
+    virtual PBoolean IsReady() const = 0;
+    virtual PBoolean CheckRoute(const PString &number) const = 0;
+    virtual PBoolean Request(PStringToString &request) const = 0;
+    virtual PBoolean Attach(T38Engine *t38engine) const = 0;
     virtual void Detach(T38Engine *t38engine) const = 0;
-    virtual BOOL Attach(AudioEngine *audioEngine) const = 0;
+    virtual PBoolean Attach(AudioEngine *audioEngine) const = 0;
     virtual void Detach(AudioEngine *audioEngine) const = 0;
 
     const PString &ptyName() const { return ptyname; }
     const PString &modemToken() const { return ptyname; }
-    BOOL IsValid() const { return valid; }
+    PBoolean IsValid() const { return valid; }
   //@}
 
   protected:
     Comparison Compare(const PObject & obj) const;
 
     PString ptyname;
-    BOOL valid;
+    PBoolean valid;
 };
 ///////////////////////////////////////////////////////////////
 class PseudoModemList;
@@ -108,14 +111,14 @@ class PseudoModemQ : protected _PseudoModemQ
   //@}
 
   /**@name Operations */
-    BOOL CreateModem(
+    PBoolean CreateModem(
       const PString &tty,
       const PString &route,
       const PConfigArgs &args,
       const PNotifier &callbackEndPoint
     );
     void Enqueue(PseudoModem *modem);
-    BOOL Enqueue(const PString &modemToken);
+    PBoolean Enqueue(const PString &modemToken);
     PseudoModem *DequeueWithRoute(const PString &number);
     PseudoModem *Dequeue(const PString &modemToken);
   //@}

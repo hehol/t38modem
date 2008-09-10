@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.45  2008-09-10 07:05:06  frolov
- * Fixed doubled mutex lock
+ * Revision 1.46  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.46  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.45  2008/09/10 07:05:06  frolov
  * Fixed doubled mutex lock
@@ -221,8 +224,8 @@ class Profile
     Profile();
 
     #define DeclareRegisterBit(name, byte, bit)	\
-      void name(BOOL val) { SetBit(byte, bit, val); } \
-      BOOL name() const { BOOL val; GetBit(byte, bit, val); return val; }
+      void name(PBoolean val) { SetBit(byte, bit, val); } \
+      PBoolean name() const { PBoolean val; GetBit(byte, bit, val); return val; }
 
     DeclareRegisterBit(Echo, 23, 0);
     DeclareRegisterBit(asciiResultCodes, 23, 6);
@@ -246,14 +249,14 @@ class Profile
       return 255;
     }
 
-    BOOL SetBit(PINDEX r, PINDEX b, BOOL val) {
+    PBoolean SetBit(PINDEX r, PINDEX b, PBoolean val) {
       if( !ChkRB(r, b) ) return FALSE;
       BYTE msk = MaskB(b);
       if( val ) S[r] |= msk;
       else      S[r] &= ~msk;
       return TRUE;
     }
-    BOOL GetBit(PINDEX r, PINDEX b, BOOL &val) const {
+    PBoolean GetBit(PINDEX r, PINDEX b, PBoolean &val) const {
       if (!ChkRB(r, b)) {
         val = 0;
         return FALSE;
@@ -262,12 +265,12 @@ class Profile
       val = (S[r] & msk) ? TRUE : FALSE;
       return TRUE;
     }
-    BOOL SetReg(PINDEX r, BYTE val) {
+    PBoolean SetReg(PINDEX r, BYTE val) {
       if( !ChkR(r) ) return FALSE;
       S[r] = val;
       return TRUE;
     }
-    BOOL GetReg(PINDEX r, BYTE &val) const {
+    PBoolean GetReg(PINDEX r, BYTE &val) const {
       if (!ChkR(r)) {
         val = 0;
         return FALSE;
@@ -275,14 +278,14 @@ class Profile
       val = S[r];
       return TRUE;
     }
-    BOOL SetBits(PINDEX r, PINDEX bl, PINDEX bh, BYTE val) {
+    PBoolean SetBits(PINDEX r, PINDEX bl, PINDEX bh, BYTE val) {
       if( !ChkRBB(r, bl, bh) ) return FALSE;
       BYTE msk = MaskBB(bl, bh);
       S[r] &= ~msk;
       S[r] &= (val << bl) & msk;
       return TRUE;
     }
-    BOOL GetBits(PINDEX r, PINDEX bl, PINDEX bh, BYTE &val) const {
+    PBoolean GetBits(PINDEX r, PINDEX bl, PINDEX bh, BYTE &val) const {
       if (!ChkRBB(r, bl, bh)) {
         val = 0;
         return FALSE;
@@ -299,20 +302,20 @@ class Profile
       audioClass = (modemClass == "8");
     }
     const PString &ModemClass() const { return modemClass; }
-    BOOL AudioClass() const { return audioClass; }
-    BOOL FaxClass() const { return !audioClass; }
+    PBoolean AudioClass() const { return audioClass; }
+    PBoolean FaxClass() const { return !audioClass; }
 
   protected:
-    static BOOL ChkR(PINDEX r) {
+    static PBoolean ChkR(PINDEX r) {
       return r <= MaxReg;
     }
-    static BOOL ChkB(PINDEX b) {
+    static PBoolean ChkB(PINDEX b) {
       return b <= MaxBit;
     }
-    static BOOL ChkRB(PINDEX r, PINDEX b) {
+    static PBoolean ChkRB(PINDEX r, PINDEX b) {
       return ChkR(r) && ChkB(b);
     }
-    static BOOL ChkRBB(PINDEX r, PINDEX bl, PINDEX bh) {
+    static PBoolean ChkRBB(PINDEX r, PINDEX bl, PINDEX bh) {
       return ChkR(r) && ChkB(bl) && ChkB(bh) && bl <= bh;
     }
     static BYTE MaskB(PINDEX b) {
@@ -324,14 +327,14 @@ class Profile
 
     BYTE S[MaxReg + 1];	// S-registers
     PString modemClass;
-    BOOL audioClass;
+    PBoolean audioClass;
 };
 ///////////////////////////////////////////////////////////////
 class Timeout : public PTimer
 {
     PCLASSINFO(Timeout, PTimer);
   public:
-    Timeout(const PNotifier &callback, BOOL _continuous = FALSE) 
+    Timeout(const PNotifier &callback, PBoolean _continuous = FALSE) 
         : state(0), continuous(_continuous) { 
       SetNotifier(callback);
     }
@@ -353,7 +356,7 @@ class Timeout : public PTimer
       PTimer::operator=(0);
     }
     
-    BOOL Get() { 
+    PBoolean Get() { 
       PWaitAndSignal mutexWait(Mutex); 
       if( state == 2 ) { 
         state = continuous ? 1 : 0;
@@ -370,7 +373,7 @@ class Timeout : public PTimer
     }
   
     int state;
-    BOOL continuous;
+    PBoolean continuous;
     PMutex Mutex;
 };
 ///////////////////////////////////////////////////////////////
@@ -417,29 +420,29 @@ class ModemEngineBody : public PObject
 
   /**@name Operations */
   //@{
-    BOOL Request(PStringToString &request);
-    BOOL Attach(T38Engine *_t38engine);
+    PBoolean Request(PStringToString &request);
+    PBoolean Attach(T38Engine *_t38engine);
     void Detach(T38Engine *_t38engine) { PWaitAndSignal mutexWait(Mutex); _Detach(_t38engine); }
-    BOOL Attach(AudioEngine *_audioEngine);
+    PBoolean Attach(AudioEngine *_audioEngine);
     void Detach(AudioEngine *_audioEngine) { PWaitAndSignal mutexWait(Mutex); _Detach(_audioEngine); }
     void OnParentStop();
     void HandleData(const PBYTEArray &buf, PBYTEArray &bresp);
     void CheckState(PBYTEArray &bresp);
-    BOOL IsReady() const {
+    PBoolean IsReady() const {
       PWaitAndSignal mutexWait(Mutex);
       return state == stCommand && (PTime() - lastPtyActivity) > 5*1000;
     }
-    BOOL isOutBufFull() const {
+    PBoolean isOutBufFull() const {
       PWaitAndSignal mutexWait(Mutex);
       return (t38engine && t38engine->isOutBufFull()) || (audioEngine && audioEngine->isOutBufFull());
     }
   //@}
 
   protected:
-    BOOL Echo() const { return P.Echo(); }
-    BOOL HandleClass1Cmd(const char **ppCmd, PString &resp, BOOL &ok, BOOL &crlf);
-    BOOL HandleClass8Cmd(const char **ppCmd, PString &resp, BOOL &ok, BOOL &crlf);
-    BOOL Answer();
+    PBoolean Echo() const { return P.Echo(); }
+    PBoolean HandleClass1Cmd(const char **ppCmd, PString &resp, PBoolean &ok, PBoolean &crlf);
+    PBoolean HandleClass8Cmd(const char **ppCmd, PString &resp, PBoolean &ok, PBoolean &crlf);
+    PBoolean Answer();
     void HandleCmd(const PString &cmd, PString &resp);
 
     void ResetDleData() {
@@ -449,7 +452,7 @@ class ModemEngineBody : public PObject
       moreFrames = FALSE;
     }
 
-    BOOL SendStart(int dt, int br, PString &resp) {
+    PBoolean SendStart(int dt, int br, PString &resp) {
       PWaitAndSignal mutexWait(Mutex);
       dataType = dt;
       ResetDleData();
@@ -466,8 +469,8 @@ class ModemEngineBody : public PObject
       return TRUE;
     }
 
-    BOOL RecvStart(int dt, int br) {
-      BOOL done = FALSE;
+    PBoolean RecvStart(int dt, int br) {
+      PBoolean done = FALSE;
 
       PWaitAndSignal mutexWait(Mutex);
       dataType = dt;
@@ -513,8 +516,8 @@ class ModemEngineBody : public PObject
     int seq;
 
     int callDirection;
-    BOOL forceFaxMode;
-    BOOL connectionEstablished;
+    PBoolean forceFaxMode;
+    PBoolean connectionEstablished;
     int state;
     int param;
     PString cmd;
@@ -522,7 +525,7 @@ class ModemEngineBody : public PObject
 
     DLEData dleData;
     PINDEX dataCount;
-    BOOL moreFrames;
+    PBoolean moreFrames;
     FCS fcs;
 
     Profile P;
@@ -565,12 +568,12 @@ ModemEngine::~ModemEngine()
     delete body;
 }
 
-BOOL ModemEngine::IsReady() const
+PBoolean ModemEngine::IsReady() const
 {
   return body && body->IsReady();
 }
 
-BOOL ModemEngine::Attach(T38Engine *t38engine) const
+PBoolean ModemEngine::Attach(T38Engine *t38engine) const
 {
   return body && body->Attach(t38engine);
 }
@@ -581,7 +584,7 @@ void ModemEngine::Detach(T38Engine *t38engine) const
     body->Detach(t38engine);
 }
 
-BOOL ModemEngine::Attach(AudioEngine *audioEngine) const
+PBoolean ModemEngine::Attach(AudioEngine *audioEngine) const
 {
   return body && body->Attach(audioEngine);
 }
@@ -592,7 +595,7 @@ void ModemEngine::Detach(AudioEngine *audioEngine) const
     body->Detach(audioEngine);
 }
 
-BOOL ModemEngine::Request(PStringToString &request) const
+PBoolean ModemEngine::Request(PStringToString &request) const
 {
   return body && body->Request(request);
 }
@@ -746,7 +749,7 @@ void ModemEngineBody::_ClearCall()
   forceFaxMode = FALSE;
 }
 
-BOOL ModemEngineBody::Request(PStringToString &request)
+PBoolean ModemEngineBody::Request(PStringToString &request)
 {
   myPTRACE(1, "ModemEngineBody::Request request={\n" << request << "}");
   
@@ -802,7 +805,7 @@ BOOL ModemEngineBody::Request(PStringToString &request)
   return TRUE;
 }
 
-BOOL ModemEngineBody::Attach(T38Engine *_t38engine)
+PBoolean ModemEngineBody::Attach(T38Engine *_t38engine)
 {
   if (_t38engine == NULL) {
     myPTRACE(1, "ModemEngineBody::Attach _t38engine==NULL");
@@ -873,7 +876,7 @@ void ModemEngineBody::_Detach(T38Engine *_t38engine)
   myPTRACE(1, "ModemEngineBody::_Detach t38engine Detached");
 }
 
-BOOL ModemEngineBody::Attach(AudioEngine *_audioEngine)
+PBoolean ModemEngineBody::Attach(AudioEngine *_audioEngine)
 {
   if (_audioEngine == NULL) {
     myPTRACE(1, "ModemEngineBody::Attach _audioEngine==NULL");
@@ -1018,9 +1021,9 @@ static int ParseNum(const char **ppCmd,
     return num;
 }
 
-BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, BOOL &ok, BOOL &crlf)
+PBoolean ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, PBoolean &ok, PBoolean &crlf)
 {
-  BOOL T;
+  PBoolean T;
   
   switch( *(*ppCmd - 2) ) {
     case 'T':
@@ -1124,7 +1127,7 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, BOOL &o
                   ok = FALSE;
                   {
                     PString _resp;
-                    BOOL res = T ? SendStart(dt, br, _resp) : RecvStart(dt, br);
+                    PBoolean res = T ? SendStart(dt, br, _resp) : RecvStart(dt, br);
 
                     if (_resp.GetLength()) {
                       if (crlf) {
@@ -1156,9 +1159,9 @@ BOOL ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, BOOL &o
   return TRUE;
 }
 
-BOOL ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, BOOL &ok, BOOL &crlf)
+PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBoolean &ok, PBoolean &crlf)
 {
-  BOOL T;
+  PBoolean T;
 
   switch (*(*ppCmd - 2)) {
     case 'T':
@@ -1393,7 +1396,7 @@ BOOL ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, BOOL &o
         ok = FALSE;
 
         PString _resp;
-        BOOL res = T ? SendStart(EngineBase::dtRaw, 0, _resp) : RecvStart(EngineBase::dtRaw, 0);
+        PBoolean res = T ? SendStart(EngineBase::dtRaw, 0, _resp) : RecvStart(EngineBase::dtRaw, 0);
 
         if (_resp.GetLength()) {
           if (crlf) {
@@ -1420,7 +1423,7 @@ BOOL ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, BOOL &o
   return TRUE;
 }
 
-BOOL ModemEngineBody::Answer()
+PBoolean ModemEngineBody::Answer()
 {
   PWaitAndSignal mutexWait(Mutex);
 
@@ -1511,9 +1514,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
   PString ucmd = PString(pCmd).ToUpper();
   pCmd = ucmd;
 
-  BOOL err = FALSE;
-  BOOL ok = TRUE;
-  BOOL crlf = FALSE;
+  PBoolean err = FALSE;
+  PBoolean ok = TRUE;
+  PBoolean crlf = FALSE;
 
   while (state == stCommand && !err && *pCmd) {
       switch( *pCmd++ ) {
@@ -1538,8 +1541,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           {
             PString num;
             PString LocalPartyName;
-            BOOL local = FALSE;
-            BOOL setForceFaxMode = FALSE;
+            PBoolean local = FALSE;
+            PBoolean setForceFaxMode = FALSE;
           
             for( char ch ; (ch = *pCmd) != 0 && !err ; pCmd++ ) {
               if( isdigit(ch) ) {
@@ -1742,14 +1745,14 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                       case '=':
                         {
                           int val = ParseNum(&pCmd, 1, 1, 1);
-                          if( val < 0 || !P.SetBit(r, b, (BOOL)val) ) {
+                          if( val < 0 || !P.SetBit(r, b, (PBoolean)val) ) {
                             err = TRUE;
                           }
                         }
                         break;
                       case '?':
                         {
-                          BOOL val;
+                          PBoolean val;
                 
                           if( P.GetBit(r, b, val) ) {
                             resp.sprintf("\r\n%u", (unsigned)val);

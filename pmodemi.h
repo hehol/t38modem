@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.h,v $
- * Revision 1.6  2007-03-23 10:14:36  vfrolov
- * Implemented voice mode functionality
+ * Revision 1.7  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.7  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.6  2007/03/23 10:14:36  vfrolov
  * Implemented voice mode functionality
@@ -76,12 +79,12 @@ class PseudoModemBody : public PseudoModem
     void ToOutPtyQ(const void *buf, PINDEX count) { ToPtyQ(buf, count, TRUE); };
   //@}
 
-    virtual BOOL IsReady() const;
-    BOOL CheckRoute(const PString &number) const;
-    BOOL Request(PStringToString &request) const;
-    BOOL Attach(T38Engine *t38engine) const;
+    virtual PBoolean IsReady() const;
+    PBoolean CheckRoute(const PString &number) const;
+    PBoolean Request(PStringToString &request) const;
+    PBoolean Attach(T38Engine *t38engine) const;
     void Detach(T38Engine *t38engine) const;
-    BOOL Attach(AudioEngine *audioEngine) const;
+    PBoolean Attach(AudioEngine *audioEngine) const;
     void Detach(AudioEngine *audioEngine) const;
 
     const PNotifier &GetCallbackEndPoint() const { return callbackEndPoint; }
@@ -89,11 +92,11 @@ class PseudoModemBody : public PseudoModem
   protected:
     virtual const PString &ttyPath() const = 0;
     virtual ModemThreadChild *GetPtyNotifier() = 0;
-    virtual BOOL StartAll();
+    virtual PBoolean StartAll();
     virtual void StopAll();
     virtual void MainLoop() = 0;
 
-    BOOL AddModem() const;
+    PBoolean AddModem() const;
     PBYTEArray *FromOutPtyQ() { return outPtyQ.Dequeue(); }
     void ToInPtyQ(PBYTEArray *buf) { inPtyQ.Enqueue(buf); }
     void ToInPtyQ(const void *buf, PINDEX count) { ToPtyQ(buf, count, FALSE); };
@@ -102,7 +105,7 @@ class PseudoModemBody : public PseudoModem
 
   private:
     void Main();
-    void ToPtyQ(const void *buf, PINDEX count, BOOL OutQ);
+    void ToPtyQ(const void *buf, PINDEX count, PBoolean OutQ);
 
     PString route;
     const PNotifier callbackEndPoint;

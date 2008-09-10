@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.h,v $
- * Revision 1.3  2007-01-29 12:44:41  vfrolov
- * Added ability to put args to drivers
+ * Revision 1.4  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.4  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.3  2007/01/29 12:44:41  vfrolov
  * Added ability to put args to drivers
@@ -83,7 +86,7 @@ class PseudoModemPty : public PseudoModemBody
 
   /**@name static functions */
   //@{
-    static BOOL CheckTty(const PString &_tty);
+    static PBoolean CheckTty(const PString &_tty);
     static PString ArgSpec();
     static PStringArray Description();
   //@}
@@ -93,15 +96,15 @@ class PseudoModemPty : public PseudoModemBody
   //@{
     const PString &ttyPath() const;
     ModemThreadChild *GetPtyNotifier();
-    BOOL StartAll();
+    PBoolean StartAll();
     void StopAll();
     void MainLoop();
   //@}
 
   private:
-    BOOL OpenPty();
+    PBoolean OpenPty();
     void ClosePty();
-    BOOL IsOpenPty() const { return hPty >= 0; }
+    PBoolean IsOpenPty() const { return hPty >= 0; }
 
     int hPty;
     InPty *inPty;

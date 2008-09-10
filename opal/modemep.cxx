@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.2  2007-07-20 14:30:25  vfrolov
- * Moved GetPartyName() to opalutils.cxx
+ * Revision 1.3  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.3  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.2  2007/07/20 14:30:25  vfrolov
  * Moved GetPartyName() to opalutils.cxx
@@ -33,10 +36,11 @@
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
  *
- *
  */
 
 #include <ptlib.h>
+
+#include <opal/buildopts.h>
 
 #include "../t38engine.h"
 #include "../audio.h"
@@ -63,26 +67,28 @@ class ModemConnection : public OpalConnection
     );
     ~ModemConnection();
 
-    BOOL Attach(PseudoModem *_pmodem);
+    PBoolean Attach(PseudoModem *_pmodem);
 
     virtual OpalMediaStream * CreateMediaStream(
       const OpalMediaFormat & mediaFormat, /// Media format for stream
       unsigned sessionID,                  /// Session number for stream
-      BOOL isSource                        /// Is a source stream
+      PBoolean isSource                    /// Is a source stream
     );
 
     void SetReadTimeout(const PTimeInterval &timeout);
 
+    virtual bool IsNetworkConnection() const { return true; }
+
     virtual void OnReleased();
 
-    virtual BOOL SetUpConnection();
+    virtual PBoolean SetUpConnection();
 
-    virtual BOOL SetAlerting(
+    virtual PBoolean SetAlerting(
       const PString & calleeName,   /// Name of endpoint being alerted.
-      BOOL withMedia                /// Open media with alerting
+      PBoolean withMedia            /// Open media with alerting
     );
 
-    virtual BOOL SetConnected();
+    virtual PBoolean SetConnected();
 
     virtual OpalMediaFormatList GetMediaFormats() const;
 
@@ -90,8 +96,8 @@ class ModemConnection : public OpalConnection
     virtual void OnEstablished();
     virtual void AcceptIncoming();
 
-    virtual BOOL SendUserInputString(
-      const PString & value                   ///<  String value of indication
+    virtual PBoolean SendUserInputString(
+      const PString & value                ///<  String value of indication
     );
 
   protected:
@@ -146,7 +152,7 @@ PStringArray ModemEndPoint::Descriptions()
   return descriptions;
 }
 
-BOOL ModemEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
+PBoolean ModemEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
 {
   if (args.HasOption("no-modem")) {
     cout << "Disabled MODEM protocol" << endl;
@@ -159,7 +165,7 @@ BOOL ModemEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
   return FALSE;
 }
 
-BOOL ModemEndPoint::Initialise(const PConfigArgs & args)
+PBoolean ModemEndPoint::Initialise(const PConfigArgs & args)
 {
   if (args.HasOption("ptty")) {
     PString tty = args.GetOptionString("ptty");
@@ -227,28 +233,26 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
       }
     } else if (command == "answer") {
       PSafePtr<ModemConnection> pConn =
-          PSafePtrCast<OpalConnection, ModemConnection>(GetConnectionWithLock(request("calltoken")));
+          PSafePtrCast<OpalConnection, ModemConnection>(GetConnectionWithLock(request("calltoken"), PSafeReference));
 
       if (pConn != NULL) {
         pConn->AcceptIncoming();
         response = "confirm";
       }
     } else if (command == "requestmode") {
-      PSafePtr<OpalConnection> pConn = GetConnectionWithLock(request("calltoken"));
+      PSafePtr<OpalConnection> pConn = GetConnectionWithLock(request("calltoken"), PSafeReference);
 
       if (pConn != NULL) {
         if (request("mode") == "fax") {
-          if (((MyManager &)GetManager()).OnRequestModeChange(*pConn, T38ModemMediaStream::GetT38MediaFormat())) {
+          if (((MyManager &)GetManager()).OnRequestModeChange(*pConn, OpalMediaType::Fax()))
             response = "confirm";
-            pConn->CloseMediaStreams();
-          }
         } else {
           myPTRACE(1, "ModemEndPoint::OnMyCallback unknown mode");
         }
       }
     } else if (command == "clearcall") {
       PSafePtr<ModemConnection> pConn =
-          PSafePtrCast<OpalConnection, ModemConnection>(GetConnectionWithLock(request("calltoken")));
+          PSafePtrCast<OpalConnection, ModemConnection>(GetConnectionWithLock(request("calltoken"), PSafeReference));
 
       if (pConn != NULL) {
         pConn->ClearCall();
@@ -287,7 +291,7 @@ void ModemEndPoint::SetReadTimeout(
   return ((ModemConnection &)connection).SetReadTimeout(timeout);
 }
 
-BOOL ModemEndPoint::MakeConnection(
+PBoolean ModemEndPoint::MakeConnection(
     OpalCall & call,
     const PString & remoteParty,
     void * /*userData*/,
@@ -342,7 +346,6 @@ ModemConnection::ModemConnection(
 {
   remotePartyNumber = GetPartyName(remoteParty);
   remotePartyAddress = remoteParty;
-  calledDestinationNumber = GetPartyName(GetCall().GetPartyB());
 
   myPTRACE(1, "ModemConnection::ModemConnection " << *this);
 }
@@ -381,7 +384,7 @@ ModemConnection::~ModemConnection()
 OpalMediaStream * ModemConnection::CreateMediaStream(
     const OpalMediaFormat & mediaFormat,
     unsigned sessionID,
-    BOOL isSource)
+    PBoolean isSource)
 {
   myPTRACE(2, "ModemConnection::CreateMediaStream " << *this <<
       " mediaFormat=" << mediaFormat << " sessionID=" << sessionID << " isSource=" << isSource);
@@ -430,7 +433,7 @@ void ModemConnection::OnReleased()
   OpalConnection::OnReleased();
 }
 
-BOOL ModemConnection::Attach(PseudoModem *_pmodem)
+PBoolean ModemConnection::Attach(PseudoModem *_pmodem)
 {
   if (pmodem != NULL)
     return FALSE;
@@ -450,7 +453,7 @@ BOOL ModemConnection::Attach(PseudoModem *_pmodem)
   return TRUE;
 }
 
-BOOL ModemConnection::SetUpConnection()
+PBoolean ModemConnection::SetUpConnection()
 {
   myPTRACE(1, "ModemConnection::SetUpConnection " << *this);
 
@@ -475,7 +478,7 @@ BOOL ModemConnection::SetUpConnection()
   PString srcNum;
 
   {
-    PSafePtr<OpalConnection> other = GetCall().GetOtherPartyConnection(*this);
+    PSafePtr<OpalConnection> other = GetOtherPartyConnection();
 
     if (other == NULL)
       return FALSE;
@@ -534,29 +537,22 @@ BOOL ModemConnection::SetUpConnection()
   return TRUE;
 }
 
-BOOL ModemConnection::SetAlerting(
+PBoolean ModemConnection::SetAlerting(
     const PString & myPTRACE_PARAM(calleeName),
-    BOOL myPTRACE_PARAM(withMedia))
+    PBoolean myPTRACE_PARAM(withMedia))
 {
-  myPTRACE(1, "ModemConnection::SetAlerting " << *this << calleeName << " " << withMedia);
+  myPTRACE(1, "ModemConnection::SetAlerting " << *this << " " << calleeName << " " << withMedia);
 
   SetPhase(AlertingPhase);
 
   return TRUE;
 }
 
-BOOL ModemConnection::SetConnected()
+PBoolean ModemConnection::SetConnected()
 {
   myPTRACE(1, "ModemConnection::SetConnected " << *this);
 
-  SetPhase(ConnectedPhase);
-
-  if (!mediaStreams.IsEmpty()) {
-    SetPhase(EstablishedPhase);
-    OnEstablished();
-  }
-
-  return TRUE;
+  return OpalConnection::SetConnected();
 }
 
 OpalMediaFormatList ModemConnection::GetMediaFormats() const
@@ -597,7 +593,7 @@ void ModemConnection::AcceptIncoming()
   OnConnected();
 }
 
-BOOL ModemConnection::SendUserInputString(const PString & value)
+PBoolean ModemConnection::SendUserInputString(const PString & value)
 {
   if (audioEngine == NULL)
     return FALSE;

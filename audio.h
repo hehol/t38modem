@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,12 +24,14 @@
  * Contributor(s): 
  *
  * $Log: audio.h,v $
- * Revision 1.1  2007-03-23 09:54:45  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/03/23 09:54:45  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -53,21 +55,21 @@ class AudioEngine : public PChannel, public EngineBase
     AudioEngine(const PString &_name = "");
     ~AudioEngine();
 
-    BOOL Attach(const PNotifier &callback);
+    PBoolean Attach(const PNotifier &callback);
     void Detach(const PNotifier &callback);
     void ModemCallbackWithUnlock(INT extra);
-    void AudioClass(BOOL _audioClass);
+    void AudioClass(PBoolean _audioClass);
 
-    BOOL Read(void * buffer, PINDEX amount);
+    PBoolean Read(void * buffer, PINDEX amount);
     void SendOnIdle(int _dataType);
-    BOOL SendStart(int _dataType, int param);
+    PBoolean SendStart(int _dataType, int param);
     int Send(const void *pBuf, PINDEX count);
-    BOOL SendStop(BOOL moreFrames, int _callbackParam);
-    BOOL isOutBufFull() const;
+    PBoolean SendStop(PBoolean moreFrames, int _callbackParam);
+    PBoolean isOutBufFull() const;
 
-    BOOL Write(const void * buffer, PINDEX len);
-    BOOL RecvWait(int _dataType, int param, int _callbackParam, BOOL &done);
-    BOOL RecvStart(int _callbackParam);
+    PBoolean Write(const void * buffer, PINDEX len);
+    PBoolean RecvWait(int _dataType, int param, int _callbackParam, PBoolean &done);
+    PBoolean RecvStart(int _callbackParam);
     int Recv(void *pBuf, PINDEX count);
     void RecvStop();
     void WriteUserInput(const PString & value);
@@ -88,7 +90,7 @@ class AudioEngine : public PChannel, public EngineBase
     T30Tone *volatile t30Tone;
     T30ToneDetect *volatile t30ToneDetect;
 
-    BOOL audioClass;
+    PBoolean audioClass;
 
     PMutex Mutex;
 };

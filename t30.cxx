@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2003-2005 Vyacheslav Frolov
+ * Copyright (c) 2003-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30.cxx,v $
- * Revision 1.4  2005-02-04 10:18:49  vfrolov
- * Fixed warnings for No Trace build
+ * Revision 1.5  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.5  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.4  2005/02/04 10:18:49  vfrolov
  * Fixed warnings for No Trace build
@@ -38,7 +41,6 @@
  *
  * Revision 1.1  2003/12/04 13:38:46  vfrolov
  * Initial revision
- *
  * 
  */
 
@@ -50,7 +52,7 @@
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-void T30::v21End(BOOL myPTRACE_PARAM(sent))
+void T30::v21End(PBoolean myPTRACE_PARAM(sent))
 {
   int size = v21frame.GetSize();
   PString msg;

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2003 Vyacheslav Frolov
+ * Copyright (c) 2003-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,12 +24,14 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: hdlc.h,v $
- * Revision 1.1  2003-12-04 13:38:39  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2003/12/04 13:38:39  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -46,18 +48,18 @@ class HDLC
     void PutRawData(DataStream *_inData);
     void PutHdlcData(DataStream *_inData);
     void GetRawStart(PINDEX flags = 0);
-    void GetHdlcStart(BOOL sync);
+    void GetHdlcStart(PBoolean sync);
     int GetData(void *pBuf, PINDEX count);
-    BOOL isFcsOK();
+    PBoolean isFcsOK();
     int getLastChar() { return lastChar; }
     PINDEX getRawCount() { return rawCount; }
     void resetRawCount() { rawCount = 0; }
 
   private:
-    void pack(const void *pBuf, PINDEX count, BOOL flag = FALSE);
-    BOOL sync(BYTE b);
-    BOOL skipFlag(BYTE b);
-    BOOL unpack(BYTE b);
+    void pack(const void *pBuf, PINDEX count, PBoolean flag = FALSE);
+    PBoolean sync(BYTE b);
+    PBoolean skipFlag(BYTE b);
+    PBoolean unpack(BYTE b);
     int GetInData(void *pBuf, PINDEX count);
     int GetRawData(void *pBuf, PINDEX count);
     int GetHdlcData(void *pBuf, PINDEX count);

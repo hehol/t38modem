@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,12 +24,14 @@
  * Contributor(s):
  *
  * $Log: h323ep.h,v $
- * Revision 1.1  2007-05-28 12:47:52  vfrolov
- * Initial revision
+ * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.2  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -55,20 +57,21 @@ class MyH323EndPoint : public H323EndPoint
     /**Create a new endpoint.
      */
     MyH323EndPoint(
-      OpalManager & manager,
-      const char * prefix = "h323",
-      WORD defaultSignalPort = DefaultTcpSignalPort)
-    : H323EndPoint(manager, prefix, defaultSignalPort),
-      in_redundancy(0),
-      ls_redundancy(0),
-      hs_redundancy(0),
-      re_interval(0) {}
+      OpalManager & manager)
+    : H323EndPoint(manager)
+      /*
+      ,in_redundancy(0)
+      ,ls_redundancy(0)
+      ,hs_redundancy(0)
+      ,re_interval(0)
+      */
+      {}
   //@}
 
     static PString ArgSpec();
     static PStringArray Descriptions();
-    static BOOL Create(OpalManager & mgr, const PConfigArgs & args);
-    BOOL Initialise(const PConfigArgs & args);
+    static PBoolean Create(OpalManager & mgr, const PConfigArgs & args);
+    PBoolean Initialise(const PConfigArgs & args);
 
     virtual H323Connection * CreateConnection(
       OpalCall & call,                         ///<  Call object to attach the connection to
@@ -84,6 +87,7 @@ class MyH323EndPoint : public H323EndPoint
 
     void AddMediaFormatList(const OpalMediaFormatList & list) { mediaFormatList += list; }
 
+    /*
     int InRedundancy() { return in_redundancy; }
     int LsRedundancy() { return ls_redundancy; }
     int HsRedundancy() { return hs_redundancy; }
@@ -93,16 +97,22 @@ class MyH323EndPoint : public H323EndPoint
         OpalConnection &connection,
         const PTimeInterval &interval
     );
+    */
 
-    BOOL RequestModeChangeT38(OpalConnection & connection);
+    PBoolean RequestModeChange(
+      OpalConnection & connection,
+      const OpalMediaType & mediaType
+    );
 
   protected:
     OpalMediaFormatList mediaFormatList;
 
+    /*
     int in_redundancy;
     int ls_redundancy;
     int hs_redundancy;
     int re_interval;
+    */
 };
 /////////////////////////////////////////////////////////////////////////////
 

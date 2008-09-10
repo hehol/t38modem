@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.2  2007-07-20 14:34:45  vfrolov
- * Added setting of calling number of an outgoing connection
+ * Revision 1.3  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.3  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.2  2007/07/20 14:34:45  vfrolov
  * Added setting of calling number of an outgoing connection
@@ -33,15 +36,16 @@
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
  *
- *
  */
 
 #include <ptlib.h>
+
+#include <opal/buildopts.h>
+
 #include <sip/sipcon.h>
 
 #include "manager.h"
 #include "ifpmediafmt.h"
-#include "t38session.h"
 #include "sipep.h"
 #include "opalutils.h"
 
@@ -67,8 +71,7 @@ class MySIPConnection : public SIPConnection
     : SIPConnection(call, endpoint, token, address, transport, options, stringOptions) {}
   //@}
 
-    virtual BOOL SetUpConnection();
-    virtual PString GetDestinationAddress();
+    virtual PBoolean SetUpConnection();
 
     virtual RTP_Session * CreateSession(
       const OpalTransport & transport,
@@ -76,34 +79,16 @@ class MySIPConnection : public SIPConnection
       RTP_QOS * rtpqos
     );
 
+    virtual OpalMediaFormatList GetMediaFormats() const;
+
     virtual void AdjustMediaFormats(
-      OpalMediaFormatList & mediaFormats  ///<  Media formats to use
+      OpalMediaFormatList & mediaFormats        ///<  Media formats to use
     ) const;
 
     void AddMediaFormatList(const OpalMediaFormatList & list) { mediaFormatList += list; }
 
-    BOOL RequestModeChangeT38();
-    virtual void OnReceivedOK(SIPTransaction & transaction, SIP_PDU & response);
-
   protected:
     OpalMediaFormatList mediaFormatList;
-};
-/////////////////////////////////////////////////////////////////////////////
-//
-// I try to implement an outgoing Re-INVITE here (temporary),
-// because it has not been implemented in OPAL (yet).
-//
-class MySIPInvite : public SIPTransaction
-{
-    PCLASSINFO(MySIPInvite, SIPTransaction);
-  public:
-    MySIPInvite(
-      SIPConnection & connection,
-      OpalTransport & transport,
-      RTP_SessionManager & sm
-    );
-
-    virtual BOOL OnReceivedResponse(SIP_PDU & response);
 };
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -115,8 +100,10 @@ PString MySIPEndPoint::ArgSpec()
   return
     "-no-sip."
     "-sip-old-asn."
+    /*
     "-sip-redundancy:"
     "-sip-repeat:"
+    */
     "-sip-listen:"
     "-sip-no-listen."
   ;
@@ -129,12 +116,14 @@ PStringArray MySIPEndPoint::Descriptions()
       "  --no-sip                  : Disable SIP protocol.\n"
       "  --sip-old-asn             : Use original ASN.1 sequence in T.38 (06/98)\n"
       "                              Annex A (w/o CORRIGENDUM No. 1 fix).\n"
+      /*
       "  --sip-redundancy I[L[H]]  : Set redundancy for error recovery for\n"
       "                              (I)ndication, (L)ow speed and (H)igh\n"
       "                              speed IFP packets.\n"
       "                              'I', 'L' and 'H' are digits.\n"
       "  --sip-repeat ms           : Continuously resend last UDPTL packet each ms\n"
       "                              milliseconds.\n"
+      */
       "  --sip-listen iface        : Interface/port(s) to listen for SIP requests\n"
       "                            : '*' is all interfaces (default tcp$*:5060 and\n"
       "                            : udp$*:5060).\n"
@@ -144,7 +133,7 @@ PStringArray MySIPEndPoint::Descriptions()
   return descriptions;
 }
 
-BOOL MySIPEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
+PBoolean MySIPEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
 {
   if (args.HasOption("no-sip")) {
     cout << "Disabled SIP protocol" << endl;
@@ -157,7 +146,7 @@ BOOL MySIPEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
   return FALSE;
 }
 
-BOOL MySIPEndPoint::Initialise(const PConfigArgs & args)
+PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
 {
   AddMediaFormatList(OpalG711_ULAW_64K);
   AddMediaFormatList(OpalG711_ALAW_64K);
@@ -167,6 +156,7 @@ BOOL MySIPEndPoint::Initialise(const PConfigArgs & args)
   if (args.HasOption("sip-old-asn"))
     SetT38_IFP_PRE();
 
+  /*
   if (args.HasOption("sip-redundancy")) {
     const char *r = args.GetOptionString("sip-redundancy");
     if (isdigit(r[0])) {
@@ -182,6 +172,7 @@ BOOL MySIPEndPoint::Initialise(const PConfigArgs & args)
 
   if (args.HasOption("sip-repeat"))
     re_interval = (int)args.GetOptionString("sip-repeat").AsInteger();
+  */
 
   if (!args.HasOption("sip-no-listen")) {
     PStringArray listeners;
@@ -223,21 +214,74 @@ SIPConnection * MySIPEndPoint::CreateConnection(
   return connection;
 }
 
+/*
 void MySIPEndPoint::SetWriteInterval(
     OpalConnection &connection,
     const PTimeInterval &interval)
 {
   ((MyManager &)GetManager()).SetWriteInterval(connection, interval);
 }
+*/
 
-BOOL MySIPEndPoint::RequestModeChangeT38(OpalConnection & connection)
+struct RequestModeChangeArgs {
+  RequestModeChangeArgs(
+    OpalEndPoint &_endpoint,
+    const PString &_connectionToken,
+    const OpalMediaFormat &_mediaFormat)
+  : endpoint(_endpoint),
+    connectionToken(_connectionToken),
+    mediaFormat(_mediaFormat)
+  {}
+
+  OpalEndPoint &endpoint;
+  PString connectionToken;
+  OpalMediaFormat mediaFormat;
+};
+
+static void RequestModeChange(RequestModeChangeArgs args)
 {
-  PAssert(PIsDescendant(&connection, MySIPConnection), PInvalidCast);
+  PSafePtr<OpalConnection> connection = args.endpoint.GetConnectionWithLock(args.connectionToken);
 
-  return ((MySIPConnection &)connection).RequestModeChangeT38();
+  if (connection == NULL) {
+    PTRACE(1, "::RequestModeChange Cannot get connection " << args.connectionToken);
+    return;
+  }
+
+  if (!connection->GetCall().OpenSourceMediaStreams(*connection,
+                                                    args.mediaFormat.GetMediaType(),
+                                                    1,
+                                                    args.mediaFormat))
+  {
+    PTRACE(1, "::RequestModeChange(" << *connection << ", " << args.mediaFormat << ")"
+              " OpenSourceMediaStreams() - failed");
+    return;
+  }
+
+  PTRACE(4, "::RequestModeChange(" << *connection << ", " << args.mediaFormat << ") - OK");
+}
+
+PBoolean MySIPEndPoint::RequestModeChange(
+    OpalConnection & connection,
+    const OpalMediaType & mediaType)
+{
+  if (mediaType != OpalMediaType::Fax())
+    return PFalse;
+
+  for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++) {
+    if (mediaFormatList[i].GetMediaType() == mediaType) {
+      new PThread1Arg<RequestModeChangeArgs>(
+              RequestModeChangeArgs(*this, connection.GetToken(), mediaFormatList[i]),
+              ::RequestModeChange,
+              true);
+
+      return PTrue;
+    }
+  }
+
+  return PFalse;
 }
 /////////////////////////////////////////////////////////////////////////////
-BOOL MySIPConnection::SetUpConnection()
+PBoolean MySIPConnection::SetUpConnection()
 {
   PTRACE(2, "MySIPConnection::SetUpConnection " << *this << " name=" << GetLocalPartyName());
 
@@ -258,15 +302,6 @@ BOOL MySIPConnection::SetUpConnection()
   return SIPConnection::SetUpConnection();
 }
 
-PString MySIPConnection::GetDestinationAddress()
-{
-  // Get the destination address of an incoming (!) connection
-
-  PTRACE(2, "MySIPConnection::GetDestinationAddress " << localPartyAddress);
-
-  return GetPartyName(localPartyAddress);
-}
-
 RTP_Session * MySIPConnection::CreateSession(
     const OpalTransport & transport,
     unsigned sessionID,
@@ -274,33 +309,34 @@ RTP_Session * MySIPConnection::CreateSession(
 {
   PTRACE(3, "MySIPConnection::CreateSession " << sessionID << " t=" << transport);
 
-  if (sessionID == OpalMediaFormat::DefaultDataSessionID) {
-    MySIPEndPoint &ep = (MySIPEndPoint &)GetEndPoint();
+  return SIPConnection::CreateSession(transport, sessionID, rtpqos);
+}
 
-    PTimeInterval interval(PMaxTimeInterval);
+OpalMediaFormatList MySIPConnection::GetMediaFormats() const
+{
+  PTRACE(4, "MySIPConnection::GetMediaFormats remoteFormatList=\n"
+         << setfill('\n') << remoteFormatList << setfill(' '));
 
-    if (ep.InRedundancy() > 0 || ep.LsRedundancy() > 0 || ep.HsRedundancy() > 0)
-      interval = 90;
+  OpalMediaFormatList list = SIPConnection::GetMediaFormats();
 
-    if (ep.ReInterval() > 0 && (interval > ep.ReInterval()))
-      interval = ep.ReInterval();
+  PTRACE(4, "MySIPConnection::GetMediaFormats list=\n"
+         << setfill('\n') << list << setfill(' '));
 
-    ep.SetWriteInterval(*this, interval);
+  if (list.HasFormat(OpalT38)) {
+    list -= OpalT38;
 
-    return
-        ::CreateSessionT38(
-            *this,
-            transport,
-            sessionID,
-            rtpqos,
-            RTP_DataFrame::DynamicBase,
-            ep.InRedundancy(),
-            ep.LsRedundancy(),
-            ep.HsRedundancy(),
-            ep.ReInterval());
+    for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++) {
+      if (mediaFormatList[i].GetMediaType() == OpalMediaType::Fax()) {
+        list += mediaFormatList[i];
+        break;
+      }
+    }
   }
 
-  return SIPConnection::CreateSession(transport, sessionID, rtpqos);
+  PTRACE(4, "MySIPConnection::GetMediaFormats list=\n"
+         << setfill('\n') << list << setfill(' '));
+
+  return list;
 }
 
 void MySIPConnection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) const
@@ -308,7 +344,7 @@ void MySIPConnection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) con
   //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
 
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-    BOOL found = FALSE;
+    PBoolean found = FALSE;
 
     for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
       if (mediaFormats[i] == mediaFormatList[j]) {
@@ -319,7 +355,7 @@ void MySIPConnection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) con
 
     if (!found) {
       PTRACE(3, "MySIPConnection::AdjustMediaFormats Remove " << mediaFormats[i]);
-      mediaFormats.Remove(mediaFormats[i]);
+      mediaFormats -= mediaFormats[i];
       i--;
     }
   }
@@ -327,86 +363,6 @@ void MySIPConnection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) con
   SIPConnection::AdjustMediaFormats(mediaFormats);
 
   //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
-}
-
-BOOL MySIPConnection::RequestModeChangeT38()
-{
-  SIPTransaction * invite = new MySIPInvite(*this, *transport, rtpSessions);
-
-  PTRACE(3, "MySIPConnection::RequestModeChangeT38 " << rtpSessions);
-
-  if (!invite->Start()) {
-    PTRACE(1, "MySIPConnection::RequestModeChangeT38 invite->Start() - fail");
-    return FALSE;
-  }
-
-  {
-    PWaitAndSignal m(invitationsMutex);
-    invitations.Append(invite);
-  }
-
-  PTRACE(3, "MySIPConnection::RequestModeChangeT38 - OK");
-
-  return TRUE;
-}
-
-void MySIPConnection::OnReceivedOK(SIPTransaction & transaction, SIP_PDU & response)
-{
-  PTRACE(3, "SIP\tReceived INVITE OK response");
-
-  if (transaction.GetMethod() == SIP_PDU::Method_INVITE) {
-    if (phase == EstablishedPhase && !IsConnectionOnHold()) {
-      PWaitAndSignal m(streamsMutex);
-      GetCall().RemoveMediaStreams();
-      ReleaseSession(OpalMediaFormat::DefaultAudioSessionID, TRUE);
-    }
-  }
-
-  SIPConnection::OnReceivedOK(transaction, response);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-MySIPInvite::MySIPInvite(SIPConnection & connection, OpalTransport & transport, RTP_SessionManager & sm)
-  : SIPTransaction(connection, transport, Method_INVITE)
-{
-  mime.SetDate() ;                             // now
-  mime.SetUserAgent(connection.GetEndPoint()); // normally 'OPAL/2.0'
-
-  RTP_SessionManager rtpSessions = sm;
-
-  connection.BuildSDP(sdp, rtpSessions, OpalMediaFormat::DefaultDataSessionID);
-  connection.OnCreatingINVITE(*this);
-}
-
-BOOL MySIPInvite::OnReceivedResponse(SIP_PDU & response)
-{
-  PWaitAndSignal m(mutex);
-	
-  States originalState = state;
-
-  if (!SIPTransaction::OnReceivedResponse(response))
-    return FALSE;
-
-  if (response.GetStatusCode()/100 == 1) {
-    retryTimer.Stop();
-    completionTimer = PTimeInterval(0, mime.GetExpires(180));
-  } 
-  else {
-    completionTimer = endpoint.GetAckTimeout();
-
-    // If the state was already 'Completed', ensure that still an
-    // ACK is sent
-    if (originalState >= Completed) {
-      connection->SendACK(*this, response);
-    }
-  }
-
-  // Handle response to outgoing call cancellation
-
-  if (response.GetStatusCode() == Failure_RequestTerminated)
-    SetTerminated(Terminated_Success);
-
-  return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
 

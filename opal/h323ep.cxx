@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007 Vyacheslav Frolov
+ * Copyright (c) 2007-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.2  2007-07-20 14:34:45  vfrolov
- * Added setting of calling number of an outgoing connection
+ * Revision 1.3  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.3  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.2  2007/07/20 14:34:45  vfrolov
  * Added setting of calling number of an outgoing connection
@@ -33,14 +36,14 @@
  * Revision 1.1  2007/05/28 12:47:52  vfrolov
  * Initial revision
  *
- *
  */
 
 #include <ptlib.h>
 
+#include <opal/buildopts.h>
+
 #include "manager.h"
 #include "ifpmediafmt.h"
-#include "t38session.h"
 #include "h323ep.h"
 
 #define new PNEW
@@ -71,7 +74,7 @@ class MyH323Connection : public H323Connection
     : H323Connection(call, endpoint, token, alias, address, options, stringOptions) {}
   //@}
 
-    virtual BOOL SetUpConnection();
+    virtual PBoolean SetUpConnection();
 
     virtual RTP_Session * CreateSession(
       const OpalTransport & transport,
@@ -98,8 +101,10 @@ PString MyH323EndPoint::ArgSpec()
   return
     "-no-h323."
     "-h323-old-asn."
+    /*
     "-h323-redundancy:"
     "-h323-repeat:"
+    */
     "F-fastenable."
     "T-h245tunneldisable."
     "-h323-listen:"
@@ -117,12 +122,14 @@ PStringArray MyH323EndPoint::Descriptions()
       "  --no-h323                 : Disable H.323 protocol.\n"
       "  --h323-old-asn            : Use original ASN.1 sequence in T.38 (06/98)\n"
       "                              Annex A (w/o CORRIGENDUM No. 1 fix).\n"
+      /*
       "  --h323-redundancy I[L[H]] : Set redundancy for error recovery for\n"
       "                              (I)ndication, (L)ow speed and (H)igh\n"
       "                              speed IFP packets.\n"
       "                              'I', 'L' and 'H' are digits.\n"
       "  --h323-repeat ms          : Continuously resend last UDPTL packet each ms\n"
       "                              milliseconds.\n"
+      */
       "  -F --fastenable           : Enable fast start.\n"
       "  -T --h245tunneldisable    : Disable H245 tunnelling.\n"
       "  --h323-listen iface       : Interface/port(s) to listen for H.323 requests\n"
@@ -136,7 +143,7 @@ PStringArray MyH323EndPoint::Descriptions()
   return descriptions;
 }
 
-BOOL MyH323EndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
+PBoolean MyH323EndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
 {
   if (args.HasOption("no-h323")) {
     cout << "Disabled H.323 protocol" << endl;
@@ -149,7 +156,7 @@ BOOL MyH323EndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
   return FALSE;
 }
 
-BOOL MyH323EndPoint::Initialise(const PConfigArgs & args)
+PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
 {
   AddMediaFormatList(OpalG711_ULAW_64K);
   AddMediaFormatList(OpalG711_ALAW_64K);
@@ -164,6 +171,7 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs & args)
 
   //cout << "Codecs (in preference order):\n" << setprecision(2) << capabilities << endl;
 
+  /*
   if (args.HasOption("h323-redundancy")) {
     const char *r = args.GetOptionString("h323-redundancy");
     if (isdigit(r[0])) {
@@ -179,6 +187,7 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs & args)
 
   if (args.HasOption("h323-repeat"))
     re_interval = (int)args.GetOptionString("h323-repeat").AsInteger();
+  */
 
   if (!args.HasOption("h323-no-listen")) {
     PStringArray listeners;
@@ -242,21 +251,34 @@ H323Connection * MyH323EndPoint::CreateConnection(
   return connection;
 }
 
+/*
 void MyH323EndPoint::SetWriteInterval(
     OpalConnection &connection,
     const PTimeInterval &interval)
 {
   ((MyManager &)GetManager()).SetWriteInterval(connection, interval);
 }
+*/
 
-BOOL MyH323EndPoint::RequestModeChangeT38(OpalConnection & connection)
+PBoolean MyH323EndPoint::RequestModeChange(
+    OpalConnection & connection,
+    const OpalMediaType & mediaType)
 {
-  PAssert(PIsDescendant(&connection, MyH323Connection), PInvalidCast);
+  if (mediaType != OpalMediaType::Fax())
+    return PFalse;
 
-  return ((MyH323Connection &)connection).RequestModeChangeT38();
+  for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++) {
+    if (mediaFormatList[i].GetMediaType() == mediaType) {
+      PAssert(PIsDescendant(&connection, MyH323Connection), PInvalidCast);
+
+      return ((MyH323Connection &)connection).RequestModeChangeT38(mediaFormatList[i].GetName());
+    }
+  }
+
+  return PFalse;
 }
 /////////////////////////////////////////////////////////////////////////////
-BOOL MyH323Connection::SetUpConnection()
+PBoolean MyH323Connection::SetUpConnection()
 {
   PTRACE(2, "MyH323Connection::SetUpConnection " << *this << " name=" << GetLocalPartyName());
 
@@ -284,43 +306,6 @@ RTP_Session * MyH323Connection::CreateSession(
 {
   PTRACE(3, "MyH323Connection::CreateSession " << sessionID << " t=" << transport);
 
-  if (sessionID == OpalMediaFormat::DefaultDataSessionID) {
-    RTP_DataFrame::PayloadTypes pt = RTP_DataFrame::IllegalPayloadType;
-    OpalMediaFormatList mediaFormats = GetMediaFormats();
-
-    for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-      if (mediaFormats[i].GetDefaultSessionID() == sessionID) {
-        pt = mediaFormats[i].GetPayloadType();
-        PTRACE(3, "MyH323Connection::CreateSession selected format " << mediaFormats[i] << " " << pt);
-        break;
-      }
-    }
-
-    MyH323EndPoint &ep = (MyH323EndPoint &)GetEndPoint();
-
-    PTimeInterval interval(PMaxTimeInterval);
-
-    if (ep.InRedundancy() > 0 || ep.LsRedundancy() > 0 || ep.HsRedundancy() > 0)
-      interval = 90;
-
-    if (ep.ReInterval() > 0 && (interval > ep.ReInterval()))
-      interval = ep.ReInterval();
-
-    ep.SetWriteInterval(*this, interval);
-
-    return
-        ::CreateSessionT38(
-            *this,
-            transport,
-            sessionID,
-            rtpqos,
-            pt,
-            ep.InRedundancy(),
-            ep.LsRedundancy(),
-            ep.HsRedundancy(),
-            ep.ReInterval());
-  }
-
   return H323Connection::CreateSession(transport, sessionID, rtpqos);
 }
 
@@ -329,7 +314,7 @@ void MyH323Connection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) co
   //PTRACE(3, "MyH323Connection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
 
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-    BOOL found = FALSE;
+    PBoolean found = FALSE;
 
     for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
       if (mediaFormats[i] == mediaFormatList[j]) {
@@ -340,7 +325,7 @@ void MyH323Connection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) co
 
     if (!found) {
       //PTRACE(3, "MyH323Connection::AdjustMediaFormats Remove " << mediaFormats[i]);
-      mediaFormats.Remove(mediaFormats[i]);
+      mediaFormats -= mediaFormats[i];
       i--;
     }
   }

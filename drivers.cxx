@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004-2007 Vyacheslav Frolov
+ * Copyright (c) 2004-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): 
  *
  * $Log: drivers.cxx,v $
- * Revision 1.3  2007-01-29 12:44:41  vfrolov
- * Added ability to put args to drivers
+ * Revision 1.4  2008-09-10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.4  2008/09/10 11:15:00  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.3  2007/01/29 12:44:41  vfrolov
  * Added ability to put args to drivers
@@ -35,7 +38,6 @@
  *
  * Revision 1.1  2004/07/07 12:38:32  vfrolov
  * The code for pseudo-tty (pty) devices that communicates with fax application formed to PTY driver.
- *
  * 
  */
 
@@ -58,7 +60,7 @@ static int numDrivers = 0;
 
 static struct {
   const char *name;
-  BOOL (*CheckTty)(
+  PBoolean (*CheckTty)(
     const PString &_tty
   );
   PString (*ArgSpec)();
@@ -73,7 +75,7 @@ static struct {
 
 static int addDriver(
   const char *name,
-  BOOL (*CheckTty)(
+  PBoolean (*CheckTty)(
     const PString &_tty
   ),
   PString (*ArgSpec)(),
