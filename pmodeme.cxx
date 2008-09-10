@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.44  2007-08-27 10:55:21  vfrolov
- * Added missing moreFrames = FALSE
+ * Revision 1.45  2008-09-10 07:05:06  frolov
+ * Fixed doubled mutex lock
+ *
+ * Revision 1.45  2008/09/10 07:05:06  frolov
+ * Fixed doubled mutex lock
  *
  * Revision 1.44  2007/08/27 10:55:21  vfrolov
  * Added missing moreFrames = FALSE
@@ -2642,8 +2645,11 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           resp += RC_RING();
       }
       P.SetReg(1, ++ringCount);
-      if (s0 > 0 && (ringCount >= s0))
+      if (s0 > 0 && (ringCount >= s0)) {
+        Mutex.Signal();
         Answer();
+        Mutex.Wait();
+      }
     }
   }
 
