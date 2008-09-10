@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.20  2008-09-10 11:15:00  frolov
-# Ported to OPAL SVN trunk
+# Revision 1.21  2008-09-10 13:39:41  frolov
+# Fixed OBJDIR_SUFFIX for OPAL
+#
+# Revision 1.21  2008/09/10 13:39:41  frolov
+# Fixed OBJDIR_SUFFIX for OPAL
 #
 # Revision 1.20  2008/09/10 11:15:00  frolov
 # Ported to OPAL SVN trunk
@@ -111,7 +114,7 @@ ifdef USE_OPAL
     OPALDIR=$(HOME)/opal
   endif
 
-  OBJDIR_SUFFIX = opal_$(OBJ_SUFFIX)
+  OBJDIR_SUFFIX = _opal$(OBJ_SUFFIX)
   STDCCFLAGS += -DUSE_OPAL
 
   include $(OPALDIR)/opal_inc.mak
