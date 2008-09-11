@@ -380,6 +380,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\opalutils.cxx"
+				>
+			</File>
+			<File
 				RelativePath="..\pmodem.cxx"
 				>
 			</File>
@@ -439,10 +443,6 @@
 				RelativePath="..\t38engine.cxx"
 				>
 			</File>
-			<File
-				RelativePath=".\t38session.cxx"
-				>
-			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -497,6 +497,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\opalutils.h"
+				>
+			</File>
+			<File
 				RelativePath="..\pmodem.h"
 				>
 			</File>
@@ -526,10 +530,6 @@
 			</File>
 			<File
 				RelativePath="..\t38engine.h"
-				>
-			</File>
-			<File
-				RelativePath=".\t38session.h"
 				>
 			</File>
 			<File

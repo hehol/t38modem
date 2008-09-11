@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004-2007 Vyacheslav Frolov
+ * Copyright (c) 2004-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -21,11 +21,14 @@
  *
  * The Initial Developer of the Original Code is Vyacheslav Frolov
  *
- * Contributor(s): 
+ * Contributor(s):
  *
  * $Log: drv_c0c.h,v $
- * Revision 1.4  2007-01-29 12:44:41  vfrolov
- * Added ability to put args to drivers
+ * Revision 1.5  2008-09-11 07:41:48  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.5  2008/09/11 07:41:48  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.4  2007/01/29 12:44:41  vfrolov
  * Added ability to put args to drivers
@@ -38,7 +41,6 @@
  *
  * Revision 1.1  2004/07/07 13:36:46  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -75,19 +77,19 @@ class PseudoModemC0C : public PseudoModemBody
 
   /**@name static functions */
   //@{
-    static BOOL CheckTty(const PString &_tty);
+    static PBoolean CheckTty(const PString &_tty);
     static PString ArgSpec();
     static PStringArray Description();
   //@}
 
-    virtual BOOL IsReady() const;
+    virtual PBoolean IsReady() const;
 
   protected:
   /**@name Overrides from class PseudoModemBody */
   //@{
     const PString &ttyPath() const;
     ModemThreadChild *GetPtyNotifier();
-    BOOL StartAll();
+    PBoolean StartAll();
     void StopAll();
     void MainLoop();
   //@}

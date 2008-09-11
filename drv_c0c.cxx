@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004-2007 Vyacheslav Frolov
+ * Copyright (c) 2004-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -21,11 +21,14 @@
  *
  * The Initial Developer of the Original Code is Vyacheslav Frolov
  *
- * Contributor(s): 
+ * Contributor(s):
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.8  2007-03-30 11:01:12  vfrolov
- * Replaced strerror() by FormatMessage()
+ * Revision 1.9  2008-09-11 07:41:48  frolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.9  2008/09/11 07:41:48  frolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.8  2007/03/30 11:01:12  vfrolov
  * Replaced strerror() by FormatMessage()
@@ -51,7 +54,6 @@
  *
  * Revision 1.1  2004/07/07 13:36:46  vfrolov
  * Initial revision
- *
  *
  */
 
@@ -302,7 +304,7 @@ void InC0C::Main()
         PTRACE(6, "EVENT_STAT " << hex << maskStat);
         break;
       case WAIT_TIMEOUT:
-        break;                       
+        break;
       default:
         TraceLastError("WaitForMultipleObjects()");
         SignalStop();
@@ -389,7 +391,7 @@ void OutC0C::Main()
         break;
       case WAIT_TIMEOUT:
         myPTRACE(6, "TIMEOUT");
-        break;                       
+        break;
       default:
         TraceLastError("WaitForMultipleObjects()");
         SignalStop();
@@ -461,7 +463,7 @@ inline const char *ttyPrefix()
   return "\\\\.\\";
 }
 
-BOOL PseudoModemC0C::CheckTty(const PString &_tty)
+PBoolean PseudoModemC0C::CheckTty(const PString &_tty)
 {
   return _tty.Find(ttyPrefix()) == 0 && _tty != ttyPrefix();
 }
@@ -481,7 +483,7 @@ PStringArray PseudoModemC0C::Description()
   return description;
 }
 
-BOOL PseudoModemC0C::IsReady() const
+PBoolean PseudoModemC0C::IsReady() const
 {
   return ready && PseudoModemBody::IsReady();
 }
@@ -496,7 +498,7 @@ ModemThreadChild *PseudoModemC0C::GetPtyNotifier()
   return outC0C;
 }
 
-BOOL PseudoModemC0C::StartAll()
+PBoolean PseudoModemC0C::StartAll()
 {
   reset = TRUE;
 
@@ -719,7 +721,7 @@ BOOL PseudoModemC0C::OutPnpId()
     break;
     case WAIT_TIMEOUT:
       myPTRACE(6, "TIMEOUT");
-      break;                       
+      break;
     default:
       TraceLastError("WaitForMultipleObjects()");
     }
@@ -839,7 +841,7 @@ BOOL PseudoModemC0C::WaitReady()
         myPTRACE(6, "EVENT_STAT " << hex << maskStat);
         break;
       case WAIT_TIMEOUT:
-        break;                       
+        break;
       default:
         TraceLastError("WaitForMultipleObjects()");
         fault = TRUE;
