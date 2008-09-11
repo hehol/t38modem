@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.2  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.3  2008-09-11 07:45:09  frolov
+ * Fixed compiler warnings
+ *
+ * Revision 1.3  2008/09/11 07:45:09  frolov
+ * Fixed compiler warnings
  *
  * Revision 1.2  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -237,12 +240,12 @@ PString MyManager::ApplyRouteTable(const PString & proto, const PString & addr, 
   PINDEX pos;
 
   if ((pos = destination.Find("<dn!")) != P_MAX_INDEX) {
-    PINDEX strip_num_len = ::strspn((const char *)destination + pos + 4, "0123456789");
+    PINDEX strip_num_len = (PINDEX)::strspn((const char *)destination + pos + 4, "0123456789");
 
     if (destination[pos + 4 + strip_num_len] == '>') {
       PINDEX strip_num = (PINDEX)destination.Mid(pos + 4, strip_num_len).AsInteger();
 
-      destination.Splice(addr.Left(::strspn(addr, "0123456789*#")).Mid(strip_num), pos, 4 + strip_num_len + 1);
+      destination.Splice(addr.Left((PINDEX)::strspn(addr, "0123456789*#")).Mid(strip_num), pos, 4 + strip_num_len + 1);
     }
   }
 
