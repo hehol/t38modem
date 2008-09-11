@@ -1,0 +1,7 @@
+obj_*
+Debug
+Release
+NoTrace
+*.ncb
+*.vcproj.*.user
+*.suo
