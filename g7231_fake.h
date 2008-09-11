@@ -21,11 +21,14 @@
  *
  * The Initial Developer of the Original Code is Equivalence Pty Ltd
  *
- * Contributor(s): 
+ * Contributor(s): Vyacheslav Frolov
  *
  * $Log: g7231_fake.h,v $
- * Revision 1.3  2003-12-18 13:16:52  vfrolov
- * Fixed all CPU usage
+ * Revision 1.4  2008-09-11 16:10:54  frolov
+ * Ported to H323 Plus trunk
+ *
+ * Revision 1.4  2008/09/11 16:10:54  frolov
+ * Ported to H323 Plus trunk
  *
  * Revision 1.3  2003/12/18 13:16:52  vfrolov
  * Fixed all CPU usage
@@ -56,14 +59,14 @@ class G7231_Fake_Codec : public H323AudioCodec
 
     unsigned GetBandwidth() const;
     static int GetFrameLen(int val);
-      
-    BOOL Read(BYTE * buffer, unsigned & length, RTP_DataFrame &);
-    BOOL Write(const BYTE * buffer, unsigned length, const RTP_DataFrame & rtp, unsigned & frames);
+
+    PBoolean Read(BYTE * buffer, unsigned & length, RTP_DataFrame &);
+    PBoolean Write(const BYTE * buffer, unsigned length, const RTP_DataFrame & rtp, unsigned & frames);
 
   protected:
     PAdaptiveDelay delayRead;
     PAdaptiveDelay delayWrite;
-};  
+};
 
 class G7231_Fake_Capability : public H323AudioCapability
 {
@@ -78,8 +81,8 @@ class G7231_Fake_Capability : public H323AudioCapability
 
     H323Codec * CreateCodec(H323Codec::Direction direction) const;
 
-    BOOL OnSendingPDU(H245_AudioCapability & cap, unsigned packetSize) const;
-    BOOL OnReceivedPDU(const H245_AudioCapability & pdu, unsigned & packetSize);
+    PBoolean OnSendingPDU(H245_AudioCapability & cap, unsigned packetSize) const;
+    PBoolean OnReceivedPDU(const H245_AudioCapability & pdu, unsigned & packetSize);
     PObject * Clone() const;
 };
 

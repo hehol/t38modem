@@ -1,31 +1,34 @@
-# 
+#
 # Makefile
-# 
+#
 # T38FAX Pseudo Modem
-# 
+#
 # Copyright (c) 2001-2008 Vyacheslav Frolov
 #
 # Open H323 Project
-# 
+#
 # The contents of this file are subject to the Mozilla Public License
 # Version 1.0 (the "License"); you may not use this file except in
 # compliance with the License. You may obtain a copy of the License at
 # http://www.mozilla.org/MPL/
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # The Original Code is Open H323 Library.
-# 
+#
 # The Initial Developer of the Original Code is Vyacheslav Frolov
-# 
+#
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.21  2008-09-10 13:39:41  frolov
-# Fixed OBJDIR_SUFFIX for OPAL
+# Revision 1.22  2008-09-11 16:10:54  frolov
+# Ported to H323 Plus trunk
+#
+# Revision 1.22  2008/09/11 16:10:54  frolov
+# Ported to H323 Plus trunk
 #
 # Revision 1.21  2008/09/10 13:39:41  frolov
 # Fixed OBJDIR_SUFFIX for OPAL
@@ -86,7 +89,7 @@
 # Revision 1.3  2002/01/10 06:10:02  craigs
 # Added MPL header
 #
-# 
+#
 
 PROG		= t38modem
 SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
@@ -98,7 +101,8 @@ SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
 #
 # Build t38modem for
 #  - Open Phone Abstraction Library if defined USE_OPAL
-#  - Open H323 Library if not defined USE_OPAL
+#  - Open H323 Library or H323 Plus Library if not defined USE_OPAL
+#    (NOTE: define NO_PBOOLEAN for Open H323 Library)
 #
 ifdef USE_OPAL
   VPATH_CXX := opal
@@ -127,7 +131,9 @@ else
 
   include $(OPENH323DIR)/openh323u.mak
 
-  STDCCFLAGS += -DPBoolean=BOOL
+  ifdef NO_PBOOLEAN
+    STDCCFLAGS += -DPBoolean=BOOL
+  endif
 endif
 
 #

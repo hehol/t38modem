@@ -3,7 +3,7 @@
  *
  * T38Modem simulator - main program
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.49  2007-05-24 17:05:51  vfrolov
- * Fixed cout buffering delays
+ * Revision 1.50  2008-09-11 16:10:54  frolov
+ * Ported to H323 Plus trunk
+ *
+ * Revision 1.50  2008/09/11 16:10:54  frolov
+ * Ported to H323 Plus trunk
  *
  * Revision 1.49  2007/05/24 17:05:51  vfrolov
  * Fixed cout buffering delays
@@ -162,7 +165,6 @@
  * Changed to use RequestModeChangeT38
  * Added MPL header
  *
- * 
  */
 
 #include <ptlib.h>
@@ -255,7 +257,7 @@ PStringArray MyH323EndPoint::Descriptions()
   return descriptions;
 }
 
-BOOL MyH323EndPoint::Create(const PConfigArgs &args)
+PBoolean MyH323EndPoint::Create(const PConfigArgs &args)
 {
   MyH323EndPoint *endpoint = new MyH323EndPoint();
 
@@ -343,7 +345,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
 
     PString modemToken = request("modemtoken");
     PString response = "reject";
-  
+
     if (command == "dial") {
       PseudoModem *modem = pmodem_pool->Dequeue(modemToken);
       if (modem != NULL) {
@@ -367,7 +369,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
               }
             }
           }
-        
+
           // add in the route and port if required
           if (!remote.IsEmpty()) {
             num += "@" + remote;
@@ -376,7 +378,7 @@ void MyH323EndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
           }
         }
 
-        if (remote.IsEmpty()) 
+        if (remote.IsEmpty())
           request.SetAt("diag", "noroute");
         else {
           PTRACE(1, "MyH323EndPoint::OnMyCallback MakeCall(" << num << ")");
@@ -486,7 +488,7 @@ void MyH323EndPoint::SetOptions(MyH323Connection &/*conn*/, OpalT38Protocol *t38
   }
 }
 
-BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
+PBoolean MyH323EndPoint::Initialise(const PConfigArgs &args)
 {
   DisableFastStart(!args.HasOption('F'));
   DisableH245Tunneling(args.HasOption('T'));
@@ -538,11 +540,11 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
       }
     }
   }
-  
+
   if (args.HasOption('p')) {
     PString tty = args.GetOptionString('p');
     PStringArray ttys = tty.Tokenise(",\r\n ", FALSE);
-    
+
     for( PINDEX i = 0 ; i < ttys.GetSize() ; i++ ) {
       tty = ttys[i];
       PStringArray atty = tty.Tokenise("@", FALSE);
@@ -558,7 +560,7 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
         cout << "Can't create modem for " << tty << endl;
     }
   }
-  
+
   if (args.HasOption("redundancy")) {
     const char *r = args.GetOptionString("redundancy");
     if (isdigit(r[0])) {
@@ -578,7 +580,7 @@ BOOL MyH323EndPoint::Initialise(const PConfigArgs &args)
   if (args.HasOption("old-asn"))
     old_asn = TRUE;
 
-  if (args.HasOption('G')) 
+  if (args.HasOption('G'))
     SetCapability(0, 0, new G7231_Fake_Capability());
   else {
     SetCapability(0, 0, new H323_G711Capability(H323_G711Capability::muLaw, H323_G711Capability::At64k));
@@ -645,7 +647,7 @@ void MyH323Connection::OnEstablished()
   }
 }
 
-BOOL MyH323Connection::Attach(PseudoModem *_pmodem)
+PBoolean MyH323Connection::Attach(PseudoModem *_pmodem)
 {
   PWaitAndSignal mutex(connMutex);
 
@@ -723,19 +725,19 @@ H323Connection::AnswerCallResponse
   PStringToString request;
   request.SetAt("command", "call");
   request.SetAt("calltoken", GetCallToken());
-    
+
   PString srcNum;
   if( setupPDU.GetSourceE164(srcNum) )
     request.SetAt("srcnum", srcNum);
-      
+
   PString dstNum;
   if( setupPDU.GetDestinationE164(dstNum) )
     request.SetAt("dstnum", dstNum);
-      
+
   unsigned distinctiveRing = setupPDU.GetDistinctiveRing();
   if( distinctiveRing )
     request.SetAt("distinctivering", psprintf("%u", distinctiveRing));
-    
+
   if( !pmodem->Request(request) ) {
     myPTRACE(1, "... denied (modem is not ready)");	// or we can try other modem
     return AnswerCallDenied;
@@ -753,7 +755,7 @@ H323Connection::AnswerCallResponse
   return AnswerCallDenied;
 }
 
-BOOL MyH323Connection::OnStartLogicalChannel(H323Channel & channel)
+PBoolean MyH323Connection::OnStartLogicalChannel(H323Channel & channel)
 {
   myPTRACE(1, "MyH323Connection::OnStartLogicalChannel ch=" << channel << " cp=" << channel.GetCapability() << " sid=" << channel.GetSessionID() << " " << channel.GetDirection());
 
@@ -772,13 +774,13 @@ BOOL MyH323Connection::OnStartLogicalChannel(H323Channel & channel)
 void MyH323Connection::OnClosedLogicalChannel(const H323Channel & channel)
 {
   PTRACE(2, "MyH323Connection::OnClosedLogicalChannel beg");
-  
+
   H323Connection::OnClosedLogicalChannel(channel);
 
   myPTRACE(1, "MyH323Connection::OnClosedLogicalChannel ch=" << channel << " cp=" << channel.GetCapability() << " sid=" << channel.GetSessionID() << " " << channel.GetDirection());
 }
 
-BOOL MyH323Connection::OpenAudioChannel(BOOL isEncoding, unsigned /* bufferSize */, H323AudioCodec & codec)
+PBoolean MyH323Connection::OpenAudioChannel(PBoolean isEncoding, unsigned /* bufferSize */, H323AudioCodec & codec)
 {
   PTRACE(2, "MyH323Connection::OpenAudioChannel " << codec);
 

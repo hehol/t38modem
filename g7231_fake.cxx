@@ -3,7 +3,7 @@
  *
  * Fake G.723.1 codec for T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2005 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -21,11 +21,14 @@
  *
  * The Initial Developer of the Original Code is Equivalence Pty Ltd
  *
- * Contributor(s): 
+ * Contributor(s):
  *
  * $Log: g7231_fake.cxx,v $
- * Revision 1.4  2005-02-03 11:32:11  vfrolov
- * Fixed MSVC compile warnings
+ * Revision 1.5  2008-09-11 16:10:54  frolov
+ * Ported to H323 Plus trunk
+ *
+ * Revision 1.5  2008/09/11 16:10:54  frolov
+ * Ported to H323 Plus trunk
  *
  * Revision 1.4  2005/02/03 11:32:11  vfrolov
  * Fixed MSVC compile warnings
@@ -65,7 +68,7 @@ PObject * G7231_Fake_Capability::Clone()
   return new G7231_Fake_Capability(*this);
 }
 
-BOOL G7231_Fake_Capability::OnSendingPDU(H245_AudioCapability & cap, unsigned packetSize) const
+PBoolean G7231_Fake_Capability::OnSendingPDU(H245_AudioCapability & cap, unsigned packetSize) const
 {
   // set the choice to the correct type
   cap.SetTag(GetSubType());
@@ -74,7 +77,7 @@ BOOL G7231_Fake_Capability::OnSendingPDU(H245_AudioCapability & cap, unsigned pa
   H245_AudioCapability_g7231 & g7231 = cap;
 
   // max number of audio frames per PDU we want to send
-  g7231.m_maxAl_sduAudioFrames = packetSize; 
+  g7231.m_maxAl_sduAudioFrames = packetSize;
 
   // no silence suppression
   g7231.m_silenceSuppression = FALSE;
@@ -82,7 +85,7 @@ BOOL G7231_Fake_Capability::OnSendingPDU(H245_AudioCapability & cap, unsigned pa
   return TRUE;
 }
 
-BOOL G7231_Fake_Capability::OnReceivedPDU(const H245_AudioCapability & cap, unsigned & packetSize)
+PBoolean G7231_Fake_Capability::OnReceivedPDU(const H245_AudioCapability & cap, unsigned & packetSize)
 {
   const H245_AudioCapability_g7231 & g7231 = cap;
   packetSize = g7231.m_maxAl_sduAudioFrames;
@@ -113,7 +116,7 @@ int G7231_Fake_Codec::GetFrameLen(int val)
   return frameLen[val & 3];
 }
 
-BOOL G7231_Fake_Codec::Read(BYTE * /*buffer*/, unsigned & length, RTP_DataFrame &)
+PBoolean G7231_Fake_Codec::Read(BYTE * /*buffer*/, unsigned & length, RTP_DataFrame &)
 {
   length = 0;
 
@@ -122,7 +125,7 @@ BOOL G7231_Fake_Codec::Read(BYTE * /*buffer*/, unsigned & length, RTP_DataFrame 
   return TRUE;
 }
 
-BOOL G7231_Fake_Codec::Write(const BYTE * /* buffer */, unsigned length, const RTP_DataFrame & /* rtp */, unsigned & writtenLength)
+PBoolean G7231_Fake_Codec::Write(const BYTE * /* buffer */, unsigned length, const RTP_DataFrame & /* rtp */, unsigned & writtenLength)
 {
   writtenLength = length;
 

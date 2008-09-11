@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2007 Vyacheslav Frolov
+ * Copyright (c) 2001-2008 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: main.h,v $
- * Revision 1.20  2007-05-17 08:32:44  vfrolov
- * Moved class T38Modem from main.h and main.cxx to main_process.cxx
+ * Revision 1.21  2008-09-11 16:10:54  frolov
+ * Ported to H323 Plus trunk
+ *
+ * Revision 1.21  2008/09/11 16:10:54  frolov
+ * Ported to H323 Plus trunk
  *
  * Revision 1.20  2007/05/17 08:32:44  vfrolov
  * Moved class T38Modem from main.h and main.cxx to main_process.cxx
@@ -105,13 +108,13 @@ class MyH323EndPoint : public H323EndPoint
 
     static PString ArgSpec();
     static PStringArray Descriptions();
-    static BOOL Create(const PConfigArgs &args);
+    static PBoolean Create(const PConfigArgs &args);
 
     // overrides from H323EndPoint
     virtual H323Connection * CreateConnection(unsigned callReference, void *userData);
 
     // new functions
-    BOOL Initialise(const PConfigArgs &args);
+    PBoolean Initialise(const PConfigArgs &args);
 
     PseudoModem * PMAlloc(const PString &number) const;
     void PMFree(PseudoModem *pmodem) const;
@@ -126,7 +129,7 @@ class MyH323EndPoint : public H323EndPoint
     int ls_redundancy;
     int hs_redundancy;
     int re_interval;
-    BOOL old_asn;
+    PBoolean old_asn;
 
     PDECLARE_NOTIFIER(PObject, MyH323EndPoint, OnMyCallback);
 };
@@ -142,17 +145,17 @@ class MyH323Connection : public H323Connection
     MyH323Connection(MyH323EndPoint &, unsigned);
     ~MyH323Connection();
 
-    BOOL Attach(PseudoModem *_pmodem);
+    PBoolean Attach(PseudoModem *_pmodem);
 
     // overrides from H323Connection
     AnswerCallResponse OnAnswerCall(const PString &, const H323SignalPDU &, H323SignalPDU &);
     void OnEstablished();
-    BOOL OnStartLogicalChannel(H323Channel & channel);
+    PBoolean OnStartLogicalChannel(H323Channel & channel);
     void OnClosedLogicalChannel(const H323Channel & channel);
     void OnUserInputString(const PString & value);
 
     OpalT38Protocol * CreateT38ProtocolHandler();
-    BOOL OpenAudioChannel(BOOL, unsigned, H323AudioCodec & codec);
+    PBoolean OpenAudioChannel(PBoolean, unsigned, H323AudioCodec & codec);
 
   protected:
     const MyH323EndPoint & ep;
