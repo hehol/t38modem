@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: main_process.cxx,v $
- * Revision 1.2  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.3  2008-09-11 16:04:47  frolov
+ * Added list of libs to output
+ *
+ * Revision 1.3  2008/09/11 16:04:47  frolov
+ * Added list of libs to output
  *
  * Revision 1.2  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -48,6 +51,23 @@
 #define new PNEW
 
 /////////////////////////////////////////////////////////////////////////////
+static PString GetListOfLibs()
+{
+  return
+#ifdef USE_OPAL
+    PString("OPAL-") + PString(OPAL_VERSION)
+#else
+    PString("OpenH323-") + PString(OPENH323_VERSION)
+#endif
+#ifdef PTLIB_VERSION
+    + PString(", PTLIB-") + PString(PTLIB_VERSION)
+#endif
+#ifdef PWLIB_VERSION
+    + PString(", PWLIB-") + PString(PWLIB_VERSION)
+#endif
+  ;
+}
+/////////////////////////////////////////////////////////////////////////////
 class T38Modem : public PProcess
 {
   PCLASSINFO(T38Modem, PProcess)
@@ -64,7 +84,7 @@ class T38Modem : public PProcess
 PCREATE_PROCESS(T38Modem);
 ///////////////////////////////////////////////////////////////
 T38Modem::T38Modem()
-  : PProcess("OpenH323 Project", "T38Modem",
+  : PProcess("Vyacheslav Frolov", "T38Modem",
              MAJOR_VERSION, MINOR_VERSION, BUILD_TYPE, BUILD_NUMBER)
 {
 }
@@ -73,6 +93,7 @@ void T38Modem::Main()
 {
   cout << GetName()
        << " Version " << GetVersion(TRUE) << "\n"
+       << " (" << GetListOfLibs() << ")"
        << " by " << GetManufacturer()
        << " on " << GetOSClass() << ' ' << GetOSName()
        << " (" << GetOSVersion() << '-' << GetOSHardware() << ")\n\n";
@@ -118,6 +139,7 @@ PBoolean T38Modem::Initialise()
 
   PTRACE(1, GetName()
       << " Version " << GetVersion(TRUE)
+      << " (" << GetListOfLibs() << ")"
       << " on " << GetOSClass() << " " << GetOSName()
       << " (" << GetOSVersion() << '-' << GetOSHardware() << ")");
 #endif
