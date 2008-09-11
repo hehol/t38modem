@@ -1,4 +1,7 @@
-obj_*_*_d Debug
-obj_*_*_r Release
+obj_*
+Debug
+Release
 NoTrace
-*.ncb *.opt *.plg *.Tags.WW
+*.ncb
+*.vcproj.*.user
+*.suo
