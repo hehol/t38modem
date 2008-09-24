@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.3  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.4  2008-09-24 14:39:21  frolov
+ * Removed capabilities adding
+ *
+ * Revision 1.4  2008/09/24 14:39:21  frolov
+ * Removed capabilities adding
  *
  * Revision 1.3  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -164,10 +167,6 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
 
   DisableFastStart(!args.HasOption("fastenable"));
   DisableH245Tunneling(args.HasOption("h245tunneldisable"));
-
-  capabilities.AddAllCapabilities(0, 0, "G.711-*");
-  capabilities.AddAllCapabilities(0, 0, args.HasOption("h323-old-asn") ? OpalT38_IFP_PRE : OpalT38_IFP_COR);
-  capabilities.AddAllCapabilities(0, 0, "UserInput/basicString");
 
   //cout << "Codecs (in preference order):\n" << setprecision(2) << capabilities << endl;
 
