@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.9  2008-09-11 07:41:48  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.10  2008-09-24 14:41:06  frolov
+ * Removed CTS monitoring
+ *
+ * Revision 1.10  2008/09/24 14:41:06  frolov
+ * Removed CTS monitoring
  *
  * Revision 1.9  2008/09/11 07:41:48  frolov
  * Ported to OPAL SVN trunk
@@ -208,7 +211,7 @@ void InC0C::Main()
   if (!PrepareEvents(EVENT_NUM, hEvents, overlaps))
     SignalStop();
 
-  if (!SetCommMask(hC0C, EV_CTS|EV_DSR|EV_BREAK)) {
+  if (!SetCommMask(hC0C, EV_DSR|EV_BREAK)) {
     TraceLastError("SetCommMask()");
     SignalStop();
   }
@@ -228,15 +231,17 @@ void InC0C::Main()
       break;
 
     if (!waitingRead) {
-      if (!ReadFile(hC0C, cbuf, sizeof(cbuf), &cbufRead, &overlaps[EVENT_READ])) {
+      DWORD undef;
+
+      if (!ReadFile(hC0C, cbuf, sizeof(cbuf), &undef, &overlaps[EVENT_READ])) {
         DWORD err = ::GetLastError();
         if (err != ERROR_IO_PENDING) {
           myPTRACE(1, "ReadFile() ERROR " << strError(err));
           SignalStop();
           break;
         }
-        waitingRead = TRUE;
       }
+      waitingRead = TRUE;
     }
 
     if (!waitingStat) {
@@ -247,8 +252,8 @@ void InC0C::Main()
           SignalStop();
           break;
         }
-        waitingStat = TRUE;
       }
+      waitingStat = TRUE;
 
       DWORD stat;
 
