@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.47  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.48  2008-09-24 14:51:45  frolov
+ * Added 5 sec. timeout  for DCE's transmit buffer empty
+ *
+ * Revision 1.48  2008/09/24 14:51:45  frolov
+ * Added 5 sec. timeout  for DCE's transmit buffer empty
  *
  * Revision 1.47  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -222,10 +225,11 @@ enum StateOut {
 ///////////////////////////////////////////////////////////////
 enum StateModem {
   stmIdle,
-  
+  stmError,
+
   stmOutMoreData,
   stmOutNoMoreData,
-  
+
   stmInWaitData,
   stmInReadyData,
   stmInRecvData,
@@ -239,7 +243,7 @@ class ModStream
   public:
     ModStream(const MODPARS &_ModPars);
     ~ModStream();
-    
+
     void PushBuf();
     PBoolean DeleteFirstBuf();
     PBoolean PopBuf();
@@ -451,7 +455,7 @@ static T38_DATA_FIELD &t38data(T38_IFP &ifp, unsigned type, unsigned field_type)
 {
     ifp.m_type_of_msg.SetTag(T38_Type_of_msg::e_data);
     (T38_Type_of_msg_data &)ifp.m_type_of_msg = type;
-    
+
     ifp.IncludeOptionalField(T38_IFPPacket::e_data_field);
     ifp.m_data_field.SetSize(ifp.m_data_field.GetSize()+1);
     T38_DATA_FIELD &Data_Field = ifp.m_data_field[0];
@@ -462,7 +466,7 @@ static T38_DATA_FIELD &t38data(T38_IFP &ifp, unsigned type, unsigned field_type)
 static void t38data(T38_IFP &ifp, unsigned type, unsigned field_type, const PBYTEArray &data)
 {
     T38_DATA_FIELD &Data_Field = t38data(ifp, type, field_type);
-    
+
     if( data.GetSize() > 0 ) {
         Data_Field.IncludeOptionalField(T38_Data_Field_subtype::e_field_data);
         Data_Field.m_field_data = data;
@@ -477,10 +481,10 @@ T38Engine::T38Engine(const PString &_name)
   stateOut = stOutNoSig;
   onIdleOut = dtNone;
   delayRestOut = 0;
-  
+
   modStreamIn = NULL;
   modStreamInSaved = NULL;
-  
+
 #ifndef USE_OPAL
   in_redundancy = 0;
   ls_redundancy = 0;
@@ -502,7 +506,7 @@ T38Engine::~T38Engine()
   PWaitAndSignal mutexWaitIn(MutexIn);
   PWaitAndSignal mutexWaitOut(MutexOut);
   PWaitAndSignal mutexWaitModem(MutexModem);
-  
+
   if( modStreamIn != NULL )
     delete modStreamIn;
   if( modStreamInSaved != NULL )
@@ -683,7 +687,7 @@ PBoolean T38Engine::Originate()
         if (nRedundancy < 0)
           nRedundancy = 0;
         secondary.SetSize(nRedundancy);
-    
+
         if (nRedundancy > 0) {
           for (int i = nRedundancy - 1 ; i > 0 ; i--) {
             secondary[i] = secondary[i - 1];
@@ -702,7 +706,7 @@ PBoolean T38Engine::Originate()
        * Calculate maxRedundancy for current ifp packet
        */
       maxRedundancy = hs_redundancy;
-  
+
       switch( ifp.m_type_of_msg.GetTag() ) {
         case T38_Type_of_msg::e_t30_indicator:
           maxRedundancy = in_redundancy;
@@ -842,7 +846,7 @@ PBoolean T38Engine::Answer()
 
     long receivedSequenceNumber = (udptl.m_seq_number & 0xFFFF) + (expectedSequenceNumber & ~0xFFFFL);
     long lost = receivedSequenceNumber - expectedSequenceNumber;
-    
+
     if (lost < -0x10000L/2) {
       lost += 0x10000L;
       receivedSequenceNumber += 0x10000L;
@@ -851,7 +855,7 @@ PBoolean T38Engine::Answer()
       lost -= 0x10000L;
       receivedSequenceNumber -= 0x10000L;
     }
-    
+
     PTRACE(4, "T38\tReceived PDU:\n  "
            << setprecision(2) << rawData << "\n  UDPTL = "
            << setprecision(2) << udptl);
@@ -976,8 +980,8 @@ void T38Engine::_ResetModemState() {
     } else
       myPTRACE(1, name << " T38Engine::ResetModemState stateModem(" << stateModem << ") != stmIdle");
   }
-  callbackParamIn = -1;
-  callbackParamOut = -1;
+  callbackParamIn = cbpReset;
+  callbackParamOut = cbpReset;
 }
 
 PBoolean T38Engine::isOutBufFull() const
@@ -1009,7 +1013,7 @@ PBoolean T38Engine::SendStart(int _dataType, int param)
   }
 
   PWaitAndSignal mutexWait(Mutex);
-  
+
   if (modStreamIn != NULL) {
     delete modStreamIn;
     modStreamIn = NULL;
@@ -1019,7 +1023,7 @@ PBoolean T38Engine::SendStart(int _dataType, int param)
     delete modStreamInSaved;
     modStreamInSaved = NULL;
   }
-  
+
   ModParsOut = invalidMods;
 
   switch( _dataType ) {
@@ -1090,7 +1094,7 @@ PBoolean T38Engine::SendStop(PBoolean moreFrames, int _callbackParam)
   moreFramesOut = moreFrames;
   callbackParamOut = _callbackParam;
 
-  PTRACE(3, name << " T38Engine::SendStop moreFramesOut=" << moreFramesOut 
+  PTRACE(3, name << " T38Engine::SendStop moreFramesOut=" << moreFramesOut
                  << " callbackParamOut=" << callbackParamOut);
 
   SignalOutDataReady();
@@ -1128,7 +1132,7 @@ PBoolean T38Engine::RecvWait(int _dataType, int param, int _callbackParam, PBool
     if (modStreamIn->DeleteFirstBuf()) {
       PTRACE(1, name << " T38Engine::RecvWait modStreamIn->DeleteFirstBuf(), clean");
     }
-  
+
     if (modStreamIn->bufQ.GetSize() > 0) {
       PTRACE(1, name << " T38Engine::RecvWait modStreamIn->bufQ.GetSize()=" << modStreamIn->bufQ.GetSize());
       if (ModParsIn.IsEqual(modStreamIn->ModPars)) {
@@ -1189,7 +1193,7 @@ PBoolean T38Engine::RecvStart(int _callbackParam)
   }
   PWaitAndSignal mutexWait(Mutex);
   callbackParamIn = _callbackParam;
-  
+
   if (modStreamIn != NULL) {
     if (modStreamIn->PopBuf()) {
       if (modStreamIn->ModPars.msgType == T38D(e_v21))
@@ -1282,19 +1286,19 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
 
   if(!IsT38Mode())
     return 0;
-  
+
   //myPTRACE(1, PTNAME "T38Engine::PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
-  
+
   ifp = T38_IFP();
   PBoolean doDalay = TRUE;
   PBoolean wasCarrierIn = FALSE;
 
   for(;;) {
     PBoolean redo = FALSE;
-    
+
     if (doDalay) {
       int outDelay;
-      
+
       if (delayRestOut > 0)
         outDelay = delayRestOut;
       else switch( stateOut ) {
@@ -1335,7 +1339,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
       }
     } else
       doDalay = TRUE;
-      
+
     delayRestOut = 0;
 
     if (!IsT38Mode())
@@ -1362,7 +1366,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                   case dtHdlc:		waitms = 500; break;	// it's can't be too long
                   case dtRaw:		waitms = 2000; break;	// it's can't be too short
                 }
-                
+
                 if (waitms) {
                   if (!wasCarrierIn) {
                     wasCarrierIn = TRUE;
@@ -1418,6 +1422,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
             case stOutIndWait:
               stateOut = stOutData;
               countOut = 0;
+              startedTimeOutBufEmpty = FALSE;
               timeBeginOut = PTime();
               hdlcOut = HDLC();
               if (ModParsOut.msgType == T38D(e_v21))
@@ -1467,6 +1472,8 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
 
                 switch( count ) {
                   case -1:
+                    startedTimeOutBufEmpty = FALSE;
+
                     switch (ModParsOut.dataTypeT38) {
                       case dtHdlc:
                         stateOut = stOutHdlcFcs;
@@ -1482,12 +1489,28 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                     redo = TRUE;
                     break;
                   case 0:
-                    if (hdlcOut.getLastChar() != -1)
-                      if (ModParsOut.dataType == dtHdlc || hdlcOut.getLastChar() != 0)
-                        ModemCallbackWithUnlock(cbpOutBufEmpty);
+                    if ((ModParsOut.dataType == dtHdlc && hdlcOut.getLastChar() != -1) ||
+                        (ModParsOut.dataType == dtRaw && hdlcOut.getLastChar() != 0))
+                    {
+                      ModemCallbackWithUnlock(cbpOutBufEmpty);
+                    }
+                    else
+                    if (!startedTimeOutBufEmpty) {
+                      timeOutBufEmpty = PTime() + PTimeInterval(5000);
+                      startedTimeOutBufEmpty = TRUE;
+                    }
+                    else
+                    if (timeOutBufEmpty <= PTime()) {
+                      startedTimeOutBufEmpty = FALSE;
+                      stateOut = stOutNoSig;
+                      stateModem = stmError;
+                      ModemCallbackWithUnlock(cbpReset);
+                    }
                     waitData = TRUE;
                     break;
                   default:
+                    startedTimeOutBufEmpty = FALSE;
+
                     switch (ModParsOut.dataTypeT38) {
                       case dtHdlc:
                         if (ModParsOut.msgType == T38D(e_v21)) {
@@ -1531,6 +1554,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                 }
                 if (countOut)
                   t38data(ifp, ModParsOut.msgType, T38F(e_hdlc_fcs_OK));
+                countOut = 0;
                 bufOut.Clean();		// reset eof
                 hdlcOut.PutHdlcData(&bufOut);
                 hdlcOut.GetHdlcStart(FALSE);
@@ -1601,14 +1625,23 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
       if (preparePacketTimeout > 0) {
         if (!WaitOutDataReady(preparePacketTimeout))
           return -1;
-      } else
-        WaitOutDataReady();
+      } else {
+        if (startedTimeOutBufEmpty) {
+          PInt64 timeout = (timeOutBufEmpty - PTime()).GetMilliSeconds() + 1;
+
+          if (timeout > 0)
+            WaitOutDataReady(timeout);
+        } else {
+          WaitOutDataReady();
+        }
+      }
+
       if (!IsT38Mode())
         return 0;
 
       {
         PWaitAndSignal mutexWait(Mutex);
-        if( stateOut == stOutData ) {
+        if (stateOut == stOutData) {
           myPTRACE(1, PTNAME "T38Engine::PreparePacket DTE's data delay, reset " << hdlcOut.getRawCount());
           hdlcOut.resetRawCount();
           timeBeginOut = PTime() - PTimeInterval(msPerOut);
@@ -1632,7 +1665,7 @@ PBoolean T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
   PWaitAndSignal mutexWait(Mutex);
 
   ModStream *modStream = modStreamIn;
-    
+
   if( modStream == NULL || modStream->lastBuf == NULL ) {
     modStream = modStreamInSaved;
   }
@@ -1738,7 +1771,7 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
       {
         unsigned type_of_msg = (T38_Type_of_msg_data)ifp.m_type_of_msg;
         ModStream *modStream = modStreamIn;
-        
+
         if( modStream == NULL || modStream->lastBuf == NULL ) {
           modStream = modStreamInSaved;
         }

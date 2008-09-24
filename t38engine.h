@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.27  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.28  2008-09-24 14:51:45  frolov
+ * Added 5 sec. timeout  for DCE's transmit buffer empty
+ *
+ * Revision 1.28  2008/09/24 14:51:45  frolov
+ * Added 5 sec. timeout  for DCE's transmit buffer empty
  *
  * Revision 1.27  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -183,7 +186,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     T38Engine(const PString &_name = "");
     ~T38Engine();
   //@}
-  
+
   /**@name Operations */
   //@{
 #ifndef USE_OPAL
@@ -203,7 +206,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     void SetOldASN() { corrigendumASN = FALSE; }
 #endif
   //@}
-  
+
   /**@name Modem API */
   //@{
     PBoolean Attach(const PNotifier &callback);
@@ -223,7 +226,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     int RecvDiag();
     void RecvStop();
   //@}
-    
+
 #ifndef USE_OPAL
     void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFP &T38_ifp) const;
     PBoolean HandleRawIFP(const PASN_OctetString & pdu);
@@ -288,6 +291,8 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     int callbackParamOut;
     DataStream bufOut;
     MODPARS ModParsOut;
+    PBoolean startedTimeOutBufEmpty;
+    PTime timeOutBufEmpty;
     PTime timeBeginOut;
     PINDEX countOut;
     PBoolean moreFramesOut;
