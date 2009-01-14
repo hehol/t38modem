@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.3  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.4  2009-01-14 16:35:55  vfrolov
+ * Added Calling-Party-Number for SIP
+ *
+ * Revision 1.4  2009/01/14 16:35:55  vfrolov
+ * Added Calling-Party-Number for SIP
  *
  * Revision 1.3  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -460,7 +463,12 @@ PBoolean ModemConnection::SetUpConnection()
   SetPhase(SetUpPhase);
 
   if (GetCall().GetConnection(0) == this) {
-    if (!OnIncomingConnection(0, NULL)) {
+    OpalConnection::StringOptions stringOptions;
+
+    if (!remotePartyNumber.IsEmpty())
+      stringOptions.SetAt("Calling-Party-Number", remotePartyNumber);
+
+    if (!OnIncomingConnection(0, &stringOptions)) {
       Release(EndedByCallerAbort);
       return FALSE;
     }
