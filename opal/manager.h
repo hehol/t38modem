@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.h,v $
- * Revision 1.2  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.3  2009-01-15 08:46:34  vfrolov
+ * Fixed OnRouteConnection() be able to compile with OPAL trunk since 21925
+ *
+ * Revision 1.3  2009/01/15 08:46:34  vfrolov
+ * Fixed OnRouteConnection() be able to compile with OPAL trunk since 21925
  *
  * Revision 1.2  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -58,6 +61,7 @@ class MyManager : public OpalManager
     );
 
     virtual bool OnRouteConnection(
+      PStringSet & routesTried,     ///< Set of routes already tried
       const PString & a_party,      ///< Source local address
       const PString & b_party,      ///< Destination indicated by source
       OpalCall & call,              ///< Call for new connection

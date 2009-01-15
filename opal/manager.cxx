@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.3  2008-09-11 07:45:09  frolov
- * Fixed compiler warnings
+ * Revision 1.4  2009-01-15 08:46:34  vfrolov
+ * Fixed OnRouteConnection() be able to compile with OPAL trunk since 21925
+ *
+ * Revision 1.4  2009/01/15 08:46:34  vfrolov
+ * Fixed OnRouteConnection() be able to compile with OPAL trunk since 21925
  *
  * Revision 1.3  2008/09/11 07:45:09  frolov
  * Fixed compiler warnings
@@ -179,7 +182,8 @@ void MyManager::SetWriteInterval(
 }
 */
 
-bool MyManager::OnRouteConnection(const PString & a_party,
+bool MyManager::OnRouteConnection(PStringSet & routesTried,
+                                  const PString & a_party,
                                   const PString & b_party,
                                   OpalCall & call,
                                   unsigned options,
@@ -187,7 +191,7 @@ bool MyManager::OnRouteConnection(const PString & a_party,
 {
   const PString &token = call.GetToken();
 
-  if (!OpalManager::OnRouteConnection(a_party, b_party, call, options, stringOptions)) {
+  if (!OpalManager::OnRouteConnection(routesTried, a_party, b_party, call, options, stringOptions)) {
     cout << "Call[" << token << "] from " << a_party << " to " << b_party << ", no route!" << endl;
     PTRACE(1, "Call[" << token << "] from " << a_party << " to " << b_party << ", no route!");
     return false;
