@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: main_process.cxx,v $
- * Revision 1.3  2008-09-11 16:04:47  frolov
- * Added list of libs to output
+ * Revision 1.4  2009-01-21 12:25:12  vfrolov
+ * Added tracing of options
+ *
+ * Revision 1.4  2009/01/21 12:25:12  vfrolov
+ * Added tracing of options
  *
  * Revision 1.3  2008/09/11 16:04:47  frolov
  * Added list of libs to output
@@ -57,7 +60,11 @@ static PString GetListOfLibs()
 #ifdef USE_OPAL
     PString("OPAL-") + PString(OPAL_VERSION)
 #else
+  #if OPENH323_MAJOR < 1 || (OPENH323_MAJOR == 1 && OPENH323_MINOR <= 19)
     PString("OpenH323-") + PString(OPENH323_VERSION)
+  #else
+    PString("H323plus-") + PString(OPENH323_VERSION)
+  #endif
 #endif
 #ifdef PTLIB_VERSION
     + PString(", PTLIB-") + PString(PTLIB_VERSION)
@@ -142,6 +149,24 @@ PBoolean T38Modem::Initialise()
       << " (" << GetListOfLibs() << ")"
       << " on " << GetOSClass() << " " << GetOSName()
       << " (" << GetOSVersion() << '-' << GetOSHardware() << ")");
+
+  if (PTrace::CanTrace(3)) {
+    PTRACE(3, "Options: " << args);
+
+    const PConfig config;
+    const PStringArray keys = config.GetKeys();
+
+    if (!keys.IsEmpty()) {
+      PTRACE(3, "Config:");
+      for (PINDEX iK = 0 ; iK < keys.GetSize() ; iK++) {
+        const PStringArray values = config.GetString(keys[iK]).Lines();
+
+        for (PINDEX iV = 0 ; iV < values.GetSize() ; iV++) {
+          PTRACE(3, "  --" << keys[iK] << "=" << values[iV]);
+        }
+      }
+    }
+  }
 #endif
 
   if (args.HasOption('h')) {
@@ -152,7 +177,7 @@ PBoolean T38Modem::Initialise()
         "Options:\n"
 #if PTRACING
         "  -t --trace                : Enable trace, use multiple times for more detail.\n"
-        "  -o --output               : File for trace output, default is stderr.\n"
+        "  -o --output file          : File for trace output, default is stderr.\n"
 #endif
         "     --save                 : Save arguments in configuration file and exit.\n"
         "  -v --version              : Display version.\n"
