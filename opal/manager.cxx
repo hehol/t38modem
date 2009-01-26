@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.4  2009-01-15 08:46:34  vfrolov
- * Fixed OnRouteConnection() be able to compile with OPAL trunk since 21925
+ * Revision 1.5  2009-01-26 15:25:36  vfrolov
+ * Added --stun option
+ *
+ * Revision 1.5  2009/01/26 15:25:36  vfrolov
+ * Added --stun option
  *
  * Revision 1.4  2009/01/15 08:46:34  vfrolov
  * Fixed OnRouteConnection() be able to compile with OPAL trunk since 21925
@@ -73,6 +76,7 @@ PString MyManager::ArgSpec()
     "D-disable:"
     "P-prefer:"
 */
+    "-stun:"
   ;
 }
 
@@ -98,6 +102,7 @@ PStringArray MyManager::Descriptions()
       "  -P --prefer codec         : Prefer the specified codec.\n"
       "                              Can be used multiple times.\n"
 */
+      "  --stun server             : Set STUN server.\n"
       "\n"
   ).Lines();
 
@@ -143,6 +148,20 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
       args.GetOptionString("username") :
       PProcess::Current().GetName() + " v" + PProcess::Current().GetVersion()
   );
+
+  if (args.HasOption("stun"))
+    SetSTUNServer(args.GetOptionString("stun"));
+
+  if (stun != NULL) {
+    cout << "STUN server \"" << stun->GetServer() << "\" replies " << stun->GetNatTypeName();
+
+    PIPSocket::Address externalAddress;
+
+    if (stun->GetExternalAddress(externalAddress))
+      cout << ", external IP " << externalAddress;
+
+    cout << endl;
+  }
 
   if (!ModemEndPoint::Create(*this, args))
     return FALSE;
