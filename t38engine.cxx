@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2008 Vyacheslav Frolov
+ * Copyright (c) 2001-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.48  2008-09-24 14:51:45  frolov
- * Added 5 sec. timeout  for DCE's transmit buffer empty
+ * Revision 1.49  2009-01-27 14:00:50  vfrolov
+ * Added missing startedTimeOutBufEmpty initialization
+ *
+ * Revision 1.49  2009/01/27 14:00:50  vfrolov
+ * Added missing startedTimeOutBufEmpty initialization
  *
  * Revision 1.48  2008/09/24 14:51:45  frolov
  * Added 5 sec. timeout  for DCE's transmit buffer empty
@@ -474,7 +477,9 @@ static void t38data(T38_IFP &ifp, unsigned type, unsigned field_type, const PBYT
 }
 ///////////////////////////////////////////////////////////////
 T38Engine::T38Engine(const PString &_name)
-  : EngineBase(_name), bufOut(2048)
+  : EngineBase(_name),
+    bufOut(2048),
+    startedTimeOutBufEmpty(FALSE)
 {
   PTRACE(2, name << " T38Engine::T38Engine");
   stateModem = stmIdle;
