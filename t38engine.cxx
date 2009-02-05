@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.49  2009-01-27 14:00:50  vfrolov
- * Added missing startedTimeOutBufEmpty initialization
+ * Revision 1.50  2009-02-05 14:15:18  vfrolov
+ * Added missing cbpOutBufNoFull notification (for ECM)
+ *
+ * Revision 1.50  2009/02/05 14:15:18  vfrolov
+ * Added missing cbpOutBufNoFull notification (for ECM)
  *
  * Revision 1.49  2009/01/27 14:00:50  vfrolov
  * Added missing startedTimeOutBufEmpty initialization
@@ -1542,15 +1545,21 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                 t30.v21Begin();
               }
               if (ModParsOut.dataType == dtRaw) {
+                PBoolean wasFull = bufOut.isFull();
+
                 if (countOut)
                   t38data(ifp, ModParsOut.msgType, hdlcOut.isFcsOK() ? T38F(e_hdlc_fcs_OK) : T38F(e_hdlc_fcs_BAD));
+
                 hdlcOut.GetHdlcStart(FALSE);
                 countOut = 0;
-                if (hdlcOut.GetData(NULL, 0) != -1) {
+
+                if (hdlcOut.GetData(NULL, 0) != -1)
                   stateOut = stOutData;
-                } else {
+                else
                   stateOut = stOutDataNoSig;
-                }
+
+                if (wasFull && !bufOut.isFull())
+                  ModemCallbackWithUnlock(cbpOutBufNoFull);
               } else {
                 if( stateModem != stmOutNoMoreData ) {
                   myPTRACE(1, PTNAME "T38Engine::PreparePacket stOutHdlcFcs stateModem("
@@ -1647,6 +1656,13 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
       {
         PWaitAndSignal mutexWait(Mutex);
         if (stateOut == stOutData) {
+#if PTRACING
+          if (myCanTrace(3) || (myCanTrace(2) && ModParsOut.dataType == dtRaw)) {
+            PInt64 msTime = (PTime() - timeBeginOut).GetMilliSeconds();
+            myPTRACE(2, PTNAME "Sent " << hdlcOut.getRawCount() << " bytes in " << msTime << " ms ("
+              << (PInt64(hdlcOut.getRawCount()) * 8 * 1000)/(msTime ? msTime : 1) << " bits/s)");
+          }
+#endif
           myPTRACE(1, PTNAME "T38Engine::PreparePacket DTE's data delay, reset " << hdlcOut.getRawCount());
           hdlcOut.resetRawCount();
           timeBeginOut = PTime() - PTimeInterval(msPerOut);
