@@ -13,8 +13,10 @@
 What is t38modem?
 
 From your fax or voice application view point it's a fax/voice modem pool.
-From IP network view point it's a H.323 endpoint with T.38 fax support.
+From IP network view point it's a H.323/SIP endpoint with T.38 fax support.
 From your view point it's a gateway between an application and IP network.
+
+The homepage for t38modem project is http://t38modem.sourceforge.net/.
 
 2. Building
 -----------
@@ -24,16 +26,35 @@ From your view point it's a gateway between an application and IP network.
 
 Building with Open H323 Library:
 
+  $ export PWLIBDIR=$path_to_libs/pwlib
+  $ export OPENH323DIR=$path_to_libs/openh323
+  $ make NO_PBOOLEAN=1 opt
+
+Building with H323 Plus Library:
+
+  $ export PTLIBDIR=$path_to_libs/ptlib
+  $ export OPENH323DIR=$path_to_libs/h323plus
   $ make opt
 
 Building with Open Phone Abstraction Library (OPAL):
 
+  $ export PTLIBDIR=$path_to_libs/ptlib
+  $ export OPALDIR=$path_to_libs/opal
   $ make USE_OPAL=1 opt
 
 2.2. Building for Windows
 -------------------------
 
 Building with Open H323 Library:
+
+  Start Microsoft Visual C++ 2005 with t38modem_2005.vcproj file.
+  Set Active Configuration to "t38modem - Win32 Release".
+  Change h323plus.lib to openh323.lib in
+  [Project]->[t38modem Properties]->[Configuration Properties]->
+  [Linker]->[Input]->[Additional Dependensies].
+  Build t38modem.exe.
+
+Building with H323 Plus Library:
 
   Start Microsoft Visual C++ 2005 with t38modem_2005.vcproj file.
   Set Active Configuration to "t38modem - Win32 Release".
@@ -51,22 +72,30 @@ Building with Open Phone Abstraction Library (OPAL):
 3.1. Starting
 -------------
 
-Starting with Open H323 Library:
+Starting with Open H323 Library or H323 Plus Library:
 
-  $ ./obj_linux_x86_r/t38modem -n -o trace.log -p ttyx0,ttyx1 \
+  $ t38modem -n -o trace.log -p ttyx0,ttyx1 --old-asn \
                                --route 0@127.0.0.1 --route all@172.16.33.21
-
-Starting with OPAL:
-
-  $ ./obj_linux_x86_opal_r/t38modem --no-sip -n -o trace.log -p ttyx0,ttyx1 \
-                               --route "modem:0.*=h323:<dn!1>@127.0.0.1" \
-                               --route "modem:.*=h323:<dn>@172.16.33.21" \
-                               --route "h323:.*=modem:<dn>"
 
 This will create two modems (/dev/ttyx0 and /dev/ttyx1) and H.323 endpoint.
 If dialed number begins with '0' then it will be routed to a local host
 (leading '0' will be discarded). Other dialed numbers will be routed to
 172.16.33.21.
+
+Starting with OPAL:
+
+  $ t38modem -n -o trace.log -p ttyx0,ttyx1 --h323-old-asn --sip-old-asn \
+                               --route "modem:0.*=h323:<dn!1>@127.0.0.1" \
+                               --route "modem:1.*=sip:<dn>@172.16.33.20" \
+                               --route "modem:2.*=h323:<dn>@172.16.33.21" \
+                               --route "h323:.*=modem:<dn>" \
+                               --route "sip:.*=modem:<dn>"
+
+This will create two modems (/dev/ttyx0 and /dev/ttyx1) and H.323 and SIP endpoints.
+If dialed number begins with '0' then it will be routed to a local host.
+If dialed number begins with '1' then it will be routed to SIP endpoint 172.16.33.20.
+If dialed number begins with '2' then it will be routed to H.323 endpoint 172.16.33.21.
+Leading '0', '1' and '2' will be discarded.
 
 Q. I try to use T38modem, but after run "t38modem -p ttyx0" I get a message
    "Could not open /dev/ptyx0: No such file or directory".
@@ -90,8 +119,7 @@ Windows Users: You need two COM ports connected via Null-modem cable to create o
                Q. What model of modem to select in Add Hardware Wizard?
                A. Select "Standard 1440 bps Modem".
 
-Cisco Users:   You additionaly need to use --old-asn (--h323-old-asn with OPAL) and
-               --h245tunneldisable options.
+Cisco Users:   Possible additionaly you will need to use --h245tunneldisable option.
 
 3.2. Testing (you need two consoles)
 ------------------------------------
@@ -105,16 +133,16 @@ Connected.		    Connected.
                             (wait at least 10 secs)
 <-- atdt012345
 
-                            --> 
+                            -->
                             --> RING
-                            --> 
+                            -->
                             --> RING
                             <-- ati9
                             --> NDID = 12345
                             --> OK
-                            --> 
+                            -->
                             --> RING
-                            --> 
+                            -->
                             --> RING
                             <-- ata
 --> CONNECT                 --> CONNECT
@@ -122,7 +150,7 @@ Connected.		    Connected.
 --> OK
 <-- ath
 --> OK
-                            --> 
+                            -->
                             --> ERROR
 <-- at
 --> OK
@@ -287,70 +315,3 @@ Examples:
 
 #HCLR=0	- ATH command will not clear not answered incoming call (default).
 #HCLR=1	- ATH command will clear not answered incoming call.
-
-
-                         -----------------------------
-
-/*
- * $Log: ReadMe.txt,v $
- * Revision 1.18  2008-10-07 11:36:28  vfrolov
- * Removed NOTE about OPAL version
- *
- * Revision 1.18  2008/10/07 11:36:28  vfrolov
- * Removed NOTE about OPAL version
- *
- * Revision 1.17  2008/08/29 06:58:02  vfrolov
- * Added NOTE about OPAL version
- *
- * Revision 1.16  2007/07/17 10:05:26  vfrolov
- * Added Unix98 PTY support
- * Added OPAL example
- *
- * Revision 1.15  2007/05/28 13:44:53  vfrolov
- * Added OPAL support
- *
- * Revision 1.14  2007/03/23 10:14:35  vfrolov
- * Implemented voice mode functionality
- *
- * Revision 1.13  2007/02/22 16:00:33  vfrolov
- * Implemented AT#HCLR command
- *
- * Revision 1.12  2007/02/21 08:21:47  vfrolov
- * Added question about 'Legacy PTY Support'
- *
- * Revision 1.11  2005/03/04 16:41:01  vfrolov
- * Implemented AT#DFRMC command
- *
- * Revision 1.10  2005/02/10 15:07:15  vfrolov
- * Added more comments for Windows users
- *
- * Revision 1.9  2005/02/07 10:07:38  vfrolov
- * Fixed com0com link
- * Moved Log to the bottom
- *
- * Revision 1.8  2005/02/03 13:20:01  vfrolov
- * Added comments for Windows users
- *
- * Revision 1.7  2002/12/19 10:41:03  vfrolov
- * Added "Introduction" and "AT commands" sections and made some fixes
- *
- * Revision 1.6  2002/11/18 22:57:53  craigs
- * Added patches from Vyacheslav Frolov for CORRIGENDUM
- *
- * Revision 1.5  2002/03/22 09:40:57  vfrolov
- * Removed obsoleted option -f
- *
- * Revision 1.4  2002/01/09 16:14:58  rogerh
- * FreeBSD uses /dev/ttypa and /dev/ttypb
- *
- * Revision 1.3  2002/01/09 16:01:03  rogerh
- * Executable is called t38modem
- *
- * Revision 1.2  2002/01/01 23:11:49  craigs
- * New version from Vyacheslav Frolov
- * Removed references to unneeded OpenH323 patches
- * Removed reference to -k and -m options in usage
- * Change to use -route option
- *
- */
-
