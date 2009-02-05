@@ -175,7 +175,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="openh323d.lib ptlibd.lib wsock32.lib"
+				AdditionalDependencies="h323plusd.lib ptlibd.lib wsock32.lib"
 				OutputFile=".\Debug/t38modem.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
@@ -275,7 +275,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="openh323.lib ptlib.lib wsock32.lib"
+				AdditionalDependencies="h323plus.lib ptlib.lib wsock32.lib"
 				OutputFile=".\Release/t38modem.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
