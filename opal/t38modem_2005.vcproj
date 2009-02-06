@@ -50,7 +50,7 @@
 				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
 				FavorSizeOrSpeed="1"
-				PreprocessorDefinitions="USE_OPAL;NDEBUG;PASN_NOPRINTON;PASN_LEANANDMEAN"
+				PreprocessorDefinitions="USE_OPAL;NDEBUG;PTRACING=0;PASN_NOPRINTON;PASN_LEANANDMEAN"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -78,7 +78,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="opaln.lib ptlib.lib wsock32.lib"
+				AdditionalDependencies="opaln.lib ptlibn.lib wsock32.lib"
 				OutputFile=".\NoTrace/t38modem.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
@@ -344,43 +344,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\h323cap.cxx"
-				>
-			</File>
-			<File
-				RelativePath=".\h323ep.cxx"
-				>
-			</File>
-			<File
 				RelativePath="..\hdlc.cxx"
 				>
 			</File>
 			<File
-				RelativePath=".\ifpmediafmt.cxx"
-				>
-			</File>
-			<File
-				RelativePath=".\ifptranscoder.cxx"
-				>
-			</File>
-			<File
 				RelativePath="..\main_process.cxx"
-				>
-			</File>
-			<File
-				RelativePath=".\manager.cxx"
-				>
-			</File>
-			<File
-				RelativePath=".\modemep.cxx"
-				>
-			</File>
-			<File
-				RelativePath=".\modemstrm.cxx"
-				>
-			</File>
-			<File
-				RelativePath=".\opalutils.cxx"
 				>
 			</File>
 			<File
@@ -428,10 +396,6 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath=".\sipep.cxx"
-				>
-			</File>
-			<File
 				RelativePath="..\t30.cxx"
 				>
 			</File>
@@ -443,6 +407,46 @@
 				RelativePath="..\t38engine.cxx"
 				>
 			</File>
+			<Filter
+				Name="opal"
+				>
+				<File
+					RelativePath=".\h323cap.cxx"
+					>
+				</File>
+				<File
+					RelativePath=".\h323ep.cxx"
+					>
+				</File>
+				<File
+					RelativePath=".\ifpmediafmt.cxx"
+					>
+				</File>
+				<File
+					RelativePath=".\ifptranscoder.cxx"
+					>
+				</File>
+				<File
+					RelativePath=".\manager.cxx"
+					>
+				</File>
+				<File
+					RelativePath=".\modemep.cxx"
+					>
+				</File>
+				<File
+					RelativePath=".\modemstrm.cxx"
+					>
+				</File>
+				<File
+					RelativePath=".\opalutils.cxx"
+					>
+				</File>
+				<File
+					RelativePath=".\sipep.cxx"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -473,31 +477,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\h323ep.h"
-				>
-			</File>
-			<File
 				RelativePath="..\hdlc.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ifpmediafmt.h"
-				>
-			</File>
-			<File
-				RelativePath=".\manager.h"
-				>
-			</File>
-			<File
-				RelativePath=".\modemep.h"
-				>
-			</File>
-			<File
-				RelativePath=".\modemstrm.h"
-				>
-			</File>
-			<File
-				RelativePath=".\opalutils.h"
 				>
 			</File>
 			<File
@@ -517,10 +497,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\sipep.h"
-				>
-			</File>
-			<File
 				RelativePath="..\t30.h"
 				>
 			</File>
@@ -536,11 +512,55 @@
 				RelativePath="..\version.h"
 				>
 			</File>
+			<Filter
+				Name="opal"
+				>
+				<File
+					RelativePath=".\h323ep.h"
+					>
+				</File>
+				<File
+					RelativePath=".\ifpmediafmt.h"
+					>
+				</File>
+				<File
+					RelativePath=".\manager.h"
+					>
+				</File>
+				<File
+					RelativePath=".\modemep.h"
+					>
+				</File>
+				<File
+					RelativePath=".\modemstrm.h"
+					>
+				</File>
+				<File
+					RelativePath=".\opalutils.h"
+					>
+				</File>
+				<File
+					RelativePath=".\sipep.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Resource Files"
 			Filter="ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
 			>
+		</Filter>
+		<Filter
+			Name="Other Files"
+			>
+			<File
+				RelativePath="..\Changes.txt"
+				>
+			</File>
+			<File
+				RelativePath="..\ReadMe.txt"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>
