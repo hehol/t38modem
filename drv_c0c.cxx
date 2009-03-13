@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004-2008 Vyacheslav Frolov
+ * Copyright (c) 2004-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.10  2008-09-24 14:41:06  frolov
- * Removed CTS monitoring
+ * Revision 1.11  2009-03-13 09:44:32  vfrolov
+ * Fixed Segmentation fault (wrong PString usage)
+ *
+ * Revision 1.11  2009/03/13 09:44:32  vfrolov
+ * Fixed Segmentation fault (wrong PString usage)
  *
  * Revision 1.10  2008/09/24 14:41:06  frolov
  * Removed CTS monitoring
@@ -448,7 +451,7 @@ PseudoModemC0C::PseudoModemC0C(
 {
   if (CheckTty(_tty)) {
     ptypath = _tty;
-    ptyname = &ptypath[4];
+    ptyname = ptypath.Mid(4);
     valid = TRUE;
   } else {
     myPTRACE(1, "PseudoModemC0C::PseudoModemC0C bad on " << _tty);

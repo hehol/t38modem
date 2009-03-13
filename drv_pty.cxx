@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2008 Vyacheslav Frolov
+ * Copyright (c) 2001-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.cxx,v $
- * Revision 1.8  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.9  2009-03-13 09:44:32  vfrolov
+ * Fixed Segmentation fault (wrong PString usage)
+ *
+ * Revision 1.9  2009/03/13 09:44:32  vfrolov
+ * Fixed Segmentation fault (wrong PString usage)
  *
  * Revision 1.8  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -154,7 +157,7 @@ void InPty::Main()
       if (stop)
         break;
 
-      len = ::read(hPty, cbuf, 1024);
+      len = ::read(hPty, cbuf, sizeof(cbuf));
 
       if (len < 0) {
         int err = errno;
@@ -328,7 +331,7 @@ PseudoModemPty::PseudoModemPty(
       ttypath = _tty;
 
     (ptypath = ttypath)[5] = 'p';
-    ptyname = &ptypath[5];
+    ptyname = ptypath.Mid(5);
   }
   else
 #endif // USE_LEGACY_PTY
