@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: main_process.cxx,v $
- * Revision 1.4  2009-01-21 12:25:12  vfrolov
- * Added tracing of options
+ * Revision 1.5  2009-04-03 12:04:36  vfrolov
+ * Added versions of used libs to output
+ *
+ * Revision 1.5  2009/04/03 12:04:36  vfrolov
+ * Added versions of used libs to output
  *
  * Revision 1.4  2009/01/21 12:25:12  vfrolov
  * Added tracing of options
@@ -58,7 +61,10 @@ static PString GetListOfLibs()
 {
   return
 #ifdef USE_OPAL
-    PString("OPAL-") + PString(OPAL_VERSION)
+    PString("OPAL-")
+    + PString(OPAL_VERSION)
+    + PString("/")
+    + OpalGetVersion()
 #else
   #if OPENH323_MAJOR < 1 || (OPENH323_MAJOR == 1 && OPENH323_MINOR <= 19)
     PString("OpenH323-") + PString(OPENH323_VERSION)
@@ -67,7 +73,12 @@ static PString GetListOfLibs()
   #endif
 #endif
 #ifdef PTLIB_VERSION
-    + PString(", PTLIB-") + PString(PTLIB_VERSION)
+    + PString(", PTLIB-")
+    + PString(PTLIB_VERSION)
+  #if PTLIB_MAJOR > 2 || (PTLIB_MAJOR == 2 && PTLIB_MINOR >= 6)
+    + PString("/")
+    + PProcess::GetLibVersion()
+  #endif
 #endif
 #ifdef PWLIB_VERSION
     + PString(", PWLIB-") + PString(PWLIB_VERSION)
