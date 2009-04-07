@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.3  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.4  2009-04-07 12:49:18  vfrolov
+ * Implemented --sip-proxy and --sip-register options
+ *
+ * Revision 1.4  2009/04/07 12:49:18  vfrolov
+ * Implemented --sip-proxy and --sip-register options
  *
  * Revision 1.3  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -104,6 +107,8 @@ PString MySIPEndPoint::ArgSpec()
     "-sip-redundancy:"
     "-sip-repeat:"
     */
+    "-sip-proxy:"
+    "-sip-register:"
     "-sip-listen:"
     "-sip-no-listen."
   ;
@@ -124,6 +129,11 @@ PStringArray MySIPEndPoint::Descriptions()
       "  --sip-repeat ms           : Continuously resend last UDPTL packet each ms\n"
       "                              milliseconds.\n"
       */
+      "  --sip-proxy [user:[pwd]@]host\n"
+      "                            : Proxy information.\n"
+      "  --sip-register [user@]registrar[,pwd[,contact[,realm[,authID]]]]\n"
+      "                            : Registration information. Can be used multiple\n"
+      "                              times.\n"
       "  --sip-listen iface        : Interface/port(s) to listen for SIP requests\n"
       "                            : '*' is all interfaces (default tcp$*:5060 and\n"
       "                            : udp$*:5060).\n"
@@ -187,8 +197,52 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
            << setfill(',') << listeners << endl;
       return FALSE;
     }
+
     cout << "Waiting for incoming SIP calls from "
          << setfill(',') << listeners << endl;
+  }
+
+  if (args.HasOption("sip-proxy"))
+    SetProxy(args.GetOptionString("sip-proxy"));
+
+  if (args.HasOption("sip-register")) {
+    PString r = args.GetOptionString("sip-register");
+    PStringArray regs = r.Tokenise("\r\n", FALSE);
+
+    for (PINDEX i = 0 ; i < regs.GetSize() ; i++) {
+      PStringArray prms = regs[i].Tokenise(",", TRUE);
+
+      PAssert(prms.GetSize() >= 1, "empty registration information");
+
+      if (prms.GetSize() >= 1) {
+        SIPRegister::Params params;
+
+        params.m_addressOfRecord = prms[0];
+
+        if (prms.GetSize() >= 2) {
+          params.m_password = prms[1];
+          
+          if (prms.GetSize() >= 3) {
+            params.m_contactAddress = prms[2];
+
+            if (prms.GetSize() >= 4) {
+              params.m_realm = prms[3];
+
+              if (prms.GetSize() >= 5) {
+                params.m_authID = prms[5];
+              }
+            }
+          }
+        }
+
+        params.m_expire = 300;
+
+        if (!Register(params, regs[i])) {
+          cerr << "Could not start SIP registration to " << params.m_addressOfRecord << endl;
+          return FALSE;
+        }
+      }
+    }
   }
 
   return TRUE;
