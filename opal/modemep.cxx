@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.4  2009-01-14 16:35:55  vfrolov
- * Added Calling-Party-Number for SIP
+ * Revision 1.5  2009-04-08 14:34:28  vfrolov
+ * Replaced SendUserInputString() by SendUserInputTone() for compatibility
+ * with OPAL SVN trunk
+ *
+ * Revision 1.5  2009/04/08 14:34:28  vfrolov
+ * Replaced SendUserInputString() by SendUserInputTone() for compatibility
+ * with OPAL SVN trunk
  *
  * Revision 1.4  2009/01/14 16:35:55  vfrolov
  * Added Calling-Party-Number for SIP
@@ -99,8 +104,9 @@ class ModemConnection : public OpalConnection
     virtual void OnEstablished();
     virtual void AcceptIncoming();
 
-    virtual PBoolean SendUserInputString(
-      const PString & value                ///<  String value of indication
+    virtual PBoolean SendUserInputTone(
+      char tone,                    ///<  DTMF tone code
+      unsigned duration = 0         ///<  Duration of tone in milliseconds
     );
 
   protected:
@@ -601,14 +607,16 @@ void ModemConnection::AcceptIncoming()
   OnConnected();
 }
 
-PBoolean ModemConnection::SendUserInputString(const PString & value)
+PBoolean ModemConnection::SendUserInputTone(char tone, unsigned duration)
 {
-  if (audioEngine == NULL)
-    return FALSE;
+  PTRACE(4, "ModemConnection::SendUserInputTone " << tone << " " << duration);
 
-  audioEngine->WriteUserInput(value);
+  if (audioEngine == NULL || duration == 0 || tone == ' ')
+    return false;
 
-  return TRUE;
+  audioEngine->WriteUserInput(tone);
+
+  return true;
 }
 /////////////////////////////////////////////////////////////////////////////
 
