@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.5  2009-04-08 14:34:28  vfrolov
- * Replaced SendUserInputString() by SendUserInputTone() for compatibility
- * with OPAL SVN trunk
+ * Revision 1.6  2009-04-09 10:02:19  vfrolov
+ * Fixed ignoring tone for H.323 because duration always is zero
+ *
+ * Revision 1.6  2009/04/09 10:02:19  vfrolov
+ * Fixed ignoring tone for H.323 because duration always is zero
  *
  * Revision 1.5  2009/04/08 14:34:28  vfrolov
  * Replaced SendUserInputString() by SendUserInputTone() for compatibility
@@ -607,11 +609,11 @@ void ModemConnection::AcceptIncoming()
   OnConnected();
 }
 
-PBoolean ModemConnection::SendUserInputTone(char tone, unsigned duration)
+PBoolean ModemConnection::SendUserInputTone(char tone, unsigned PTRACE_PARAM(duration))
 {
   PTRACE(4, "ModemConnection::SendUserInputTone " << tone << " " << duration);
 
-  if (audioEngine == NULL || duration == 0 || tone == ' ')
+  if (audioEngine == NULL || tone == ' ')
     return false;
 
   audioEngine->WriteUserInput(tone);
