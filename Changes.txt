@@ -7,7 +7,21 @@
  *
  */
 
-Changelog for t38modem 1.0.0
+Changelog for t38modem 1.1.0 (Apr 16 2009)
+
+* Fixed 100% CPU usage at the begining of T.38 session.
+* Fixed transmission fail with ECM.
+* Added H323Plus support.
+* Added OPAL v3.6 Lalande support.
+* (OPAL) Added STUN support.
+* (OPAL) Added ability to set outbound proxy for SIP.
+* (OPAL) Added ability to set registrar for SIP.
+* (OPAL) options --h323-redundancy, --h323-repeat, --sip-redundancy
+  and --sip-repeat are disabled (because no support in OPAL).
+
+Oct  6 2008 - t38modem moved to http://sourceforge.net/projects/t38modem/.
+
+Changelog for t38modem 1.0.0 (Aug 29 2008)
 
 * Added OPAL support.
 * Implemented voice mode functionality.
@@ -18,7 +32,7 @@ Changelog for t38modem 1.0.0
 * Added ability to continuously re-send last UDPTL packet.
 * Added Unix98 PTY support.
 
-Changelog for t38modem 0.8.4
+Changelog for t38modem 0.8.4 (Mar 22 2007)
 
 * Fixed incompatibilities with some endpoints.
 * Fixed big file descriptors problem.
@@ -29,27 +43,27 @@ Changelog for t38modem 0.8.4
   NOTE: To compile t38modem since version 0.8.4 you need
         openh323 since version 1.19.1.
 
-Changelog for t38modem 0.8.3
+Changelog for t38modem 0.8.3 (Jun 29 2006)
 
 * Fixed race condition on start up.
 * Added -v option to keep Debian packaging happy.
 
-Changelog for t38modem 0.8.2
+Changelog for t38modem 0.8.2 (Sep 14 2005)
 
 * Fixed incompatibilities with some endpoints.
 * Fixed UDPTL size.
 
-Changelog for t38modem 0.8.1
+Changelog for t38modem 0.8.1 (Mar 31 2005)
 
 * Fixed incompatibilities with some fax applications.
 * Implemented some AT commands.
 * Fixed some bugs.
 
-Changelog for t38modem 0.8.0
+Changelog for t38modem 0.8.0 (Oct 29 2004)
 
 * Ported to Windows.
 
-Changelog for t38modem 0.7.0
+Changelog for t38modem 0.7.0 (Jul  7 2004)
 
 * Implemented FCS generation. The DCE transfers FCS octets after
   the HDLC data to the DTE (as it should be).
@@ -57,3 +71,17 @@ Changelog for t38modem 0.7.0
   should be discarded if it was used.
 * Implemented ECM support.
 
+Jun    2003 - t38modem moved to http://openh323.sourceforge.net/.
+Jun  6 2003 - t38modem 0.6.3 released.
+Jan 15 2003 - t38modem 0.6.2 released.
+Jan  6 2003 - t38modem 0.6.1 released.
+Dec 12 2002 - t38modem 0.6.0 released.
+Nov 14 2002 - t38modem 0.5.0 released.
+Aug 16 2002 - t38modem 0.4.2 released.
+Jul  9 2002 - t38modem 0.4.1 released.
+Mar 26 2002 - t38modem 0.4.0 released.
+Feb 12 2002 - t38modem 0.1.0 released.
+Jan  1 2002 - t38modem commited to http://www.openh323.org/.
+Dec    2001 - t38modem can send faxes.
+Oct    2001 - t38modem can receive faxes.
+Sep    2001 - t38modem project started.
