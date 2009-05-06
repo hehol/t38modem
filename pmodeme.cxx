@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.46  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.47  2009-05-06 09:17:23  vfrolov
+ * Enabled dialing characters # and *
+ *
+ * Revision 1.47  2009/05/06 09:17:23  vfrolov
+ * Enabled dialing characters # and *
  *
  * Revision 1.46  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -294,7 +297,7 @@ class Profile
       val = BYTE((S[r] & msk) >> bl);
       return TRUE;
     }
-    
+
     Profile &operator=(const Profile &p);
 
     void ModemClass(const PString &_modemClass) {
@@ -334,11 +337,11 @@ class Timeout : public PTimer
 {
     PCLASSINFO(Timeout, PTimer);
   public:
-    Timeout(const PNotifier &callback, PBoolean _continuous = FALSE) 
-        : state(0), continuous(_continuous) { 
+    Timeout(const PNotifier &callback, PBoolean _continuous = FALSE)
+        : state(0), continuous(_continuous) {
       SetNotifier(callback);
     }
-    
+
     void Start(unsigned period) {
       PWaitAndSignal mutexWait(Mutex);
       state = 1;
@@ -349,16 +352,16 @@ class Timeout : public PTimer
         PTimer::operator=(period);
       }
     }
-    
+
     void Stop() {
       PWaitAndSignal mutexWait(Mutex);
       state = 0;
       PTimer::operator=(0);
     }
-    
-    PBoolean Get() { 
-      PWaitAndSignal mutexWait(Mutex); 
-      if( state == 2 ) { 
+
+    PBoolean Get() {
+      PWaitAndSignal mutexWait(Mutex);
+      if (state == 2) {
         state = continuous ? 1 : 0;
         return TRUE;
       }
@@ -371,7 +374,7 @@ class Timeout : public PTimer
         state = 2;
       PTimer::OnTimeout();
     }
-  
+
     int state;
     PBoolean continuous;
     PMutex Mutex;
@@ -405,7 +408,7 @@ class ModemEngineBody : public PObject
       cdOutgoing,
       cdIncoming,
     };
-    
+
     enum {
       chEvent,
       chDelay,
@@ -532,7 +535,7 @@ class ModemEngineBody : public PObject
     Profile Profiles[1];
 
     PMutex Mutex;
-    
+
     DeclareStringParam(CallToken)
     DeclareStringParam(SrcNum)
     DeclareStringParam(DstNum)
@@ -610,10 +613,10 @@ void ModemEngine::Main()
     SignalStop();
     return;
   }
-  
+
   for(;;) {
     PBYTEArray bresp;
-    
+
     if (stop)
       break;
 
@@ -657,7 +660,7 @@ Profile::Profile() {
   for( PINDEX r = 0 ; r <= MaxReg ; r++ ) {
     S[r] = 0;
   }
-  
+
   Echo(TRUE);
   asciiResultCodes(TRUE);
   noResultCodes(FALSE);
@@ -733,9 +736,9 @@ void ModemEngineBody::_ClearCall()
   connectionEstablished = FALSE;
   if (CallToken().IsEmpty())
     return;
-    
+
   timerRing.Stop();
-  
+
   PStringToString request;
   request.SetAt("modemtoken", parent.modemToken());
   request.SetAt("command", "clearcall");
@@ -752,11 +755,11 @@ void ModemEngineBody::_ClearCall()
 PBoolean ModemEngineBody::Request(PStringToString &request)
 {
   myPTRACE(1, "ModemEngineBody::Request request={\n" << request << "}");
-  
+
   PString command = request("command");
 
   request.SetAt("response", "reject");
-  
+
   if( command == "call" ) {
     PWaitAndSignal mutexWait(Mutex);
     if (callDirection == cdUndefined && CallToken().IsEmpty()) {
@@ -1004,14 +1007,14 @@ static int ParseNum(const char **ppCmd,
 {
     const char *pEnd = *ppCmd;
     int num = 0;
-    
+
     for( ; isdigit(*pEnd) ; pEnd++ ) {
       num = (num * 10) + (*pEnd - '0');
     }
-    
+
     PINDEX len = PINDEX(pEnd - *ppCmd);
     *ppCmd = pEnd;
-    
+
     if (len < minDigits || len > maxDigits || num > maxNum)
       return -1;
     else
@@ -1024,8 +1027,8 @@ static int ParseNum(const char **ppCmd,
 PBoolean ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, PBoolean &ok, PBoolean &crlf)
 {
   PBoolean T;
-  
-  switch( *(*ppCmd - 2) ) {
+
+  switch (*(*ppCmd - 2)) {
     case 'T':
       T = TRUE;
       break;
@@ -1037,8 +1040,8 @@ PBoolean ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, PBo
   }
 
   int dt;
-  
-  switch( *(*ppCmd - 1) ) {
+
+  switch (*(*ppCmd - 1)) {
     case 'S':
       dt = EngineBase::dtSilence;
       break;
@@ -1051,7 +1054,7 @@ PBoolean ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, PBo
     default:
       return FALSE;
   }
-  
+
   if (dt == EngineBase::dtSilence) {
     switch( *(*ppCmd)++ ) {
       case '=':
@@ -1543,15 +1546,26 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             PString LocalPartyName;
             PBoolean local = FALSE;
             PBoolean setForceFaxMode = FALSE;
-          
-            for( char ch ; (ch = *pCmd) != 0 && !err ; pCmd++ ) {
-              if( isdigit(ch) ) {
-                if (local)
-                  LocalPartyName += ch;
-                else
-                  num += ch;
-              } else {
-                switch( ch ) {
+
+            for (char ch ; (ch = *pCmd) != 0 && !err ; pCmd++) {
+              switch (ch) {
+                  case '0':
+                  case '1':
+                  case '2':
+                  case '3':
+                  case '4':
+                  case '5':
+                  case '6':
+                  case '7':
+                  case '8':
+                  case '9':
+                  case '*':
+                  case '#':
+                    if (local)
+                      LocalPartyName += ch;
+                    else
+                      num += ch;
+                    break;
                   case '.':
                   case ' ':
                   case '-':
@@ -1573,10 +1587,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                     break;
                   default:
                     err = TRUE;
-                }
               }
             }
-            
+
             if (!err) {
               PWaitAndSignal mutexWait(Mutex);
 
@@ -1601,19 +1614,19 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               timerRing.Stop();
               state = stConnectWait;
               timeout.Start(60000);
-            
+
               PStringToString request;
               request.SetAt("modemtoken", parent.modemToken());
               request.SetAt("command", "dial");
               request.SetAt("number", num);
               request.SetAt("localpartyname", LocalPartyName);
-            
+
               Mutex.Signal();
               callbackEndPoint(request, 3);
               Mutex.Wait();
 
               PString response = request("response");
-              
+
               if (response == "confirm") {
                 CallToken(request("calltoken"));
               } else {
@@ -1662,8 +1675,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
         case 'I':	// Information
           {
             int val = ParseNum(&pCmd, 0, 1);
-            
-            switch( val ) {
+
+            switch (val) {
               case 0:
                 resp += "\r\n" + PString(Model);
                 crlf = TRUE;
@@ -1713,9 +1726,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
         case 'S':	// Set/Get Register
           {
           int r = ParseNum(&pCmd);
-          
-          if( r >= 0 ) {
-            switch( *pCmd++ ) {
+
+          if (r >= 0) {
+            switch (*pCmd++) {
               case '=':
                 {
                   int val = ParseNum(&pCmd);
@@ -1727,8 +1740,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               case '?':
                 {
                   BYTE val;
-                
-                  if( P.GetReg(r, val) ) {
+
+                  if (P.GetReg(r, val)) {
                     resp.sprintf("\r\n%3.3u", (unsigned)val);
                     crlf = TRUE;
                   } else {
@@ -1739,9 +1752,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               case '.':
                 {
                   int b = ParseNum(&pCmd, 1, 1, 7);
-          
-                  if( b >= 0 ) {
-                    switch( *pCmd++ ) {
+
+                  if (b >= 0) {
+                    switch (*pCmd++) {
                       case '=':
                         {
                           int val = ParseNum(&pCmd, 1, 1, 1);
@@ -1753,8 +1766,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                       case '?':
                         {
                           PBoolean val;
-                
-                          if( P.GetBit(r, b, val) ) {
+
+                          if (P.GetBit(r, b, val)) {
                             resp.sprintf("\r\n%u", (unsigned)val);
                             crlf = TRUE;
                           } else {
@@ -2471,19 +2484,19 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 {
     int len = buf.GetSize();
     const BYTE *pBuf = buf;
-    
-    while( len > 0 ) {
-      switch( state ) {
+
+    while (len > 0) {
+      switch (state) {
         case stCommand:
           {
           PWaitAndSignal mutexWait(Mutex);
           lastPtyActivity = PTime();
           }
-          
-          while( state == stCommand && len > 0 ) {
+
+          while (state == stCommand && len > 0) {
             const BYTE *pEnd = (const BYTE *)memchr(pBuf, '\r', len);
-    
-            if( pEnd == NULL ) {
+
+            if (pEnd == NULL) {
               cmd += PString((const char *)pBuf, len);
               if( Echo() )
                 bresp.Concatenate(PBYTEArray(pBuf, len));
@@ -2522,9 +2535,9 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
         case stSend:
           {
             int lendone = dleData.PutDleData(pBuf, len);
-            
-            if( lendone > 0 ) {
-                if( Echo() )
+
+            if (lendone > 0) {
+                if (Echo())
                   bresp.Concatenate(PBYTEArray(pBuf, lendone));
                 len -= lendone;
                 pBuf += lendone;
@@ -2554,8 +2567,9 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                 default:
                   switch( dt ) {
                     case EngineBase::dtHdlc:
-                      if( dataCount < 2 && (dataCount + count) >= 2 && 
-                          			(Buf[1 - dataCount] & 0x08) == 0 ) {
+                      if (dataCount < 2 && (dataCount + count) >= 2 &&
+                          (Buf[1 - dataCount] & 0x08) == 0)
+                      {
                         moreFrames = TRUE;
                       }
                   }
@@ -2631,7 +2645,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 void ModemEngineBody::CheckState(PBYTEArray & bresp)
 {
   PString resp;
-  
+
   {
     PWaitAndSignal mutexWait(Mutex);
     if (cmd.IsEmpty() && timerRing.Get())  {
@@ -2788,14 +2802,14 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               request.SetAt("command", "requestmode");
               request.SetAt("calltoken", CallToken());
               request.SetAt("mode", "fax");
-    
+
               Mutex.Signal();
               callbackEndPoint(request, 4);
               Mutex.Wait();
-    
+
               PString response = request("response");
-    
-              if (response == "confirm" ) {
+
+              if (response == "confirm") {
               } else {
                 state = stCommand;
                 timeout.Stop();
@@ -3049,12 +3063,12 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       }
       break;
   }
-  
-  if( resp.GetLength() ) {
+
+  if (resp.GetLength()) {
     resp = RC_PREF() + resp;
 
     PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
-    
+
     myPTRACE(1, "<-- " << PRTHEX(_bresp));
     bresp.Concatenate(_bresp);
   }
