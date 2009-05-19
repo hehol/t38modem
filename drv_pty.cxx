@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.cxx,v $
- * Revision 1.9  2009-03-13 09:44:32  vfrolov
- * Fixed Segmentation fault (wrong PString usage)
+ * Revision 1.10  2009-05-19 07:29:04  vfrolov
+ * Commented Termios code uncompatible with some systems
+ *
+ * Revision 1.10  2009/05/19 07:29:04  vfrolov
+ * Commented Termios code uncompatible with some systems
  *
  * Revision 1.9  2009/03/13 09:44:32  vfrolov
  * Fixed Segmentation fault (wrong PString usage)
@@ -521,6 +524,7 @@ PBoolean PseudoModemPty::OpenPty()
   #endif
 #endif
 
+#if 0
   struct termios Termios;
 
   if (::tcgetattr(hPty, &Termios) != 0) {
@@ -541,6 +545,7 @@ PBoolean PseudoModemPty::OpenPty()
     ClosePty();
     return FALSE;
   }
+#endif
 
 #ifdef USE_UNIX98_PTY
   if (ptypath == ptyPathUnix98()) {
