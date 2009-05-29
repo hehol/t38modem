@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.4  2009-04-07 12:49:18  vfrolov
- * Implemented --sip-proxy and --sip-register options
+ * Revision 1.5  2009-05-29 13:01:40  vfrolov
+ * Ported to OPAL trunk
+ *
+ * Revision 1.5  2009/05/29 13:01:40  vfrolov
+ * Ported to OPAL trunk
  *
  * Revision 1.4  2009/04/07 12:49:18  vfrolov
  * Implemented --sip-proxy and --sip-register options
@@ -75,12 +78,6 @@ class MySIPConnection : public SIPConnection
   //@}
 
     virtual PBoolean SetUpConnection();
-
-    virtual RTP_Session * CreateSession(
-      const OpalTransport & transport,
-      unsigned sessionID,
-      RTP_QOS * rtpqos
-    );
 
     virtual OpalMediaFormatList GetMediaFormats() const;
 
@@ -354,16 +351,6 @@ PBoolean MySIPConnection::SetUpConnection()
   }
 
   return SIPConnection::SetUpConnection();
-}
-
-RTP_Session * MySIPConnection::CreateSession(
-    const OpalTransport & transport,
-    unsigned sessionID,
-    RTP_QOS * rtpqos)
-{
-  PTRACE(3, "MySIPConnection::CreateSession " << sessionID << " t=" << transport);
-
-  return SIPConnection::CreateSession(transport, sessionID, rtpqos);
 }
 
 OpalMediaFormatList MySIPConnection::GetMediaFormats() const

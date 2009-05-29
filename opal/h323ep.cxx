@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.4  2008-09-24 14:39:21  frolov
- * Removed capabilities adding
+ * Revision 1.5  2009-05-29 13:01:41  vfrolov
+ * Ported to OPAL trunk
+ *
+ * Revision 1.5  2009/05/29 13:01:41  vfrolov
+ * Ported to OPAL trunk
  *
  * Revision 1.4  2008/09/24 14:39:21  frolov
  * Removed capabilities adding
@@ -78,12 +81,6 @@ class MyH323Connection : public H323Connection
   //@}
 
     virtual PBoolean SetUpConnection();
-
-    virtual RTP_Session * CreateSession(
-      const OpalTransport & transport,
-      unsigned sessionID,
-      RTP_QOS * rtpqos
-    );
 
     virtual void AdjustMediaFormats(
       OpalMediaFormatList & mediaFormats  ///<  Media formats to use
@@ -296,16 +293,6 @@ PBoolean MyH323Connection::SetUpConnection()
   }
 
   return H323Connection::SetUpConnection();
-}
-
-RTP_Session * MyH323Connection::CreateSession(
-    const OpalTransport & transport,
-    unsigned sessionID,
-    RTP_QOS * rtpqos)
-{
-  PTRACE(3, "MyH323Connection::CreateSession " << sessionID << " t=" << transport);
-
-  return H323Connection::CreateSession(transport, sessionID, rtpqos);
 }
 
 void MyH323Connection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) const
