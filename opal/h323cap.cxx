@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323cap.cxx,v $
- * Revision 1.2  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.3  2009-05-29 13:03:56  vfrolov
+ * Removed CreateChannel() overloading
+ *
+ * Revision 1.3  2009/05/29 13:03:56  vfrolov
+ * Removed CreateChannel() overloading
  *
  * Revision 1.2  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -73,17 +76,6 @@ class MyH323_T38Capability : public H323_T38Capability
     virtual PString GetFormatName() const { return mediaFormat; }
   //@}
 
-  /**@name Operations */
-  //@{
-    virtual H323Channel * CreateChannel(
-      H323Connection & connection,    ///<  Owner connection for channel
-      H323Channel::Directions dir,    ///<  Direction of channel
-      unsigned sessionID,             ///<  Session ID for RTP channel
-      const H245_H2250LogicalChannelParameters * param
-                                      ///<  Parameters for channel
-    ) const;
-  //@}
-
   protected:
     const OpalMediaFormat &mediaFormat;
 };
@@ -100,24 +92,5 @@ class MyH323_T38CapabilityPre : public MyH323_T38Capability {
 
 H323_REGISTER_CAPABILITY(MyH323_T38CapabilityCor, (const char *)OpalT38_IFP_COR)
 H323_REGISTER_CAPABILITY(MyH323_T38CapabilityPre, (const char *)OpalT38_IFP_PRE)
-
-/////////////////////////////////////////////////////////////////////////////
-//
-//  Implementation
-//
-/////////////////////////////////////////////////////////////////////////////
-H323Channel * MyH323_T38Capability::CreateChannel(
-    H323Connection & connection,
-    H323Channel::Directions direction,
-    unsigned int sessionID,
-    const H245_H2250LogicalChannelParameters * params) const
-{
-  PTRACE(1, "MyH323_T38Capability::CreateChannel "
-    << connection
-    << " sessionID=" << sessionID
-    << " direction=" << direction);
-
-  return connection.CreateRealTimeLogicalChannel(*this, direction, sessionID, params);
-}
 /////////////////////////////////////////////////////////////////////////////
 
