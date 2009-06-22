@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.47  2009-05-06 09:17:23  vfrolov
- * Enabled dialing characters # and *
+ * Revision 1.48  2009-06-22 16:05:48  vfrolov
+ * Added ability to dial extension numbers
+ *
+ * Revision 1.48  2009/06/22 16:05:48  vfrolov
+ * Added ability to dial extension numbers
  *
  * Revision 1.47  2009/05/06 09:17:23  vfrolov
  * Enabled dialing characters # and *
@@ -238,6 +241,9 @@ class Profile
       void name(BYTE val) { SetReg(byte, val); } \
       BYTE name() const { BYTE val; GetReg(byte, val); return val; }
 
+    DeclareRegisterByte(DialTimeComma, 8);
+    DeclareRegisterByte(DialTimeDTMF, 11);
+
     DeclareRegisterByte(IfcByDCE, 45);
     DeclareRegisterByte(IfcByDTE, 46);
     DeclareRegisterByte(ClearMode, 47);
@@ -410,9 +416,12 @@ class ModemEngineBody : public PObject
     };
 
     enum {
-      chEvent,
+      chEvent1,
       chDelay,
+      chEvent2,
+      chWaitAudioEngine,
       chHandle,
+      chWaitPlayTone,
     };
 
   /**@name Construction */
@@ -525,6 +534,8 @@ class ModemEngineBody : public PObject
     int param;
     PString cmd;
     int dataType;
+
+    PDTMFEncoder *pPlayTone;
 
     DLEData dleData;
     PINDEX dataCount;
@@ -661,6 +672,8 @@ Profile::Profile() {
     S[r] = 0;
   }
 
+  DialTimeComma(2);
+  DialTimeDTMF(70);
   Echo(TRUE);
   asciiResultCodes(TRUE);
   noResultCodes(FALSE);
@@ -694,7 +707,8 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
     callDirection(cdUndefined),
     forceFaxMode(FALSE),
     connectionEstablished(FALSE),
-    state(stCommand)
+    state(stCommand),
+    pPlayTone(NULL)
 {
 }
 
@@ -715,6 +729,11 @@ ModemEngineBody::~ModemEngineBody()
   if (audioEngine) {
     myPTRACE(1, "ModemEngineBody::~ModemEngineBody audioEngine was not Detached");
     _Detach(audioEngine);
+  }
+
+  if (pPlayTone) {
+    myPTRACE(1, "ModemEngineBody::~ModemEngineBody pPlayTone is not NULL");
+    delete pPlayTone;
   }
 }
 
@@ -778,7 +797,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       myPTRACE(1, "ModemEngineBody::Request not in use");
     } else if (CallToken() == request("calltoken")) {
       if (state == stConnectWait) {
-        param = chEvent;
+        param = chEvent1;
         state = stConnectHandle;
         parent.SignalDataReady();
         request.SetAt("response", "confirm");
@@ -917,6 +936,12 @@ PBoolean ModemEngineBody::Attach(AudioEngine *_audioEngine)
   if (callDirection == cdOutgoing && P.FaxClass())
     audioEngine->SendOnIdle(EngineBase::dtCng);
 
+  if (state == stConnectHandle && param == chWaitAudioEngine) {
+    param = chHandle;
+    timeout.Stop();
+    parent.SignalDataReady();
+  }
+
   myPTRACE(1, "ModemEngineBody::Attach audioEngine Attached");
   return TRUE;
 }
@@ -965,6 +990,12 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
       case stRecvBegWait:
         state = stRecvBegHandle;
         timeout.Stop();
+        break;
+      case stConnectHandle:
+        if (param == chWaitPlayTone) {
+          param = chHandle;
+          timeout.Stop();
+        }
         break;
     }
   }
@@ -1333,6 +1364,7 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                     case 'A':
                     case 'B':
                     case 'C':
+                    case 'D':
                     case '*':
                     case '#': {
                       char dtmf = *(*ppCmd)++;
@@ -1548,7 +1580,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             PBoolean setForceFaxMode = FALSE;
 
             for (char ch ; (ch = *pCmd) != 0 && !err ; pCmd++) {
-              switch (ch) {
+              if (!pPlayTone) {
+                switch (ch) {
                   case '0':
                   case '1':
                   case '2':
@@ -1585,8 +1618,48 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   case 'D':
                     local = FALSE;
                     break;
+                  case '@':
+                    pPlayTone = new PDTMFEncoder;
+                    break;
                   default:
                     err = TRUE;
+                }
+              } else {
+                switch (ch) {
+                  case '0':
+                  case '1':
+                  case '2':
+                  case '3':
+                  case '4':
+                  case '5':
+                  case '6':
+                  case '7':
+                  case '8':
+                  case '9':
+                  case 'A':
+                  case 'B':
+                  case 'C':
+                  case 'D':
+                  case '*':
+                  case '#': {
+                    unsigned ms = P.DialTimeDTMF();
+
+                    pPlayTone->AddTone(ch, ms);
+                    myPTRACE(2, "Encoded DTMF tone \"" << ch << ":" << ms << "\", size=" << pPlayTone->GetSize());
+                    pPlayTone->Generate(' ', 0, 0, ms);
+                    myPTRACE(2, "Encoded tone \"0 0:" << ms << "\", size=" << pPlayTone->GetSize());
+                    break;
+                  }
+                  case ',': {
+                    unsigned ms = unsigned(P.DialTimeComma()) * 1000;
+
+                    pPlayTone->Generate(' ', 0, 0, ms);
+                    myPTRACE(2, "Encoded tone \"0 0:" << ms << "\", size=" << pPlayTone->GetSize());
+                    break;
+                  }
+                  default:
+                    err = TRUE;
+                }
               }
             }
 
@@ -2670,10 +2743,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     }
   }
 
-  if( timeout.Get() ) {
+  if (timeout.Get()) {
     PWaitAndSignal mutexWait(Mutex);
     switch( state ) {
-      case stConnectWait:
       case stReqModeAckWait:
       case stRecvBegWait:
         resp = RC_NO_CARRIER();
@@ -2684,7 +2756,14 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           _ClearCall();
         break;
       case stConnectHandle:
-        param = chHandle;
+        if (param == chDelay) {
+          param = chEvent2;
+          break;
+        }
+      case stConnectWait:
+        resp = RC_NO_CARRIER();
+        state = stCommand;
+        _ClearCall();
         break;
     }
   }
@@ -2770,13 +2849,53 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       {
         PWaitAndSignal mutexWait(Mutex);
         switch(param) {
-          case chEvent:
+          case chEvent1:
             if (forceFaxMode) {
               param = chDelay;
               timeout.Start(1000);    // wait 1 sec before request mode
               break;
             }
+            param = chEvent2;
+          case chEvent2:
+            if (pPlayTone && !audioEngine) {
+              param = chWaitAudioEngine;
+              timeout.Start(60000);
+              break;
+            }
+            param = chHandle;
           case chHandle:
+            if (pPlayTone) {
+              PBoolean err = FALSE;
+
+              if (audioEngine && audioEngine->SendStart(EngineBase::dtRaw, 0)) {
+                PINDEX len = pPlayTone->GetSize();
+
+                if (len) {
+                  const PInt16 *ps = pPlayTone->GetPointer();
+                  audioEngine->Send(ps, len*sizeof(*ps));
+                }
+
+                if (audioEngine->SendStop(FALSE, NextSeq())) {
+                  param = chWaitPlayTone;
+                  timeout.Start(60000);
+                } else {
+                  err = TRUE;
+                }
+              } else {
+                err = TRUE;
+              }
+
+              if (err) {
+                resp = RC_ERROR();
+                state = stCommand;
+                _ClearCall();
+              }
+
+              delete pPlayTone;
+              pPlayTone = NULL;
+              break;
+            }
+
             connectionEstablished = TRUE;
 
             if (P.AudioClass()) {
