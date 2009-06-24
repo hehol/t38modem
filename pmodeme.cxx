@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2008 Vyacheslav Frolov
+ * Copyright (c) 2001-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.48  2009-06-22 16:05:48  vfrolov
- * Added ability to dial extension numbers
+ * Revision 1.49  2009-06-24 08:04:46  vfrolov
+ * Added semicolon concatenating of commands
+ *
+ * Revision 1.49  2009/06/24 08:04:46  vfrolov
+ * Added semicolon concatenating of commands
  *
  * Revision 1.48  2009/06/22 16:05:48  vfrolov
  * Added ability to dial extension numbers
@@ -1556,6 +1559,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
   while (state == stCommand && !err && *pCmd) {
       switch( *pCmd++ ) {
         case ' ':
+        case ';':
           break;
         case 'A':	// Accept incoming call
           ok = FALSE;
