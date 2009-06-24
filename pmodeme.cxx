@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.50  2009-06-24 12:19:01  vfrolov
- * Added stubs for +VRA and +VRN
+ * Revision 1.51  2009-06-24 12:48:37  vfrolov
+ * Added stubs for +VGR and +VGT commands
+ *
+ * Revision 1.51  2009/06/24 12:48:37  vfrolov
+ * Added stubs for +VGR and +VGT commands
  *
  * Revision 1.50  2009/06/24 12:19:01  vfrolov
  * Added stubs for +VRA and +VRN
@@ -250,6 +253,8 @@ class Profile
     DeclareRegisterByte(DialTimeComma, 8);
     DeclareRegisterByte(DialTimeDTMF, 11);
 
+    DeclareRegisterByte(VgrInterval, 41);
+    DeclareRegisterByte(VgtInterval, 42);
     DeclareRegisterByte(VraInterval, 43);
     DeclareRegisterByte(VrnInterval, 44);
     DeclareRegisterByte(IfcByDCE, 45);
@@ -2219,6 +2224,70 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                     }
                   } else {
                     err = TRUE;
+                  }
+                  break;
+                case 'G':
+                  switch (*pCmd++) {
+                    case 'R':				// +VGR
+                      switch (*pCmd++) {
+                        case '=':
+                          switch (*pCmd) {
+                            case '?':
+                              pCmd++;
+                              resp += "\r\n(0-255)";
+                              crlf = TRUE;
+                              break;
+                            default:
+                              {
+                                int val = ParseNum(&pCmd);
+
+                                if (val >= 0) {
+                                  P.VgrInterval((BYTE)val);
+                                } else {
+                                  err = TRUE;
+                                }
+                              }
+                          }
+                          break;
+                        case '?':
+                          resp.sprintf("\r\n%u", (unsigned)P.VgrInterval());
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
+                    case 'T':				// +VGT
+                      switch (*pCmd++) {
+                        case '=':
+                          switch (*pCmd) {
+                            case '?':
+                              pCmd++;
+                              resp += "\r\n(0-255)";
+                              crlf = TRUE;
+                              break;
+                            default:
+                              {
+                                int val = ParseNum(&pCmd);
+
+                                if (val >= 0) {
+                                  P.VgtInterval((BYTE)val);
+                                } else {
+                                  err = TRUE;
+                                }
+                              }
+                          }
+                          break;
+                        case '?':
+                          resp.sprintf("\r\n%u", (unsigned)P.VgtInterval());
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
+                    default:
+                      err = TRUE;
                   }
                   break;
                 case 'L':
