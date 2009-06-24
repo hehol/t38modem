@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.49  2009-06-24 08:04:46  vfrolov
- * Added semicolon concatenating of commands
+ * Revision 1.50  2009-06-24 12:19:01  vfrolov
+ * Added stubs for +VRA and +VRN
+ *
+ * Revision 1.50  2009/06/24 12:19:01  vfrolov
+ * Added stubs for +VRA and +VRN
  *
  * Revision 1.49  2009/06/24 08:04:46  vfrolov
  * Added semicolon concatenating of commands
@@ -247,6 +250,8 @@ class Profile
     DeclareRegisterByte(DialTimeComma, 8);
     DeclareRegisterByte(DialTimeDTMF, 11);
 
+    DeclareRegisterByte(VraInterval, 43);
+    DeclareRegisterByte(VrnInterval, 44);
     DeclareRegisterByte(IfcByDCE, 45);
     DeclareRegisterByte(IfcByDTE, 46);
     DeclareRegisterByte(ClearMode, 47);
@@ -678,6 +683,8 @@ Profile::Profile() {
   DialTimeComma(2);
   DialTimeDTMF(70);
   Echo(TRUE);
+  VraInterval(50);
+  VrnInterval(10);
   asciiResultCodes(TRUE);
   noResultCodes(FALSE);
   ModemClass("1");
@@ -2260,6 +2267,64 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   break;
                 case 'R':
                   switch (*pCmd++) {
+                    case 'A':				// +VRA
+                      switch (*pCmd++) {
+                        case '=':
+                          switch (*pCmd) {
+                            case '?':
+                              pCmd++;
+                              resp += "\r\n(0-255)";
+                              crlf = TRUE;
+                              break;
+                            default:
+                              {
+                                int val = ParseNum(&pCmd);
+
+                                if (val >= 0) {
+                                  P.VraInterval((BYTE)val);
+                                } else {
+                                  err = TRUE;
+                                }
+                              }
+                          }
+                          break;
+                        case '?':
+                          resp.sprintf("\r\n%u", (unsigned)P.VraInterval());
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
+                    case 'N':				// +VRN
+                      switch (*pCmd++) {
+                        case '=':
+                          switch (*pCmd) {
+                            case '?':
+                              pCmd++;
+                              resp += "\r\n(0-255)";
+                              crlf = TRUE;
+                              break;
+                            default:
+                              {
+                                int val = ParseNum(&pCmd);
+
+                                if (val >= 0) {
+                                  P.VrnInterval((BYTE)val);
+                                } else {
+                                  err = TRUE;
+                                }
+                              }
+                          }
+                          break;
+                        case '?':
+                          resp.sprintf("\r\n%u", (unsigned)P.VrnInterval());
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
                     case 'X':				// +VRX
                       if (!HandleClass8Cmd(&pCmd, resp, ok, crlf))
                         err = TRUE;
