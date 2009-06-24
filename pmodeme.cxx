@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.51  2009-06-24 12:48:37  vfrolov
- * Added stubs for +VGR and +VGT commands
+ * Revision 1.52  2009-06-24 13:12:58  vfrolov
+ * Implemented +VEM and +VIT commands
+ *
+ * Revision 1.52  2009/06/24 13:12:58  vfrolov
+ * Implemented +VEM and +VIT commands
  *
  * Revision 1.51  2009/06/24 12:48:37  vfrolov
  * Added stubs for +VGR and +VGT commands
@@ -2226,6 +2229,34 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                     err = TRUE;
                   }
                   break;
+                case 'E':
+                  switch (*pCmd++) {
+                    case 'M':				// +VEM
+                      switch (*pCmd++) {
+                        case '=':
+                          switch (*pCmd) {
+                            case '?':
+                              pCmd++;
+                              resp += "\r\n(0)";
+                              crlf = TRUE;
+                              break;
+                            default:
+                              if (ParseNum(&pCmd) != 0)
+                                err = TRUE;
+                          }
+                          break;
+                        case '?':
+                          resp.sprintf("\r\n0");
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
+                    default:
+                      err = TRUE;
+                  }
+                  break;
                 case 'G':
                   switch (*pCmd++) {
                     case 'R':				// +VGR
@@ -2280,6 +2311,34 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                           break;
                         case '?':
                           resp.sprintf("\r\n%u", (unsigned)P.VgtInterval());
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
+                    default:
+                      err = TRUE;
+                  }
+                  break;
+                case 'I':
+                  switch (*pCmd++) {
+                    case 'T':				// +VIT
+                      switch (*pCmd++) {
+                        case '=':
+                          switch (*pCmd) {
+                            case '?':
+                              pCmd++;
+                              resp += "\r\n(0)";
+                              crlf = TRUE;
+                              break;
+                            default:
+                              if (ParseNum(&pCmd) != 0)
+                                err = TRUE;
+                          }
+                          break;
+                        case '?':
+                          resp.sprintf("\r\n0");
                           crlf = TRUE;
                           break;
                         default:
