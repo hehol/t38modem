@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.52  2009-06-24 13:12:58  vfrolov
- * Implemented +VEM and +VIT commands
+ * Revision 1.53  2009-06-25 12:46:38  vfrolov
+ * Implemented dialing followed answering ("ATD<dialstring>;A")
+ *
+ * Revision 1.53  2009/06/25 12:46:38  vfrolov
+ * Implemented dialing followed answering ("ATD<dialstring>;A")
  *
  * Revision 1.52  2009/06/24 13:12:58  vfrolov
  * Implemented +VEM and +VIT commands
@@ -1597,8 +1600,37 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             PString LocalPartyName;
             PBoolean local = FALSE;
             PBoolean setForceFaxMode = FALSE;
+            int setCallDirection = cdOutgoing;
 
-            for (char ch ; (ch = *pCmd) != 0 && !err ; pCmd++) {
+            while (!err) {
+              char ch = *pCmd++;
+
+              if (ch == 0) {
+                pCmd--;
+                break;
+              }
+
+              if (ch == ';') {
+                for (;;) {
+                  switch (*pCmd++) {
+                    case 0:
+                      pCmd--;
+                      break;
+                    case ' ':
+                    case ';':
+                      continue;
+                    case 'A':
+                      setCallDirection = cdIncoming;
+                      setForceFaxMode = TRUE;
+                      break;
+                    default:
+                      err = TRUE;
+                  }
+                  break;
+                }
+                break;
+              }
+
               if (!pPlayTone) {
                 switch (ch) {
                   case '0':
@@ -1702,7 +1734,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               if (P.FaxClass())
                 forceFaxMode = setForceFaxMode;
 
-              callDirection = cdOutgoing;
+              callDirection = setCallDirection;
               timerRing.Stop();
               state = stConnectWait;
               timeout.Start(60000);
