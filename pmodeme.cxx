@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.53  2009-06-25 12:46:38  vfrolov
- * Implemented dialing followed answering ("ATD<dialstring>;A")
+ * Revision 1.54  2009-06-25 16:48:52  vfrolov
+ * Added stub for +VSD command
+ *
+ * Revision 1.54  2009/06/25 16:48:52  vfrolov
+ * Added stub for +VSD command
  *
  * Revision 1.53  2009/06/25 12:46:38  vfrolov
  * Implemented dialing followed answering ("ATD<dialstring>;A")
@@ -259,6 +262,8 @@ class Profile
     DeclareRegisterByte(DialTimeComma, 8);
     DeclareRegisterByte(DialTimeDTMF, 11);
 
+    DeclareRegisterByte(Vsds, 39);
+    DeclareRegisterByte(Vsdi, 40);
     DeclareRegisterByte(VgrInterval, 41);
     DeclareRegisterByte(VgtInterval, 42);
     DeclareRegisterByte(VraInterval, 43);
@@ -696,6 +701,8 @@ Profile::Profile() {
   Echo(TRUE);
   VraInterval(50);
   VrnInterval(10);
+  Vsds(128);
+  Vsdi(50);
   asciiResultCodes(TRUE);
   noResultCodes(FALSE);
   ModemClass("1");
@@ -2495,6 +2502,46 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   break;
                 case 'S':
                   switch (*pCmd++) {
+                    case 'D':				// +VSD
+                      switch (*pCmd++) {
+                        case '=':
+                          switch (*pCmd) {
+                            case '?':
+                              pCmd++;
+                              resp += "\r\n(0-255),(0-255)";
+                              crlf = TRUE;
+                              break;
+                            default:
+                              {
+                                int sds = ParseNum(&pCmd);
+
+                                if (sds < 0 || *pCmd != ',') {
+                                  err = TRUE;
+                                  break;
+                                }
+
+                                pCmd++;
+
+                                int sdi = ParseNum(&pCmd);
+
+                                if (sdi < 0) {
+                                  err = TRUE;
+                                  break;
+                                }
+
+                                P.Vsds((BYTE)sds);
+                                P.Vsdi((BYTE)sdi);
+                              }
+                          }
+                          break;
+                        case '?':
+                          resp.sprintf("\r\n%u,%u", (unsigned)P.Vsds(), (unsigned)P.Vsdi());
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
                     case 'M':				// +VSM
                       switch (*pCmd++) {
                         case '=':
