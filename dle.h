@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2008 Vyacheslav Frolov
+ * Copyright (c) 2001-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: dle.h,v $
- * Revision 1.4  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.5  2009-06-29 13:18:23  vfrolov
+ * Disabled changing bitRev in Clean()
+ *
+ * Revision 1.5  2009/06/29 13:18:23  vfrolov
+ * Disabled changing bitRev in Clean()
  *
  * Revision 1.4  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -52,18 +55,18 @@ class DLEData : public DataStream
     PCLASSINFO(DLEData, DataStream);
   public:
     DLEData() : dle(FALSE), recvEtx(FALSE), bitRev(FALSE) { }
-    
+
     int PutDleData(const void *pBuf, PINDEX count);
     int GetDleData(void *pBuf, PINDEX count);
-    
+
     void BitRev(PBoolean _bitRev) { bitRev = _bitRev; }
-    
+
     virtual void Clean() {
       DataStream::Clean();
-      dle = recvEtx = bitRev = FALSE;
+      dle = recvEtx = FALSE;
     }
   protected:
-    
+
     PBoolean dle;
     PBoolean recvEtx;
     PBoolean bitRev;
