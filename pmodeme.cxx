@@ -24,10 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.55  2009-06-29 13:28:42  vfrolov
- * Added +VSM codecs
- *   4,"G711U",8,0,(8000),(0),(0)
- *   5,"G711A",8,0,(8000),(0),(0)
+ * Revision 1.56  2009-06-29 15:36:38  vfrolov
+ * Added ability to dial in connection establised state
+ *
+ * Revision 1.56  2009/06/29 15:36:38  vfrolov
+ * Added ability to dial in connection establised state
  *
  * Revision 1.55  2009/06/29 13:28:42  vfrolov
  * Added +VSM codecs
@@ -1516,7 +1517,7 @@ PBoolean ModemEngineBody::Answer()
 
   timerRing.Stop();
   callDirection = cdIncoming;
-  forceFaxMode = P.FaxClass();
+  forceFaxMode = TRUE;
 
   if (!connectionEstablished) {
     state = stConnectWait;
@@ -1627,11 +1628,16 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           ok = FALSE;
 
           {
+            PWaitAndSignal mutexWait(Mutex);
+
             PString num;
             PString LocalPartyName;
             PBoolean local = FALSE;
             PBoolean setForceFaxMode = FALSE;
             int setCallDirection = cdOutgoing;
+
+            if (!CallToken().IsEmpty() && !pPlayTone)
+              pPlayTone = new PDTMFEncoder;
 
             while (!err) {
               char ch = *pCmd++;
@@ -1746,9 +1752,20 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             }
 
             if (!err) {
-              PWaitAndSignal mutexWait(Mutex);
-
               if (!CallToken().IsEmpty()) {
+                if (connectionEstablished) {
+                  callDirection = setCallDirection;
+                  forceFaxMode = (forceFaxMode || setForceFaxMode);
+                  param = chEvent1;
+                  state = stConnectHandle;
+                  parent.SignalDataReady();
+
+                  if (audioEngine && callDirection == cdOutgoing && P.FaxClass())
+                    audioEngine->SendOnIdle(EngineBase::dtCng);
+
+                  break;
+                }
+
                 _ClearCall();
 
                 if (crlf) {
@@ -1762,10 +1779,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 break;
               }
 
-              if (P.FaxClass())
-                forceFaxMode = setForceFaxMode;
-
               callDirection = setCallDirection;
+              forceFaxMode = setForceFaxMode;
+
               timerRing.Stop();
               state = stConnectWait;
               timeout.Start(60000);
@@ -3165,7 +3181,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         PWaitAndSignal mutexWait(Mutex);
         switch(param) {
           case chEvent1:
-            if (forceFaxMode) {
+            if (forceFaxMode && P.FaxClass()) {
               param = chDelay;
               timeout.Start(1000);    // wait 1 sec before request mode
               break;
