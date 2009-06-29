@@ -24,8 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.54  2009-06-25 16:48:52  vfrolov
- * Added stub for +VSD command
+ * Revision 1.55  2009-06-29 13:28:42  vfrolov
+ * Added +VSM codecs
+ *   4,"G711U",8,0,(8000),(0),(0)
+ *   5,"G711A",8,0,(8000),(0),(0)
+ *
+ * Revision 1.55  2009/06/29 13:28:42  vfrolov
+ * Added +VSM codecs
+ *   4,"G711U",8,0,(8000),(0),(0)
+ *   5,"G711A",8,0,(8000),(0),(0)
  *
  * Revision 1.54  2009/06/25 16:48:52  vfrolov
  * Added stub for +VSD command
@@ -240,7 +247,7 @@ static const char Revision[] = TOSTR(MAJOR_VERSION) "." TOSTR(MINOR_VERSION) "."
 class Profile
 {
   enum {
-    MaxReg = 50,
+    MaxReg = 60,
     MaxBit = 7
   };
 
@@ -262,18 +269,19 @@ class Profile
     DeclareRegisterByte(DialTimeComma, 8);
     DeclareRegisterByte(DialTimeDTMF, 11);
 
-    DeclareRegisterByte(Vsds, 39);
-    DeclareRegisterByte(Vsdi, 40);
-    DeclareRegisterByte(VgrInterval, 41);
-    DeclareRegisterByte(VgtInterval, 42);
-    DeclareRegisterByte(VraInterval, 43);
-    DeclareRegisterByte(VrnInterval, 44);
-    DeclareRegisterByte(IfcByDCE, 45);
-    DeclareRegisterByte(IfcByDTE, 46);
-    DeclareRegisterByte(ClearMode, 47);
-    DeclareRegisterByte(DelayFrmConnect, 48);
-    DeclareRegisterByte(DidMode, 49);
-    DeclareRegisterByte(CidMode, 50);
+    DeclareRegisterByte(Vcml,              MaxReg - 12);
+    DeclareRegisterByte(Vsds,              MaxReg - 11);
+    DeclareRegisterByte(Vsdi,              MaxReg - 10);
+    DeclareRegisterByte(VgrInterval,       MaxReg - 9);
+    DeclareRegisterByte(VgtInterval,       MaxReg - 8);
+    DeclareRegisterByte(VraInterval,       MaxReg - 7);
+    DeclareRegisterByte(VrnInterval,       MaxReg - 6);
+    DeclareRegisterByte(IfcByDCE,          MaxReg - 5);
+    DeclareRegisterByte(IfcByDTE,          MaxReg - 4);
+    DeclareRegisterByte(ClearMode,         MaxReg - 3);
+    DeclareRegisterByte(DelayFrmConnect,   MaxReg - 2);
+    DeclareRegisterByte(DidMode,           MaxReg - 1);
+    DeclareRegisterByte(CidMode,           MaxReg - 0);
 
     void Flo(BYTE val) { IfcByDTE(val); IfcByDCE(val); }
     BYTE Flo() const {
@@ -483,15 +491,29 @@ class ModemEngineBody : public PObject
 
     void ResetDleData() {
       dleData.Clean();
-      dleData.BitRev(TRUE);
       dataCount = 0;
       moreFrames = FALSE;
+    }
+
+    void SetBitRevDleData() {
+      if (P.AudioClass()) {
+        switch (P.Vcml()) {
+          case 132:
+            dleData.BitRev(TRUE);
+            break;
+          default:
+            dleData.BitRev(FALSE);
+        }
+      } else {
+        dleData.BitRev(TRUE);
+      }
     }
 
     PBoolean SendStart(int dt, int br, PString &resp) {
       PWaitAndSignal mutexWait(Mutex);
       dataType = dt;
       ResetDleData();
+      SetBitRevDleData();
       state = stSend;
 
       if ((P.AudioClass() && (!audioEngine || !audioEngine->SendStart(dataType, br))) ||
@@ -510,6 +532,7 @@ class ModemEngineBody : public PObject
 
       PWaitAndSignal mutexWait(Mutex);
       dataType = dt;
+      SetBitRevDleData();
       state = stRecvBegWait;
       timeout.Start(60000);
 
@@ -703,6 +726,7 @@ Profile::Profile() {
   VrnInterval(10);
   Vsds(128);
   Vsdi(50);
+  Vcml(132);
   asciiResultCodes(TRUE);
   noResultCodes(FALSE);
   ModemClass("1");
@@ -2548,6 +2572,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                           switch (*pCmd) {
                             case '?':
                               pCmd++;
+                              resp += "\r\n4,\"G711U\",8,0,(8000),(0),(0)";
+                              resp += "\r\n5,\"G711A\",8,0,(8000),(0),(0)";
                               resp += "\r\n132,\"G.711 ALAW\",8,0,(8000),(0),(0)";
                               crlf = TRUE;
                               break;
@@ -2555,6 +2581,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                               int cml = ParseNum(&pCmd);
 
                               switch (cml) {
+                                case 4:
+                                case 5:
                                 case 132:
                                   break;
                                 default:
@@ -2585,7 +2613,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 pCmd++;
                                 scs = ParseNum(&pCmd);
 
-                                if (scs < 0) {
+                                if (scs != 0) {
                                   err = TRUE;
                                   break;
                                 }
@@ -2594,17 +2622,19 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                   pCmd++;
                                   sel = ParseNum(&pCmd);
 
-                                  if (sel < 0) {
+                                  if (sel != 0) {
                                     err = TRUE;
                                     break;
                                   }
                                 }
                               }
+
+                              P.Vcml((BYTE)cml);
                             }
                           }
                           break;
                         case '?':
-                          resp += "\r\n132";
+                          resp.sprintf("\r\n%u,8000,0,0", (unsigned)P.Vcml());
                           crlf = TRUE;
                           break;
                         default:
@@ -2929,8 +2959,17 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                       PInt16 Buf2[sizeof(Buf)];
                       PInt16 *ps = Buf2;
 
-                      while (count--)
-                        *ps++ = (PInt16)alaw2linear(*pb++);
+                      switch (P.Vcml()) {
+                        case 4:
+                          while (count--)
+                            *ps++ = (PInt16)ulaw2linear(*pb++);
+                          break;
+                        case 5:
+                        case 132:
+                          while (count--)
+                            *ps++ = (PInt16)alaw2linear(*pb++);
+                          break;
+                      }
 
                       count = int(pb - (const signed char *)Buf);
 
@@ -3386,8 +3425,18 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
                 count /= sizeof(*ps);
 
-                while (count--)
-                  *pb++ = (signed char)linear2alaw(*ps++);
+
+                switch (P.Vcml()) {
+                  case 4:
+                    while (count--)
+                      *pb++ = (signed char)linear2ulaw(*ps++);
+                    break;
+                  case 5:
+                  case 132:
+                    while (count--)
+                      *pb++ = (signed char)linear2alaw(*ps++);
+                    break;
+                }
 
                 count = int(pb - (signed char *)Buf);
 
