@@ -24,8 +24,15 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.56  2009-06-29 15:36:38  vfrolov
- * Added ability to dial in connection establised state
+ * Revision 1.57  2009-06-30 10:50:33  vfrolov
+ * Added +VSM codecs
+ *   0,"SIGNED PCM",8,0,(8000),(0),(0)
+ *   1,"UNSIGNED PCM",8,0,(8000),(0),(0)
+ *
+ * Revision 1.57  2009/06/30 10:50:33  vfrolov
+ * Added +VSM codecs
+ *   0,"SIGNED PCM",8,0,(8000),(0),(0)
+ *   1,"UNSIGNED PCM",8,0,(8000),(0),(0)
  *
  * Revision 1.56  2009/06/29 15:36:38  vfrolov
  * Added ability to dial in connection establised state
@@ -2588,8 +2595,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                           switch (*pCmd) {
                             case '?':
                               pCmd++;
-                              resp += "\r\n4,\"G711U\",8,0,(8000),(0),(0)";
-                              resp += "\r\n5,\"G711A\",8,0,(8000),(0),(0)";
+                              resp += "\r\n0,\"SIGNED PCM\",8,0,(8000),(0),(0)";
+                              resp += "\r\n1,\"UNSIGNED PCM\",8,0,(8000),(0),(0)";
+                              resp += "\r\n4,\"G.711U\",8,0,(8000),(0),(0)";
+                              resp += "\r\n5,\"G.711A\",8,0,(8000),(0),(0)";
                               resp += "\r\n132,\"G.711 ALAW\",8,0,(8000),(0),(0)";
                               crlf = TRUE;
                               break;
@@ -2597,6 +2606,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                               int cml = ParseNum(&pCmd);
 
                               switch (cml) {
+                                case 0:
+                                case 1:
                                 case 4:
                                 case 5:
                                 case 132:
@@ -2976,6 +2987,14 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                       PInt16 *ps = Buf2;
 
                       switch (P.Vcml()) {
+                        case 0:
+                          while (count--)
+                            *ps++ = (PInt16)((PInt16)(*pb++)*256);
+                          break;
+                        case 1:
+                          while (count--)
+                            *ps++ = (PInt16)((PInt16)(*pb++)*256 - 0x8000);
+                          break;
                         case 4:
                           while (count--)
                             *ps++ = (PInt16)ulaw2linear(*pb++);
@@ -3441,8 +3460,15 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
                 count /= sizeof(*ps);
 
-
                 switch (P.Vcml()) {
+                  case 0:
+                    while (count--)
+                      *pb++ = (signed char)((*ps++)/256);
+                    break;
+                  case 1:
+                    while (count--)
+                      *pb++ = (signed char)((*ps++ + 0x8000)/256);
+                    break;
                   case 4:
                     while (count--)
                       *pb++ = (signed char)linear2ulaw(*ps++);
