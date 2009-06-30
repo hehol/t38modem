@@ -24,10 +24,21 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.57  2009-06-30 10:50:33  vfrolov
+ * Revision 1.58  2009-06-30 13:55:27  vfrolov
  * Added +VSM codecs
- *   0,"SIGNED PCM",8,0,(8000),(0),(0)
- *   1,"UNSIGNED PCM",8,0,(8000),(0),(0)
+ *   128,"8-BIT LINEAR",8,0,(8000),(0),(0)
+ *   130,"UNSIGNED PCM",8,0,(8000),(0),(0)
+ *   131,"G.711 ULAW",8,0,(8000),(0),(0)
+ * Added +VLS
+ *   5,"ST",00000000,00000000,00000000
+ *
+ * Revision 1.58  2009/06/30 13:55:27  vfrolov
+ * Added +VSM codecs
+ *   128,"8-BIT LINEAR",8,0,(8000),(0),(0)
+ *   130,"UNSIGNED PCM",8,0,(8000),(0),(0)
+ *   131,"G.711 ULAW",8,0,(8000),(0),(0)
+ * Added +VLS
+ *   5,"ST",00000000,00000000,00000000
  *
  * Revision 1.57  2009/06/30 10:50:33  vfrolov
  * Added +VSM codecs
@@ -2445,6 +2456,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                               pCmd++;
                               resp += "\r\n0,\"\",00000000,00000000,00000000";
                               resp += "\r\n1,\"T\",00000000,00000000,00000000";
+                              resp += "\r\n5,\"ST\",00000000,00000000,00000000";
                               crlf = TRUE;
                               break;
                             default:
@@ -2457,6 +2469,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                   break;
                                 }
                                 case 1:
+                                case 5:
                                   ok = FALSE;
 
                                   if (!Answer())
@@ -2599,6 +2612,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                               resp += "\r\n1,\"UNSIGNED PCM\",8,0,(8000),(0),(0)";
                               resp += "\r\n4,\"G.711U\",8,0,(8000),(0),(0)";
                               resp += "\r\n5,\"G.711A\",8,0,(8000),(0),(0)";
+                              resp += "\r\n128,\"8-BIT LINEAR\",8,0,(8000),(0),(0)";
+                              resp += "\r\n130,\"UNSIGNED PCM\",8,0,(8000),(0),(0)";
+                              resp += "\r\n131,\"G.711 ULAW\",8,0,(8000),(0),(0)";
                               resp += "\r\n132,\"G.711 ALAW\",8,0,(8000),(0),(0)";
                               crlf = TRUE;
                               break;
@@ -2610,6 +2626,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 case 1:
                                 case 4:
                                 case 5:
+                                case 128:
+                                case 130:
+                                case 131:
                                 case 132:
                                   break;
                                 default:
@@ -2988,14 +3007,17 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 
                       switch (P.Vcml()) {
                         case 0:
+                        case 128:
                           while (count--)
                             *ps++ = (PInt16)((PInt16)(*pb++)*256);
                           break;
                         case 1:
+                        case 130:
                           while (count--)
                             *ps++ = (PInt16)((PInt16)(*pb++)*256 - 0x8000);
                           break;
                         case 4:
+                        case 131:
                           while (count--)
                             *ps++ = (PInt16)ulaw2linear(*pb++);
                           break;
@@ -3462,14 +3484,17 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
                 switch (P.Vcml()) {
                   case 0:
+                  case 128:
                     while (count--)
                       *pb++ = (signed char)((*ps++)/256);
                     break;
                   case 1:
+                  case 130:
                     while (count--)
                       *pb++ = (signed char)((*ps++ + 0x8000)/256);
                     break;
                   case 4:
+                  case 131:
                     while (count--)
                       *pb++ = (signed char)linear2ulaw(*ps++);
                     break;
