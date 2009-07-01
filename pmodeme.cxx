@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.60  2009-07-01 10:52:06  vfrolov
- * Enabled +VSM=<cml> w/o <vsr>
+ * Revision 1.61  2009-07-01 15:11:58  vfrolov
+ * Fixed codec 128,"8-BIT LINEAR"
+ *
+ * Revision 1.61  2009/07/01 15:11:58  vfrolov
+ * Fixed codec 128,"8-BIT LINEAR"
  *
  * Revision 1.60  2009/07/01 10:52:06  vfrolov
  * Enabled +VSM=<cml> w/o <vsr>
@@ -3043,11 +3046,11 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 
                       switch (P.Vcml()) {
                         case 0:
-                        case 128:
                           while (count--)
                             *ps++ = (PInt16)((PInt16)(*pb++)*256);
                           break;
                         case 1:
+                        case 128:
                         case 130:
                           while (count--)
                             *ps++ = (PInt16)((PInt16)(*pb++)*256 - 0x8000);
@@ -3520,11 +3523,11 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
                 switch (P.Vcml()) {
                   case 0:
-                  case 128:
                     while (count--)
                       *pb++ = (signed char)((*ps++)/256);
                     break;
                   case 1:
+                  case 128:
                   case 130:
                     while (count--)
                       *pb++ = (signed char)((*ps++ + 0x8000)/256);
