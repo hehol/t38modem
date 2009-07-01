@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.59  2009-07-01 08:20:39  vfrolov
- * Implemented +VIP command
+ * Revision 1.60  2009-07-01 10:52:06  vfrolov
+ * Enabled +VSM=<cml> w/o <vsr>
+ *
+ * Revision 1.60  2009/07/01 10:52:06  vfrolov
+ * Enabled +VSM=<cml> w/o <vsr>
  *
  * Revision 1.59  2009/07/01 08:20:39  vfrolov
  * Implemented +VIP command
@@ -2674,39 +2677,36 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                               if (err)
                                 break;
 
-                              if (*pCmd != ',') {
-                                err = TRUE;
-                                break;
-                              }
-
-                              pCmd++;
-
-                              int vsr = ParseNum(&pCmd, 4, 4, 8000);
-
-                              if (vsr != 8000) {
-                                err = TRUE;
-                                break;
-                              }
-
-                              int scs = 0;
-                              int sel = 0;
-
                               if (*pCmd == ',') {
                                 pCmd++;
-                                scs = ParseNum(&pCmd);
 
-                                if (scs != 0) {
+                                int vsr = ParseNum(&pCmd, 4, 4, 8000);
+
+                                if (vsr != 8000) {
                                   err = TRUE;
                                   break;
                                 }
 
+                                int scs = 0;
+                                int sel = 0;
+
                                 if (*pCmd == ',') {
                                   pCmd++;
-                                  sel = ParseNum(&pCmd);
+                                  scs = ParseNum(&pCmd);
 
-                                  if (sel != 0) {
+                                  if (scs != 0) {
                                     err = TRUE;
                                     break;
+                                  }
+
+                                  if (*pCmd == ',') {
+                                    pCmd++;
+                                    sel = ParseNum(&pCmd);
+
+                                    if (sel != 0) {
+                                      err = TRUE;
+                                      break;
+                                    }
                                   }
                                 }
                               }
