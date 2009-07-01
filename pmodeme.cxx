@@ -24,13 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.58  2009-06-30 13:55:27  vfrolov
- * Added +VSM codecs
- *   128,"8-BIT LINEAR",8,0,(8000),(0),(0)
- *   130,"UNSIGNED PCM",8,0,(8000),(0),(0)
- *   131,"G.711 ULAW",8,0,(8000),(0),(0)
- * Added +VLS
- *   5,"ST",00000000,00000000,00000000
+ * Revision 1.59  2009-07-01 08:20:39  vfrolov
+ * Implemented +VIP command
+ *
+ * Revision 1.59  2009/07/01 08:20:39  vfrolov
+ * Implemented +VIP command
  *
  * Revision 1.58  2009/06/30 13:55:27  vfrolov
  * Added +VSM codecs
@@ -266,7 +264,9 @@ static const char Revision[] = TOSTR(MAJOR_VERSION) "." TOSTR(MINOR_VERSION) "."
 class Profile
 {
   enum {
-    MaxReg = 60,
+    MaxReg = 59,
+    MaxRegVoice = MaxReg - 10,
+    MinRegVoice = MaxRegVoice - 9,
     MaxBit = 7
   };
 
@@ -288,13 +288,14 @@ class Profile
     DeclareRegisterByte(DialTimeComma, 8);
     DeclareRegisterByte(DialTimeDTMF, 11);
 
-    DeclareRegisterByte(Vcml,              MaxReg - 12);
-    DeclareRegisterByte(Vsds,              MaxReg - 11);
-    DeclareRegisterByte(Vsdi,              MaxReg - 10);
-    DeclareRegisterByte(VgrInterval,       MaxReg - 9);
-    DeclareRegisterByte(VgtInterval,       MaxReg - 8);
-    DeclareRegisterByte(VraInterval,       MaxReg - 7);
-    DeclareRegisterByte(VrnInterval,       MaxReg - 6);
+    DeclareRegisterByte(Vcml,              MaxRegVoice - 6);
+    DeclareRegisterByte(Vsds,              MaxRegVoice - 5);
+    DeclareRegisterByte(Vsdi,              MaxRegVoice - 4);
+    DeclareRegisterByte(VgrInterval,       MaxRegVoice - 3);
+    DeclareRegisterByte(VgtInterval,       MaxRegVoice - 2);
+    DeclareRegisterByte(VraInterval,       MaxRegVoice - 1);
+    DeclareRegisterByte(VrnInterval,       MaxRegVoice - 0);
+
     DeclareRegisterByte(IfcByDCE,          MaxReg - 5);
     DeclareRegisterByte(IfcByDTE,          MaxReg - 4);
     DeclareRegisterByte(ClearMode,         MaxReg - 3);
@@ -356,6 +357,7 @@ class Profile
     }
 
     Profile &operator=(const Profile &p);
+    Profile &SetVoiceProfile(const Profile &p);
 
     void ModemClass(const PString &_modemClass) {
       modemClass = _modemClass;
@@ -389,6 +391,8 @@ class Profile
     PString modemClass;
     PBoolean audioClass;
 };
+
+static const Profile Profiles[1];
 ///////////////////////////////////////////////////////////////
 class Timeout : public PTimer
 {
@@ -609,7 +613,6 @@ class ModemEngineBody : public PObject
     FCS fcs;
 
     Profile P;
-    Profile Profiles[1];
 
     PMutex Mutex;
 
@@ -756,6 +759,12 @@ Profile &Profile::operator=(const Profile &p) {
     S[r] = p.S[r];
   }
   ModemClass(p.ModemClass());
+  return *this;
+}
+
+Profile &Profile::SetVoiceProfile(const Profile &p) {
+  for (PINDEX r = MinRegVoice ; r <= MaxRegVoice ; r++)
+    S[r] = p.S[r];
   return *this;
 }
 ///////////////////////////////////////////////////////////////
@@ -2420,6 +2429,33 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   break;
                 case 'I':
                   switch (*pCmd++) {
+                    case 'P':				// +VIP
+                      {
+                        int val;
+
+                        if (*pCmd == '=') {
+                          pCmd++;
+                          if (*pCmd == '?') {
+                            pCmd++;
+                            resp.sprintf("\r\n(0-%u)", sizeof(Profiles)/sizeof(Profiles[0]) - 1);
+                            crlf = TRUE;
+                            break;
+                          }
+
+                          val = ParseNum(&pCmd);
+
+                          if( val < 0 || val > ((int)(sizeof(Profiles)/sizeof(Profiles[0])) - 1)) {
+                            err = TRUE;
+                            break;
+                          }
+                        } else {
+                          val = 0;
+                        }
+
+                        PWaitAndSignal mutexWait(Mutex);
+                        P.SetVoiceProfile(Profiles[val]);
+                      }
+                      break;
                     case 'T':				// +VIT
                       switch (*pCmd++) {
                         case '=':
