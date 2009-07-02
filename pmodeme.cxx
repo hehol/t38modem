@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.63  2009-07-02 06:55:30  vfrolov
- * Fixed +VSM=? and +VLS=? for modem type autodetecting by VentaFax
- * Thanks Dmitry (gorod225)
+ * Revision 1.64  2009-07-02 15:09:48  vfrolov
+ * Improved state tracing
+ *
+ * Revision 1.64  2009/07/02 15:09:48  vfrolov
+ * Improved state tracing
  *
  * Revision 1.63  2009/07/02 06:55:30  vfrolov
  * Fixed +VSM=? and +VLS=? for modem type autodetecting by VentaFax
@@ -462,7 +464,7 @@ class ModemEngineBody : public PObject
 {
     PCLASSINFO(ModemEngineBody, PObject);
   public:
-    enum {
+    enum State {
       stResetHandle,
       stCommand,
       stConnectWait,
@@ -614,7 +616,7 @@ class ModemEngineBody : public PObject
     int callDirection;
     PBoolean forceFaxMode;
     PBoolean connectionEstablished;
-    int state;
+    State state;
     int param;
     PString cmd;
     int dataType;
@@ -648,6 +650,29 @@ class ModemEngineBody : public PObject
     DeclareResultCode(RC_RINGING,      "9\r", "RINGING\r\n")
     DeclareResultCode(RC_FCERROR,    "+F4\r", "+FCERROR\r\n")
 };
+///////////////////////////////////////////////////////////////
+#if PTRACING
+ostream & operator<<(ostream & out, ModemEngineBody::State state)
+{
+  switch (state) {
+    case ModemEngineBody::stResetHandle:         return out << "stResetHandle";
+    case ModemEngineBody::stCommand:             return out << "stCommand";
+    case ModemEngineBody::stConnectWait:         return out << "stConnectWait";
+    case ModemEngineBody::stConnectHandle:       return out << "stConnectHandle";
+    case ModemEngineBody::stReqModeAckWait:      return out << "stReqModeAckWait";
+    case ModemEngineBody::stReqModeAckHandle:    return out << "stReqModeAckHandle";
+    case ModemEngineBody::stSend:                return out << "stSend";
+    case ModemEngineBody::stSendBufEmptyHandle:  return out << "stSendBufEmptyHandle";
+    case ModemEngineBody::stSendAckWait:         return out << "stSendAckWait";
+    case ModemEngineBody::stSendAckHandle:       return out << "stSendAckHandle";
+    case ModemEngineBody::stRecvBegWait:         return out << "stRecvBegWait";
+    case ModemEngineBody::stRecvBegHandle:       return out << "stRecvBegHandle";
+    case ModemEngineBody::stRecv:                return out << "stRecv";
+  }
+
+  return out << INT(state);
+}
+#endif
 ///////////////////////////////////////////////////////////////
 
 #define new PNEW
@@ -1071,7 +1096,8 @@ void ModemEngineBody::_Detach(AudioEngine *_audioEngine)
 void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
 {
   PTRACE(extra < 0 ? 2 : 4, "ModemEngineBody::OnEngineCallback "
-      << from.GetClass() << " " << EngineBase::ModemCallbackParam(extra));
+      << from.GetClass() << " " << EngineBase::ModemCallbackParam(extra)
+      << " (" << seq << ", " << state << ")");
 
   PWaitAndSignal mutexWait(Mutex);
 
@@ -1091,6 +1117,8 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
           timeout.Stop();
         }
         break;
+      default:
+        break;
     }
   }
   else
@@ -1101,12 +1129,16 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
           param = state;
           state = stResetHandle;
           break;
+        default:
+          break;
       }
       break;
     case EngineBase::cbpOutBufEmpty:
       switch (state) {
         case stSend:
           state = stSendBufEmptyHandle;
+          break;
+        default:
           break;
       }
       break;
@@ -3187,6 +3219,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         state = stCommand;
         _ClearCall();
         break;
+      default:
+        break;
     }
   }
 
@@ -3423,7 +3457,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
         if (P.AudioClass() && audioEngine && audioEngine->RecvStart(NextSeq())) {
           resp = RC_CONNECT();
-          dataCount = 0;
           state = stRecv;
           parent.SignalDataReady();	// try to Recv w/o delay
         }
@@ -3436,7 +3469,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               if (dataType == EngineBase::dtHdlc)
                 fcs = FCS();
             }
-            dataCount = 0;
             state = stRecv;
             parent.SignalDataReady();	// try to Recv w/o delay
           } else {
@@ -3622,6 +3654,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           if( count <= 0 ) break;
         }
       }
+      break;
+    default:
       break;
   }
 
