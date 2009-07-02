@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.51  2009-07-02 13:03:22  vfrolov
- * Fixed aborting +FTM immediately after CONNECT if no data in the buffer
+ * Revision 1.52  2009-07-02 15:15:43  vfrolov
+ * Fixed handling 5 sec buffer empty event for +FTM command
+ *
+ * Revision 1.52  2009/07/02 15:15:43  vfrolov
+ * Fixed handling 5 sec buffer empty event for +FTM command
  *
  * Revision 1.51  2009/07/02 13:03:22  vfrolov
  * Fixed aborting +FTM immediately after CONNECT if no data in the buffer
@@ -1512,10 +1515,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                     }
                     else
                     if (timeOutBufEmpty <= PTime()) {
-                      startedTimeOutBufEmpty = FALSE;
-                      stateOut = stOutNoSig;
-                      stateModem = stmError;
-                      ModemCallbackWithUnlock(cbpReset);
+                      ModemCallbackWithUnlock(cbpOutBufEmpty);
                     }
                     waitData = TRUE;
                     break;
