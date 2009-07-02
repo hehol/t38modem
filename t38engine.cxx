@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.50  2009-02-05 14:15:18  vfrolov
- * Added missing cbpOutBufNoFull notification (for ECM)
+ * Revision 1.51  2009-07-02 13:03:22  vfrolov
+ * Fixed aborting +FTM immediately after CONNECT if no data in the buffer
+ *
+ * Revision 1.51  2009/07/02 13:03:22  vfrolov
+ * Fixed aborting +FTM immediately after CONNECT if no data in the buffer
  *
  * Revision 1.50  2009/02/05 14:15:18  vfrolov
  * Added missing cbpOutBufNoFull notification (for ECM)
@@ -1497,8 +1500,8 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                     redo = TRUE;
                     break;
                   case 0:
-                    if ((ModParsOut.dataType == dtHdlc && hdlcOut.getLastChar() != -1) ||
-                        (ModParsOut.dataType == dtRaw && hdlcOut.getLastChar() != 0))
+                    if (hdlcOut.getLastChar() != -1 &&
+                        (ModParsOut.dataType == dtHdlc || hdlcOut.getLastChar() != 0))
                     {
                       ModemCallbackWithUnlock(cbpOutBufEmpty);
                     }
