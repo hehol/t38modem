@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.61  2009-07-01 15:11:58  vfrolov
- * Fixed codec 128,"8-BIT LINEAR"
+ * Revision 1.62  2009-07-02 05:41:37  vfrolov
+ * Enabled +VIT > 0 (for compatibility with some voice applications)
+ *
+ * Revision 1.62  2009/07/02 05:41:37  vfrolov
+ * Enabled +VIT > 0 (for compatibility with some voice applications)
  *
  * Revision 1.61  2009/07/01 15:11:58  vfrolov
  * Fixed codec 128,"8-BIT LINEAR"
@@ -2472,7 +2475,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                               crlf = TRUE;
                               break;
                             default:
-                              if (ParseNum(&pCmd) != 0)
+                              if (ParseNum(&pCmd) < 0)
                                 err = TRUE;
                           }
                           break;
