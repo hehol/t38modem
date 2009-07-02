@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.62  2009-07-02 05:41:37  vfrolov
- * Enabled +VIT > 0 (for compatibility with some voice applications)
+ * Revision 1.63  2009-07-02 06:55:30  vfrolov
+ * Fixed +VSM=? and +VLS=? for modem type autodetecting by VentaFax
+ * Thanks Dmitry (gorod225)
+ *
+ * Revision 1.63  2009/07/02 06:55:30  vfrolov
+ * Fixed +VSM=? and +VLS=? for modem type autodetecting by VentaFax
+ * Thanks Dmitry (gorod225)
  *
  * Revision 1.62  2009/07/02 05:41:37  vfrolov
  * Enabled +VIT > 0 (for compatibility with some voice applications)
@@ -2502,6 +2507,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                               resp += "\r\n0,\"\",00000000,00000000,00000000";
                               resp += "\r\n1,\"T\",00000000,00000000,00000000";
                               resp += "\r\n5,\"ST\",00000000,00000000,00000000";
+                              resp += "\r\n7,\"MST\",00000000,00000000,00000000";
                               crlf = TRUE;
                               break;
                             default:
@@ -2515,6 +2521,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 }
                                 case 1:
                                 case 5:
+                                case 7:
                                   ok = FALSE;
 
                                   if (!Answer())
@@ -2658,6 +2665,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                               resp += "\r\n4,\"G.711U\",8,0,(8000),(0),(0)";
                               resp += "\r\n5,\"G.711A\",8,0,(8000),(0),(0)";
                               resp += "\r\n128,\"8-BIT LINEAR\",8,0,(8000),(0),(0)";
+                              resp += "\r\n129,\"ADPCM (NOT IMPLEMENTED)\",0,0,(0),(0),(0)";
                               resp += "\r\n130,\"UNSIGNED PCM\",8,0,(8000),(0),(0)";
                               resp += "\r\n131,\"G.711 ULAW\",8,0,(8000),(0),(0)";
                               resp += "\r\n132,\"G.711 ALAW\",8,0,(8000),(0),(0)";
