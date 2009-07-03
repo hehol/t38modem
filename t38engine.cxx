@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.52  2009-07-02 15:15:43  vfrolov
- * Fixed handling 5 sec buffer empty event for +FTM command
+ * Revision 1.53  2009-07-03 09:12:04  vfrolov
+ * Included opal/buildopts.h
+ *
+ * Revision 1.53  2009/07/03 09:12:04  vfrolov
+ * Included opal/buildopts.h
  *
  * Revision 1.52  2009/07/02 15:15:43  vfrolov
  * Fixed handling 5 sec buffer empty event for +FTM command
@@ -202,6 +205,7 @@
 #include <ptlib.h>
 
 #ifdef USE_OPAL
+  #include <opal/buildopts.h>
   #include <asn/t38.h>
 #else
   #include <transports.h>
