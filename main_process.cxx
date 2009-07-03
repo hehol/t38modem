@@ -24,8 +24,15 @@
  * Contributor(s):
  *
  * $Log: main_process.cxx,v $
- * Revision 1.5  2009-04-03 12:04:36  vfrolov
- * Added versions of used libs to output
+ * Revision 1.6  2009-07-03 09:18:11  vfrolov
+ * Included opal/buildopts.h
+ * Added workarounds for race condition on exit
+ * Suppressed version tracing on help output
+ *
+ * Revision 1.6  2009/07/03 09:18:11  vfrolov
+ * Included opal/buildopts.h
+ * Added workarounds for race condition on exit
+ * Suppressed version tracing on help output
  *
  * Revision 1.5  2009/04/03 12:04:36  vfrolov
  * Added versions of used libs to output
@@ -45,6 +52,10 @@
  */
 
 #include <ptlib.h>
+
+#ifdef USE_OPAL
+  #include <opal/buildopts.h>
+#endif
 
 #include "version.h"
 
@@ -114,10 +125,13 @@ void T38Modem::Main()
        << " (" << GetListOfLibs() << ")"
        << " by " << GetManufacturer()
        << " on " << GetOSClass() << ' ' << GetOSName()
-       << " (" << GetOSVersion() << '-' << GetOSHardware() << ")\n\n";
+       << " (" << GetOSVersion() << '-' << GetOSHardware() << ")\n"
+       << endl;
 
-  if (!Initialise())
+  if (!Initialise()) {
+    PThread::Sleep(100);  // workaround for race condition
     return;
+  }
 
   for (;;)
     PThread::Sleep(5000);
@@ -150,6 +164,43 @@ PBoolean T38Modem::Initialise()
     PMemoryHeap::SetAllocationBreakpoint(args.GetOptionString("setallocationbreakpoint").AsInteger());
 #endif
 
+  if (args.HasOption('h')) {
+    cout <<
+        "Usage:\n"
+        "  " << GetName() << " [options]\n"
+        "\n"
+        "Options:\n"
+#if PTRACING
+        "  -t --trace                : Enable trace, use multiple times for more detail.\n"
+        "  -o --output file          : File for trace output, default is stderr.\n"
+#endif
+        "     --save                 : Save arguments in configuration file and exit.\n"
+        "  -v --version              : Display version.\n"
+        "  -h --help                 : Display this help message.\n"
+        "\n";
+
+    PStringArray descriptions =
+#ifdef USE_OPAL
+        MyManager::Descriptions();
+#else
+        MyH323EndPoint::Descriptions();
+#endif
+
+    for (PINDEX i = 0 ; i < descriptions.GetSize() ; i++)
+      cout << descriptions[i] << endl;
+
+    return FALSE;
+  }
+
+  if (args.HasOption('v'))
+    return FALSE;
+
+  if (args.HasOption("save")) {
+    args.Save("save");
+    cout << "Arguments were saved in configuration file" << endl;
+    return FALSE;
+  }
+
 #if PTRACING
   PTrace::Initialise(args.GetOptionCount('t'),
                      args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL,
@@ -179,43 +230,6 @@ PBoolean T38Modem::Initialise()
     }
   }
 #endif
-
-  if (args.HasOption('h')) {
-    cout <<
-        "Usage:\n"
-        "  " << GetName() << " [options]\n"
-        "\n"
-        "Options:\n"
-#if PTRACING
-        "  -t --trace                : Enable trace, use multiple times for more detail.\n"
-        "  -o --output file          : File for trace output, default is stderr.\n"
-#endif
-        "     --save                 : Save arguments in configuration file and exit.\n"
-        "  -v --version              : Display version.\n"
-        "  -h --help                 : Display this help message.\n"
-        "\n";
-
-    PStringArray descriptions =
-#ifdef USE_OPAL
-        MyManager::Descriptions();
-#else
-        MyH323EndPoint::Descriptions();
-#endif
-
-    for (PINDEX i = 0 ; i < descriptions.GetSize() ; i++)
-      cout << descriptions[i] << "\n";
-
-    return FALSE;
-  }
-
-  if (args.HasOption('v'))
-    return FALSE;
-
-  if (args.HasOption("save")) {
-    args.Save("save");
-    cout << "Arguments were saved in configuration file\n";
-    return FALSE;
-  }
 
 #ifdef USE_OPAL
   MyManager *manager = new MyManager();
