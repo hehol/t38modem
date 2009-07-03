@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.64  2009-07-02 15:09:48  vfrolov
- * Improved state tracing
+ * Revision 1.65  2009-07-03 16:22:56  vfrolov
+ * Added missing pPlayTone deletings
+ * Added more state tracing
+ *
+ * Revision 1.65  2009/07/03 16:22:56  vfrolov
+ * Added missing pPlayTone deletings
+ * Added more state tracing
  *
  * Revision 1.64  2009/07/02 15:09:48  vfrolov
  * Improved state tracing
@@ -888,11 +893,16 @@ void ModemEngineBody::_ClearCall()
   CallToken("");
   callDirection = cdUndefined;
   forceFaxMode = FALSE;
+
+  if (pPlayTone) {
+    delete pPlayTone;
+    pPlayTone = NULL;
+  }
 }
 
 PBoolean ModemEngineBody::Request(PStringToString &request)
 {
-  myPTRACE(1, "ModemEngineBody::Request request={\n" << request << "}");
+  myPTRACE(1, "ModemEngineBody::Request " << state << " request={\n" << request << "}");
 
   PString command = request("command");
 
@@ -953,7 +963,7 @@ PBoolean ModemEngineBody::Attach(T38Engine *_t38engine)
     return FALSE;
   }
 
-  PTRACE(1, "ModemEngineBody::Attach t38engine");
+  PTRACE(1, "ModemEngineBody::Attach t38engine" << state);
 
   PWaitAndSignal mutexWait(Mutex);
 
@@ -1024,7 +1034,7 @@ PBoolean ModemEngineBody::Attach(AudioEngine *_audioEngine)
     return FALSE;
   }
 
-  PTRACE(1, "ModemEngineBody::Attach audioEngine");
+  PTRACE(1, "ModemEngineBody::Attach audioEngine" << state);
 
   PWaitAndSignal mutexWait(Mutex);
 
@@ -1709,8 +1719,16 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             PBoolean setForceFaxMode = FALSE;
             int setCallDirection = cdOutgoing;
 
-            if (!CallToken().IsEmpty() && !pPlayTone)
-              pPlayTone = new PDTMFEncoder;
+            if (!CallToken().IsEmpty()) {
+              if (!pPlayTone)
+                pPlayTone = new PDTMFEncoder;
+            } else {
+              if (pPlayTone) {
+                myPTRACE(1, "ModemEngineBody::HandleCmd pPlayTone is not NULL");
+                delete pPlayTone;
+                pPlayTone = NULL;
+              }
+            }
 
             while (!err) {
               char ch = *pCmd++;
@@ -1876,6 +1894,12 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               } else {
                 callDirection = cdUndefined;
                 forceFaxMode = FALSE;
+
+                if (pPlayTone) {
+                  delete pPlayTone;
+                  pPlayTone = NULL;
+                }
+
                 timeout.Stop();
                 state = stCommand;
                 if (response == "reject") {
