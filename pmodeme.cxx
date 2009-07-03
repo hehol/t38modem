@@ -24,8 +24,10 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.65  2009-07-03 16:22:56  vfrolov
- * Added missing pPlayTone deletings
+ * Revision 1.66  2009-07-03 16:38:17  vfrolov
+ * Added more state tracing
+ *
+ * Revision 1.66  2009/07/03 16:38:17  vfrolov
  * Added more state tracing
  *
  * Revision 1.65  2009/07/03 16:22:56  vfrolov
@@ -963,7 +965,7 @@ PBoolean ModemEngineBody::Attach(T38Engine *_t38engine)
     return FALSE;
   }
 
-  PTRACE(1, "ModemEngineBody::Attach t38engine" << state);
+  PTRACE(1, "ModemEngineBody::Attach t38engine " << state);
 
   PWaitAndSignal mutexWait(Mutex);
 
@@ -1034,7 +1036,7 @@ PBoolean ModemEngineBody::Attach(AudioEngine *_audioEngine)
     return FALSE;
   }
 
-  PTRACE(1, "ModemEngineBody::Attach audioEngine" << state);
+  PTRACE(1, "ModemEngineBody::Attach audioEngine " << state);
 
   PWaitAndSignal mutexWait(Mutex);
 
@@ -1164,7 +1166,7 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
 
 void ModemEngineBody::OnTimerCallback(PObject & PTRACE_PARAM(from), INT PTRACE_PARAM(extra))
 {
-  PTRACE(2, "ModemEngineBody::OnTimerCallback " << from.GetClass() << " " << extra);
+  PTRACE(2, "ModemEngineBody::OnTimerCallback " << state << " " << from.GetClass() << " " << extra);
 
   parent.SignalDataReady();
 }
