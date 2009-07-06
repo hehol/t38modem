@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.5  2009-05-29 13:01:40  vfrolov
- * Ported to OPAL trunk
+ * Revision 1.6  2009-07-06 08:30:59  vfrolov
+ * Fixed typo. Thanks Dmitry (gorod225)
+ *
+ * Revision 1.6  2009/07/06 08:30:59  vfrolov
+ * Fixed typo. Thanks Dmitry (gorod225)
  *
  * Revision 1.5  2009/05/29 13:01:40  vfrolov
  * Ported to OPAL trunk
@@ -226,7 +229,7 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
               params.m_realm = prms[3];
 
               if (prms.GetSize() >= 5) {
-                params.m_authID = prms[5];
+                params.m_authID = prms[4];
               }
             }
           }
