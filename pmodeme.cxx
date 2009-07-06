@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.66  2009-07-03 16:38:17  vfrolov
- * Added more state tracing
+ * Revision 1.67  2009-07-06 08:28:44  vfrolov
+ * Added DTMF shielding
+ *
+ * Revision 1.67  2009/07/06 08:28:44  vfrolov
+ * Added DTMF shielding
  *
  * Revision 1.66  2009/07/03 16:38:17  vfrolov
  * Added more state tracing
@@ -3255,16 +3258,44 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
     if (audioEngine) {
       for(;;) {
-        BYTE b[2];
+        BYTE c;
 
-        if (audioEngine->RecvUserInput(&b[1], 1) <= 0)
+        if (audioEngine->RecvUserInput(&c, 1) <= 0)
           break;
 
-        b[0] = '\x10';		// <DLE>
-
-        PBYTEArray _bresp(b, 2);
-        bresp.Concatenate(_bresp);
-        PTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+        switch (c) {
+          case '0':
+          case '1':
+          case '2':
+          case '3':
+          case '4':
+          case '5':
+          case '6':
+          case '7':
+          case '8':
+          case '9':
+          case 'A':
+          case 'B':
+          case 'C':
+          case 'D':
+          case '*':
+          case '#': {
+            // <DLE>'/'<DLE>c<DLE>'~'
+            BYTE b[6] = {'\x10', '/', '\x10', c, '\x10', '~'};
+            PBYTEArray _bresp(b, sizeof(b));
+            bresp.Concatenate(_bresp);
+            myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+            break;
+          }
+          default: {
+            // <DLE>c
+            BYTE b[2] = {'\x10', c};
+            PBYTEArray _bresp(b, sizeof(b));
+            bresp.Concatenate(_bresp);
+            myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+            break;
+          }
+        }
       }
     }
   }
@@ -3277,7 +3308,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         if (!connectionEstablished && P.AudioClass()) {
           PBYTEArray _bresp((const BYTE *)"\x10" "b", 2);		// <DLE>b
           bresp.Concatenate(_bresp);
-          PTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+          myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
         }
 
         switch( param ) {
@@ -3628,7 +3659,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           if (count < 0) {
             PBYTEArray _bresp((const BYTE *)"\x10" "b", 2);	// <DLE>b
             bresp.Concatenate(_bresp);
-            PTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+            myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
           }
         }
 
