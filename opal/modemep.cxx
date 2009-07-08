@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.6  2009-04-09 10:02:19  vfrolov
- * Fixed ignoring tone for H.323 because duration always is zero
+ * Revision 1.7  2009-07-08 18:50:52  vfrolov
+ * Added ability to use route pattern "modem:.*@tty"
+ *
+ * Revision 1.7  2009/07/08 18:50:52  vfrolov
+ * Added ability to use route pattern "modem:.*@tty"
  *
  * Revision 1.6  2009/04/09 10:02:19  vfrolov
  * Fixed ignoring tone for H.323 because duration always is zero
@@ -215,16 +218,14 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
     if (command == "dial") {
       PseudoModem *modem = pmodem_pool->Dequeue(modemToken);
       if (modem != NULL) {
-        PString num = request("number");
+        PString partyA = PString("modem:") + request("localpartyname");
+        PString partyB = request("number") + "@" + modem->ttyName();
 
-        myPTRACE(1, "MyManager::OnMyCallback SetUpCall(" << num << ")");
+        myPTRACE(1, "MyManager::OnMyCallback SetUpCall(" << partyA << ", " << partyB << ")");
 
-        PString LocalPartyName = request("localpartyname");
         PString callToken;
 
-        GetManager().SetUpCall(
-            PString("modem:") + (LocalPartyName.IsEmpty() ? "" : LocalPartyName),
-            num, callToken);
+        GetManager().SetUpCall(partyA, partyB, callToken);
 
         PSafePtr<OpalCall> call = GetManager().FindCallWithLock(callToken);
 
@@ -474,7 +475,7 @@ PBoolean ModemConnection::SetUpConnection()
     OpalConnection::StringOptions stringOptions;
 
     if (!remotePartyNumber.IsEmpty())
-      stringOptions.SetAt("Calling-Party-Number", remotePartyNumber);
+      stringOptions.SetAt(OPAL_OPT_CALLING_PARTY_NUMBER, remotePartyNumber);
 
     if (!OnIncomingConnection(0, &stringOptions)) {
       Release(EndedByCallerAbort);
