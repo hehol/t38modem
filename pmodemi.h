@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2008 Vyacheslav Frolov
+ * Copyright (c) 2001-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.h,v $
- * Revision 1.7  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.8  2009-07-08 18:43:44  vfrolov
+ * Added PseudoModem::ttyName()
+ *
+ * Revision 1.8  2009/07/08 18:43:44  vfrolov
+ * Added PseudoModem::ttyName()
  *
  * Revision 1.7  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -69,7 +72,7 @@ class PseudoModemBody : public PseudoModem
 
   /**@name Construction */
   //@{
-    PseudoModemBody(const PString &_route, const PNotifier &_callbackEndPoint);
+    PseudoModemBody(const PString &_tty, const PString &_route, const PNotifier &_callbackEndPoint);
     ~PseudoModemBody();
   //@}
 

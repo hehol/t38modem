@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.11  2009-03-13 09:44:32  vfrolov
- * Fixed Segmentation fault (wrong PString usage)
+ * Revision 1.12  2009-07-08 18:43:44  vfrolov
+ * Added PseudoModem::ttyName()
+ *
+ * Revision 1.12  2009/07/08 18:43:44  vfrolov
+ * Added PseudoModem::ttyName()
  *
  * Revision 1.11  2009/03/13 09:44:32  vfrolov
  * Fixed Segmentation fault (wrong PString usage)
@@ -443,7 +446,7 @@ PseudoModemC0C::PseudoModemC0C(
     const PConfigArgs &/*args*/,
     const PNotifier &_callbackEndPoint)
 
-  : PseudoModemBody(_route, _callbackEndPoint),
+  : PseudoModemBody(_tty, _route, _callbackEndPoint),
     hC0C(INVALID_HANDLE_VALUE),
     inC0C(NULL),
     outC0C(NULL),

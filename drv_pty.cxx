@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: drv_pty.cxx,v $
- * Revision 1.10  2009-05-19 07:29:04  vfrolov
- * Commented Termios code uncompatible with some systems
+ * Revision 1.11  2009-07-08 18:43:44  vfrolov
+ * Added PseudoModem::ttyName()
+ *
+ * Revision 1.11  2009/07/08 18:43:44  vfrolov
+ * Added PseudoModem::ttyName()
  *
  * Revision 1.10  2009/05/19 07:29:04  vfrolov
  * Commented Termios code uncompatible with some systems
@@ -319,7 +322,7 @@ PseudoModemPty::PseudoModemPty(
 #endif
     const PNotifier &_callbackEndPoint)
 
-  : PseudoModemBody(_route, _callbackEndPoint),
+  : PseudoModemBody(_tty, _route, _callbackEndPoint),
     hPty(-1),
     inPty(NULL),
     outPty(NULL)
