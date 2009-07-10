@@ -24,8 +24,19 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.67  2009-07-06 08:28:44  vfrolov
- * Added DTMF shielding
+ * Revision 1.68  2009-07-10 14:04:13  vfrolov
+ * Changed usage multiple dial modifiers '@'
+ *   each next '@' overrides previous '@'
+ *   ("ATD4444@123@456" eq "ATD4444@456", "ATD4444@123@" eq "ATD4444")
+ * Dial modifiers (except 'D') can be used after '@'
+ * Dial modifiers 'T' and 'P' can be used instead 'D'
+ *
+ * Revision 1.68  2009/07/10 14:04:13  vfrolov
+ * Changed usage multiple dial modifiers '@'
+ *   each next '@' overrides previous '@'
+ *   ("ATD4444@123@456" eq "ATD4444@456", "ATD4444@123@" eq "ATD4444")
+ * Dial modifiers (except 'D') can be used after '@'
+ * Dial modifiers 'T' and 'P' can be used instead 'D'
  *
  * Revision 1.67  2009/07/06 08:28:44  vfrolov
  * Added DTMF shielding
@@ -1764,6 +1775,64 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 break;
               }
 
+              switch (ch) {
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                case '*':
+                case '#':
+                  if (local) {
+                    LocalPartyName += ch;
+                    continue;
+                  }
+                  break;
+                case 'A':
+                case 'B':
+                case 'C':
+                case ',':
+                  if (local) {
+                    err = TRUE;
+                    continue;
+                  }
+                  break;
+                case 'D':
+                  break;
+                case '.':
+                case ' ':
+                case '-':
+                  continue;
+                case 'F':
+                  setForceFaxMode = TRUE;
+                  continue;
+                case 'V':
+                  setForceFaxMode = FALSE;
+                  continue;
+                case 'L':
+                  LocalPartyName = "";
+                  local = TRUE;
+                  continue;
+                case 'T':
+                case 'P':
+                  local = FALSE;
+                  continue;
+                case '@':
+                  if (pPlayTone)
+                    delete pPlayTone;
+
+                  pPlayTone = new PDTMFEncoder;
+                  continue;
+                default:
+                  err = TRUE;
+                  continue;
+              }
+
               if (!pPlayTone) {
                 switch (ch) {
                   case '0':
@@ -1778,32 +1847,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   case '9':
                   case '*':
                   case '#':
-                    if (local)
-                      LocalPartyName += ch;
-                    else
-                      num += ch;
-                    break;
-                  case '.':
-                  case ' ':
-                  case '-':
-                  case 'T':
-                  case 'P':
-                    break;
-                  case 'F':
-                    setForceFaxMode = TRUE;
-                    break;
-                  case 'V':
-                    setForceFaxMode = FALSE;
-                    break;
-                  case 'L':
-                    LocalPartyName = "";
-                    local = TRUE;
+                    num += ch;
                     break;
                   case 'D':
                     local = FALSE;
-                    break;
-                  case '@':
-                    pPlayTone = new PDTMFEncoder;
                     break;
                   default:
                     err = TRUE;
@@ -1823,9 +1870,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   case 'A':
                   case 'B':
                   case 'C':
-                  case 'D':
-                  case '*':
-                  case '#': {
+                  case 'D': {
                     unsigned ms = P.DialTimeDTMF();
 
                     pPlayTone->AddTone(ch, ms);
@@ -1850,6 +1895,15 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             if (!err) {
               if (!CallToken().IsEmpty()) {
                 if (connectionEstablished) {
+                  if (!LocalPartyName.IsEmpty()) {
+                    if (pPlayTone) {
+                      delete pPlayTone;
+                      pPlayTone = NULL;
+                    }
+                    err = TRUE;
+                    break;
+                  }
+
                   callDirection = setCallDirection;
                   forceFaxMode = (forceFaxMode || setForceFaxMode);
                   param = chEvent1;
@@ -1923,6 +1977,11 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 } else {
                   err = TRUE;
                 }
+              }
+            } else {
+              if (pPlayTone) {
+                delete pPlayTone;
+                pPlayTone = NULL;
               }
             }
           }
