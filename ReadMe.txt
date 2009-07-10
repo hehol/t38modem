@@ -49,7 +49,7 @@ Building with Open H323 Library:
 
   Start Microsoft Visual C++ 2005 with t38modem_2005.vcproj file.
   Set Active Configuration to "t38modem - Win32 Release".
-  Add "PBoolean=BOOL" to 
+  Add "PBoolean=BOOL" to
   [Project]->[t38modem Properties]->[Configuration Properties]->
   [C/C++]->[Preprocessor]->[Preprocessor Definitions].
   Change "h323plus.lib" to "openh323.lib" in
@@ -260,29 +260,39 @@ Example:
 4.3.1 T.38 mode modifiers
 -------------------------
 
-F - enable T.38 mode request after dialing.
-V - disable T.38 mode request after dialing (default).
+F - force T.38 mode after dialing.
+V - do not force T.38 mode after dialing (default).
 
 Examples:
 
 <-- ATDF<user's number>
 
-    enables T.38 mode request after dialing but user can override it by
+    force T.38 mode after dialing but user can override it by
     inserting V into <user's number>.
 
 <-- ATD<user's number>V
 
-    disables T.38 mode request after dialing and user can't override it
+    do not force T.38 mode after dialing and user can't override it
     by inserting F into <user's number>.
 
 4.3.2 calling/called number modifiers
 -------------------------------------
 
-L - reset and begin of calling number.
-D - continue of called number.
+L   - reset and begin of calling number.
+T,P - continue of called number.
+D   - continue of called number (if used before the call answer).
 
 If calling number is empty after processing ATD command then t38modem's
 local party number used.
+
+The calling or called number is a string of 0 or more of the characters:
+
+  "0 1 2 3 4 5 6 7 8 9 * #"
+
+The called number part after the call answer is a string of 0 or more of the
+characters:
+
+  "0 1 2 3 4 5 6 7 8 9 * # A B C D ,"
 
 Examples:
 
@@ -296,7 +306,7 @@ Examples:
     calling number is t38modem's local party number and user can't override
     it by inserting L<user's calling number> into <user's number>
 
-<-- ATDL<calling number>D<user's number>
+<-- ATDL<calling number>T<user's number>
 
     calling number is <calling number> but user can override
     it by inserting L<user's calling number> into <user's number>
@@ -305,6 +315,26 @@ Examples:
 
     calling number is <calling number> and user can't override
     it by inserting L<user's calling number> into <user's number>
+
+4.3.3 Wait for answer modifier
+------------------------------
+
+@ - dial the called number part collected before first @, wait till the call
+    answered and play the called number part collected after last @.
+
+Examples:
+
+<-- ATS8?
+--> 002
+--> OK
+<-- ATD12345@,,,4321
+
+    dial number 12345, wait till the call answered, wait 6 seconds
+    (3 commas * 2 seconds), play digits 4321.
+
+<-- ATD12345@,,,4321@
+
+    dial number 12345.
 
 4.4. AT#DFRMC command
 ---------------------
