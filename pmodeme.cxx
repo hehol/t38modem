@@ -24,12 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.68  2009-07-10 14:04:13  vfrolov
- * Changed usage multiple dial modifiers '@'
- *   each next '@' overrides previous '@'
- *   ("ATD4444@123@456" eq "ATD4444@456", "ATD4444@123@" eq "ATD4444")
- * Dial modifiers (except 'D') can be used after '@'
- * Dial modifiers 'T' and 'P' can be used instead 'D'
+ * Revision 1.69  2009-07-10 15:23:31  vfrolov
+ * Implicitly dial modifier '@' will continue of called number
+ *
+ * Revision 1.69  2009/07/10 15:23:31  vfrolov
+ * Implicitly dial modifier '@' will continue of called number
  *
  * Revision 1.68  2009/07/10 14:04:13  vfrolov
  * Changed usage multiple dial modifiers '@'
@@ -1823,6 +1822,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   local = FALSE;
                   continue;
                 case '@':
+                  local = FALSE;
                   if (pPlayTone)
                     delete pPlayTone;
 

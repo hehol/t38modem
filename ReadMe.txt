@@ -321,6 +321,7 @@ Examples:
 
 @ - dial the called number part collected before first @, wait till the call
     answered and play the called number part collected after last @.
+    Implicitly '@' will continue of called number (see 4.3.2).
 
 Examples:
 
