@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,7 +24,10 @@
  * Contributor(s):
  *
  * $Log: modemep.h,v $
- * Revision 1.2  2008-09-10 11:15:00  frolov
+ * Revision 1.3  2009-07-13 15:08:17  vfrolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.3  2009/07/13 15:08:17  vfrolov
  * Ported to OPAL SVN trunk
  *
  * Revision 1.2  2008/09/10 11:15:00  frolov
@@ -40,6 +43,10 @@
 
 #include <opal/endpoint.h>
 
+#if OPAL_MAJOR < 3 || (OPAL_MAJOR == 3 && OPAL_MINOR < 7)
+#define IS_OPAL_PRE_3_7 1
+#endif
+
 /////////////////////////////////////////////////////////////////////////////
 class PseudoModem;
 class PseudoModemQ;
@@ -53,8 +60,8 @@ class ModemEndPoint : public OpalEndPoint
     /**Create a new endpoint.
      */
     ModemEndPoint(
-      OpalManager & manager,        /// Manager of all endpoints.
-      const char * prefix = "modem" /// Prefix for URL style address strings
+      OpalManager & manager,        ///< Manager of all endpoints.
+      const char * prefix = "modem" ///< Prefix for URL style address strings
     );
   //@}
 
@@ -73,11 +80,16 @@ class ModemEndPoint : public OpalEndPoint
 
   /**@name Overrides from OpalEndPoint */
   //@{
-    virtual PBoolean MakeConnection(
-      OpalCall & call,        /// Owner of connection
-      const PString & party,  /// Remote party to call
-      void * userData = NULL,  /// Arbitrary data to pass to connection
-      unsigned int options = 0,     ///<  options to pass to conneciton
+#ifdef IS_OPAL_PRE_3_7
+    virtual PBoolean
+#else
+    virtual PSafePtr<OpalConnection>
+#endif
+    MakeConnection(
+      OpalCall & call,              ///< Owner of connection
+      const PString & party,        ///< Remote party to call
+      void * userData = NULL,       ///< Arbitrary data to pass to connection
+      unsigned int options = 0,     ///< Options to pass to conneciton
       OpalConnection::StringOptions * stringOptions = NULL
     );
 
@@ -85,6 +97,17 @@ class ModemEndPoint : public OpalEndPoint
   //@}
 
   protected:
+#ifdef IS_OPAL_PRE_3_7
+    PBoolean AddConnection(OpalConnection * connection) {
+      if (connection == NULL)
+        return FALSE;
+
+      connectionsActive.SetAt(connection->GetToken(), connection);
+
+      return TRUE;
+    }
+#endif
+
     PStringArray routes;
     PseudoModemQ *pmodem_pool;
 

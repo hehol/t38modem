@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.7  2009-07-08 18:50:52  vfrolov
- * Added ability to use route pattern "modem:.*@tty"
+ * Revision 1.8  2009-07-13 15:08:17  vfrolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.8  2009/07/13 15:08:17  vfrolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.7  2009/07/08 18:50:52  vfrolov
  * Added ability to use route pattern "modem:.*@tty"
@@ -303,7 +306,12 @@ void ModemEndPoint::SetReadTimeout(
   return ((ModemConnection &)connection).SetReadTimeout(timeout);
 }
 
-PBoolean ModemEndPoint::MakeConnection(
+#ifdef IS_OPAL_PRE_3_7
+PBoolean
+#else
+PSafePtr<OpalConnection>
+#endif
+ModemEndPoint::MakeConnection(
     OpalCall & call,
     const PString & remoteParty,
     void * /*userData*/,
@@ -318,19 +326,11 @@ PBoolean ModemEndPoint::MakeConnection(
 
   for (int i = 0 ; i < 10000 ; i++) {
     token = remoteParty + "/" + call.GetToken() + "/" + PString(i);
-    if (!connectionsActive.Contains(token)) {
-      PSafePtr<ModemConnection> connection = new ModemConnection(call, *this, token, remoteParty);
-
-      if (connection == NULL)
-        return FALSE;
-
-      connectionsActive.SetAt(connection->GetToken(), connection);
-
-      return TRUE;
-    }
+    if (!connectionsActive.Contains(token))
+      return AddConnection(new ModemConnection(call, *this, token, remoteParty));
   }
 
-  return FALSE;
+  return AddConnection(NULL);
 }
 
 OpalMediaFormatList ModemEndPoint::GetMediaFormats() const
