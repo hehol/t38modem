@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.6  2009-07-06 08:30:59  vfrolov
- * Fixed typo. Thanks Dmitry (gorod225)
+ * Revision 1.7  2009-07-15 18:25:53  vfrolov
+ * Added reordering of formats
+ *
+ * Revision 1.7  2009/07/15 18:25:53  vfrolov
+ * Added reordering of formats
  *
  * Revision 1.6  2009/07/06 08:30:59  vfrolov
  * Fixed typo. Thanks Dmitry (gorod225)
@@ -221,7 +224,7 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
 
         if (prms.GetSize() >= 2) {
           params.m_password = prms[1];
-          
+
           if (prms.GetSize() >= 3) {
             params.m_contactAddress = prms[2];
 
@@ -387,6 +390,8 @@ void MySIPConnection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) con
 {
   //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
 
+  SIPConnection::AdjustMediaFormats(mediaFormats);
+
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     PBoolean found = FALSE;
 
@@ -398,13 +403,18 @@ void MySIPConnection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) con
     }
 
     if (!found) {
-      PTRACE(3, "MySIPConnection::AdjustMediaFormats Remove " << mediaFormats[i]);
+      //PTRACE(3, "MySIPConnection::AdjustMediaFormats Remove " << mediaFormats[i]);
       mediaFormats -= mediaFormats[i];
       i--;
     }
   }
 
-  SIPConnection::AdjustMediaFormats(mediaFormats);
+  PStringArray order;
+
+  for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++)
+    order += mediaFormatList[j].GetName();
+
+  mediaFormats.Reorder(order);
 
   //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
 }

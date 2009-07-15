@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.5  2009-05-29 13:01:41  vfrolov
- * Ported to OPAL trunk
+ * Revision 1.6  2009-07-15 18:25:53  vfrolov
+ * Added reordering of formats
+ *
+ * Revision 1.6  2009/07/15 18:25:53  vfrolov
+ * Added reordering of formats
  *
  * Revision 1.5  2009/05/29 13:01:41  vfrolov
  * Ported to OPAL trunk
@@ -299,6 +302,8 @@ void MyH323Connection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) co
 {
   //PTRACE(3, "MyH323Connection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
 
+  H323Connection::AdjustMediaFormats(mediaFormats);
+
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     PBoolean found = FALSE;
 
@@ -316,7 +321,12 @@ void MyH323Connection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) co
     }
   }
 
-  H323Connection::AdjustMediaFormats(mediaFormats);
+  PStringArray order;
+
+  for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++)
+    order += mediaFormatList[j].GetName();
+
+  mediaFormats.Reorder(order);
 
   //PTRACE(3, "MyH323Connection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
 }
