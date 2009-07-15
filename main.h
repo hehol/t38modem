@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2008 Vyacheslav Frolov
+ * Copyright (c) 2001-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: main.h,v $
- * Revision 1.21  2008-09-11 16:10:54  frolov
- * Ported to H323 Plus trunk
+ * Revision 1.22  2009-07-15 13:23:19  vfrolov
+ * Added Descriptions(args)
+ *
+ * Revision 1.22  2009/07/15 13:23:19  vfrolov
+ * Added Descriptions(args)
  *
  * Revision 1.21  2008/09/11 16:10:54  frolov
  * Ported to H323 Plus trunk
@@ -108,6 +111,7 @@ class MyH323EndPoint : public H323EndPoint
 
     static PString ArgSpec();
     static PStringArray Descriptions();
+    static PStringArray Descriptions(const PConfigArgs & args);
     static PBoolean Create(const PConfigArgs &args);
 
     // overrides from H323EndPoint

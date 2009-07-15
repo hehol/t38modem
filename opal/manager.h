@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.h,v $
- * Revision 1.3  2009-01-15 08:46:34  vfrolov
- * Fixed OnRouteConnection() be able to compile with OPAL trunk since 21925
+ * Revision 1.4  2009-07-15 13:23:20  vfrolov
+ * Added Descriptions(args)
+ *
+ * Revision 1.4  2009/07/15 13:23:20  vfrolov
+ * Added Descriptions(args)
  *
  * Revision 1.3  2009/01/15 08:46:34  vfrolov
  * Fixed OnRouteConnection() be able to compile with OPAL trunk since 21925
@@ -53,6 +56,7 @@ class MyManager : public OpalManager
 
     static PString ArgSpec();
     static PStringArray Descriptions();
+    static PStringArray Descriptions(const PConfigArgs & args);
     PBoolean Initialise(const PConfigArgs & args);
 
     void SetWriteInterval(

@@ -24,10 +24,11 @@
  * Contributor(s):
  *
  * $Log: main_process.cxx,v $
- * Revision 1.6  2009-07-03 09:18:11  vfrolov
- * Included opal/buildopts.h
- * Added workarounds for race condition on exit
- * Suppressed version tracing on help output
+ * Revision 1.7  2009-07-15 13:23:19  vfrolov
+ * Added Descriptions(args)
+ *
+ * Revision 1.7  2009/07/15 13:23:19  vfrolov
+ * Added Descriptions(args)
  *
  * Revision 1.6  2009/07/03 09:18:11  vfrolov
  * Included opal/buildopts.h
@@ -188,6 +189,20 @@ PBoolean T38Modem::Initialise()
 
     for (PINDEX i = 0 ; i < descriptions.GetSize() ; i++)
       cout << descriptions[i] << endl;
+
+    return FALSE;
+  }
+
+  PStringArray info =
+#ifdef USE_OPAL
+      MyManager::Descriptions(args);
+#else
+      MyH323EndPoint::Descriptions(args);
+#endif
+
+  if (info.GetSize() > 0) {
+    for (PINDEX i = 0 ; i < info.GetSize() ; i++)
+      cout << info[i] << endl;
 
     return FALSE;
   }

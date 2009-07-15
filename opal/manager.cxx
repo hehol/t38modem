@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.5  2009-01-26 15:25:36  vfrolov
- * Added --stun option
+ * Revision 1.6  2009-07-15 13:23:20  vfrolov
+ * Added Descriptions(args)
+ *
+ * Revision 1.6  2009/07/15 13:23:20  vfrolov
+ * Added Descriptions(args)
  *
  * Revision 1.5  2009/01/26 15:25:36  vfrolov
  * Added --stun option
@@ -111,6 +114,13 @@ PStringArray MyManager::Descriptions()
   descriptions += MySIPEndPoint::Descriptions();
   descriptions.Append(new PString(""));
   descriptions += ModemEndPoint::Descriptions();
+
+  return descriptions;
+}
+
+PStringArray MyManager::Descriptions(const PConfigArgs & /*args*/)
+{
+  PStringArray descriptions;
 
   return descriptions;
 }

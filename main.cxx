@@ -3,7 +3,7 @@
  *
  * T38Modem simulator - main program
  *
- * Copyright (c) 2001-2008 Vyacheslav Frolov
+ * Copyright (c) 2001-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.50  2008-09-11 16:10:54  frolov
- * Ported to H323 Plus trunk
+ * Revision 1.51  2009-07-15 13:23:19  vfrolov
+ * Added Descriptions(args)
+ *
+ * Revision 1.51  2009/07/15 13:23:19  vfrolov
+ * Added Descriptions(args)
  *
  * Revision 1.50  2008/09/11 16:10:54  frolov
  * Ported to H323 Plus trunk
@@ -253,6 +256,13 @@ PStringArray MyH323EndPoint::Descriptions()
 
   for (PINDEX i = 0 ; i < ds.GetSize() ; i++)
     descriptions.Append(new PString(PString("  ") + ds[i]));
+
+  return descriptions;
+}
+
+PStringArray MyH323EndPoint::Descriptions(const PConfigArgs & /*args*/)
+{
+  PStringArray descriptions;
 
   return descriptions;
 }
