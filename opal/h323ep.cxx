@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.7  2009-07-22 14:42:49  vfrolov
- * Added Descriptions(args) to endpoints
+ * Revision 1.8  2009-07-22 17:26:54  vfrolov
+ * Added ability to enable other audio formats
+ *
+ * Revision 1.8  2009/07/22 17:26:54  vfrolov
+ * Added ability to enable other audio formats
  *
  * Revision 1.7  2009/07/22 14:42:49  vfrolov
  * Added Descriptions(args) to endpoints
@@ -107,6 +110,8 @@ PString MyH323EndPoint::ArgSpec()
   return
     "-no-h323."
     "-h323-old-asn."
+    "-h323-audio:"
+    "-h323-audio-list."
     /*
     "-h323-redundancy:"
     "-h323-repeat:"
@@ -128,6 +133,13 @@ PStringArray MyH323EndPoint::Descriptions()
       "  --no-h323                 : Disable H.323 protocol.\n"
       "  --h323-old-asn            : Use original ASN.1 sequence in T.38 (06/98)\n"
       "                              Annex A (w/o CORRIGENDUM No. 1 fix).\n"
+      "  --h323-audio [!]wildcard  : Enable the audio format(s) matching the\n"
+      "                              wildcard. The '*' character match any\n"
+      "                              substring. The leading '!' character indicates\n"
+      "                              a negative test.\n"
+      "                              Default: " OPAL_G711_ULAW_64K " and " OPAL_G711_ALAW_64K ".\n"
+      "                              May be used multiple times.\n"
+      "  --h323-audio-list         : Display available audio formats.\n"
       /*
       "  --h323-redundancy I[L[H]] : Set redundancy for error recovery for\n"
       "                              (I)ndication, (L)ow speed and (H)igh\n"
@@ -149,9 +161,20 @@ PStringArray MyH323EndPoint::Descriptions()
   return descriptions;
 }
 
-PStringArray MyH323EndPoint::Descriptions(const PConfigArgs & /*args*/)
+PStringArray MyH323EndPoint::Descriptions(const PConfigArgs & args)
 {
   PStringArray descriptions;
+
+  if (args.HasOption("h323-audio-list")) {
+    descriptions.Append(new PString("Available audio formats for H.323:"));
+
+    OpalMediaFormatList list = OpalMediaFormat::GetAllRegisteredMediaFormats();
+
+    for (OpalMediaFormatList::iterator f = list.begin(); f != list.end(); ++f) {
+      if (f->GetMediaType() == OpalMediaType::Audio() && f->IsValidForProtocol("h.323") && f->IsTransportable())
+        descriptions.Append(new PString(PString("  ") + f->GetName()));
+    }
+  }
 
   return descriptions;
 }
@@ -171,8 +194,31 @@ PBoolean MyH323EndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
 
 PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
 {
-  AddMediaFormatList(OpalG711_ULAW_64K);
-  AddMediaFormatList(OpalG711_ALAW_64K);
+  if (args.HasOption("h323-audio")) {
+    const PStringArray wildcards = args.GetOptionString("h323-audio").Lines();
+    OpalMediaFormatList list = GetMediaFormats();
+
+    for (PINDEX w = 0 ; w < wildcards.GetSize() ; w++) {
+      OpalMediaFormatList::const_iterator f;
+
+      while ((f = list.FindFormat(wildcards[w], f)) != list.end()) {
+        if (f->GetMediaType() == OpalMediaType::Audio() && f->IsValidForProtocol("h.323") && f->IsTransportable())
+          AddMediaFormatList(*f);
+
+        if (++f == list.end())
+          break;
+      }
+    }
+  } else {
+    AddMediaFormatList(OpalG711_ULAW_64K);
+    AddMediaFormatList(OpalG711_ALAW_64K);
+  }
+
+  cout << "Enabled audio formats for H.323 (in preference order):" << endl;
+
+  for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++)
+    cout << "  " << mediaFormatList[i] << endl;
+
   AddMediaFormatList(args.HasOption("h323-old-asn") ? OpalT38_IFP_PRE : OpalT38_IFP_COR);
 
   DisableFastStart(!args.HasOption("fastenable"));
