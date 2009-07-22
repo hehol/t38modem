@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.h,v $
- * Revision 1.3  2009-07-13 15:08:17  vfrolov
- * Ported to OPAL SVN trunk
+ * Revision 1.4  2009-07-22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
+ *
+ * Revision 1.4  2009/07/22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
  *
  * Revision 1.3  2009/07/13 15:08:17  vfrolov
  * Ported to OPAL SVN trunk
@@ -67,6 +70,7 @@ class ModemEndPoint : public OpalEndPoint
 
     static PString ArgSpec();
     static PStringArray Descriptions();
+    static PStringArray Descriptions(const PConfigArgs & args);
     static PBoolean Create(OpalManager & mgr, const PConfigArgs & args);
     PBoolean Initialise(const PConfigArgs & args);
 

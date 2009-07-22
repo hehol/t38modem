@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.6  2009-07-15 13:23:20  vfrolov
- * Added Descriptions(args)
+ * Revision 1.7  2009-07-22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
+ *
+ * Revision 1.7  2009/07/22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
  *
  * Revision 1.6  2009/07/15 13:23:20  vfrolov
  * Added Descriptions(args)
@@ -75,10 +78,6 @@ PString MyManager::ArgSpec()
     "-ports:"
     "-route:"
     "u-username:"
-/*
-    "D-disable:"
-    "P-prefer:"
-*/
     "-stun:"
   ;
 }
@@ -99,28 +98,46 @@ PStringArray MyManager::Descriptions()
       "                              then the file is read with each line consisting\n"
       "                              of a pat=dst route specification.\n"
       "  -u --username str         : Set the default username to str.\n"
-/*
-      "  -D --disable codec        : Disable the specified codec.\n"
-      "                              Can be used multiple times.\n"
-      "  -P --prefer codec         : Prefer the specified codec.\n"
-      "                              Can be used multiple times.\n"
-*/
       "  --stun server             : Set STUN server.\n"
-      "\n"
   ).Lines();
 
-  descriptions += MyH323EndPoint::Descriptions();
-  descriptions.Append(new PString(""));
-  descriptions += MySIPEndPoint::Descriptions();
-  descriptions.Append(new PString(""));
-  descriptions += ModemEndPoint::Descriptions();
+  PStringArray arr[] = {
+    MyH323EndPoint::Descriptions(),
+    MySIPEndPoint::Descriptions(),
+    ModemEndPoint::Descriptions(),
+  };
+
+  for (PINDEX i = 0 ; i < PINDEX(sizeof(arr)/sizeof(arr[0])) ; i++) {
+    if (arr[i].GetSize() > 0) {
+      descriptions.Append(new PString(""));
+      descriptions += arr[i];
+    }
+  }
 
   return descriptions;
 }
 
-PStringArray MyManager::Descriptions(const PConfigArgs & /*args*/)
+PStringArray MyManager::Descriptions(const PConfigArgs & args)
 {
   PStringArray descriptions;
+  PBoolean first = TRUE;
+
+  PStringArray arr[] = {
+    MyH323EndPoint::Descriptions(args),
+    MySIPEndPoint::Descriptions(args),
+    ModemEndPoint::Descriptions(args),
+  };
+
+  for (PINDEX i = 0 ; i < PINDEX(sizeof(arr)/sizeof(arr[0])) ; i++) {
+    if (arr[i].GetSize() > 0) {
+      if (!first)
+        descriptions.Append(new PString(""));
+      else
+        first = FALSE;
+
+      descriptions += arr[i];
+    }
+  }
 
   return descriptions;
 }

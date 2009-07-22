@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.8  2009-07-13 15:08:17  vfrolov
- * Ported to OPAL SVN trunk
+ * Revision 1.9  2009-07-22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
+ *
+ * Revision 1.9  2009/07/22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
  *
  * Revision 1.8  2009/07/13 15:08:17  vfrolov
  * Ported to OPAL SVN trunk
@@ -165,6 +168,13 @@ PStringArray ModemEndPoint::Descriptions()
 
   for (PINDEX i = 0 ; i < ds.GetSize() ; i++)
     descriptions.Append(new PString(PString("  ") + ds[i]));
+
+  return descriptions;
+}
+
+PStringArray ModemEndPoint::Descriptions(const PConfigArgs & /*args*/)
+{
+  PStringArray descriptions;
 
   return descriptions;
 }

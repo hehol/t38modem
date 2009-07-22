@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.6  2009-07-15 18:25:53  vfrolov
- * Added reordering of formats
+ * Revision 1.7  2009-07-22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
+ *
+ * Revision 1.7  2009/07/22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
  *
  * Revision 1.6  2009/07/15 18:25:53  vfrolov
  * Added reordering of formats
@@ -142,6 +145,13 @@ PStringArray MyH323EndPoint::Descriptions()
       "  -n --no-gatekeeper        : Disable gatekeeper discovery.\n"
       "  --require-gatekeeper      : Exit if gatekeeper discovery fails.\n"
   ).Lines();
+
+  return descriptions;
+}
+
+PStringArray MyH323EndPoint::Descriptions(const PConfigArgs & /*args*/)
+{
+  PStringArray descriptions;
 
   return descriptions;
 }

@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.7  2009-07-15 18:25:53  vfrolov
- * Added reordering of formats
+ * Revision 1.8  2009-07-22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
+ *
+ * Revision 1.8  2009/07/22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
  *
  * Revision 1.7  2009/07/15 18:25:53  vfrolov
  * Added reordering of formats
@@ -142,6 +145,13 @@ PStringArray MySIPEndPoint::Descriptions()
       "                            : udp$*:5060).\n"
       "  --sip-no-listen           : Disable listen for incoming calls.\n"
   ).Lines();
+
+  return descriptions;
+}
+
+PStringArray MySIPEndPoint::Descriptions(const PConfigArgs & /*args*/)
+{
+  PStringArray descriptions;
 
   return descriptions;
 }

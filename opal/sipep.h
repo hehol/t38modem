@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.h,v $
- * Revision 1.2  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.3  2009-07-22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
+ *
+ * Revision 1.3  2009/07/22 14:42:49  vfrolov
+ * Added Descriptions(args) to endpoints
  *
  * Revision 1.2  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -63,6 +66,7 @@ class MySIPEndPoint : public SIPEndPoint
 
     static PString ArgSpec();
     static PStringArray Descriptions();
+    static PStringArray Descriptions(const PConfigArgs & args);
     static PBoolean Create(OpalManager & mgr, const PConfigArgs & args);
     PBoolean Initialise(const PConfigArgs & args);
 
