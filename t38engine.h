@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2008 Vyacheslav Frolov
+ * Copyright (c) 2001-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.28  2008-09-24 14:51:45  frolov
- * Added 5 sec. timeout  for DCE's transmit buffer empty
+ * Revision 1.29  2009-07-27 16:21:24  vfrolov
+ * Moved h323lib specific code to h323lib directory
+ *
+ * Revision 1.29  2009/07/27 16:21:24  vfrolov
+ * Moved h323lib specific code to h323lib directory
  *
  * Revision 1.28  2008/09/24 14:51:45  frolov
  * Added 5 sec. timeout  for DCE's transmit buffer empty
@@ -122,10 +125,6 @@
 #ifndef _T38ENGINE_H
 #define _T38ENGINE_H
 
-#ifndef USE_OPAL
-  #include <t38proto.h>
-#endif
-
 #include "pmutils.h"
 #include "hdlc.h"
 #include "t30.h"
@@ -163,21 +162,12 @@ class MODPARS
   #define T38_IFP_NAME  "Pre-corrigendum IFP"
 #endif
 ///////////////////////////////////////////////////////////////
-
 class ModStream;
 class T38_IFP;
 
-#ifdef USE_OPAL
 class T38Engine : public EngineBase
 {
   PCLASSINFO(T38Engine, EngineBase);
-#else
-class PASN_OctetString;
-
-class T38Engine : public OpalT38Protocol, public EngineBase
-{
-  PCLASSINFO(T38Engine, OpalT38Protocol);
-#endif
 
   public:
 
@@ -185,26 +175,6 @@ class T38Engine : public OpalT38Protocol, public EngineBase
   //@{
     T38Engine(const PString &_name = "");
     ~T38Engine();
-  //@}
-
-  /**@name Operations */
-  //@{
-#ifndef USE_OPAL
-    void SetRedundancy(
-      int indication,
-      int low_speed,
-      int high_speed,
-      int repeat_interval
-    );
-
-    /**The calling SetOldASN() is aquivalent to the following change of the t38.asn:
-
-           -  t4-non-ecm-sig-end,
-           -   ...
-           +  t4-non-ecm-sig-end
-     */
-    void SetOldASN() { corrigendumASN = FALSE; }
-#endif
   //@}
 
   /**@name Modem API */
@@ -227,14 +197,7 @@ class T38Engine : public OpalT38Protocol, public EngineBase
     void RecvStop();
   //@}
 
-#ifndef USE_OPAL
-    void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFP &T38_ifp) const;
-    PBoolean HandleRawIFP(const PASN_OctetString & pdu);
-    PBoolean Originate();
-    PBoolean Answer();
-#endif
-
-    void CleanUpOnTermination();
+    void Close();
 
     /**Prepare outgoing T.38 packet.
 
@@ -264,15 +227,11 @@ class T38Engine : public OpalT38Protocol, public EngineBase
       unsigned nLost
     );
 
+  protected:
+
+    enum { msPerOut = 30 };
+
   private:
-
-#ifndef USE_OPAL
-    int in_redundancy;
-    int ls_redundancy;
-    int hs_redundancy;
-    int re_interval;
-#endif
-
     int preparePacketTimeout;
 
     void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }

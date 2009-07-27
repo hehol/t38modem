@@ -3,7 +3,7 @@
 #
 # T38FAX Pseudo Modem
 #
-# Copyright (c) 2001-2008 Vyacheslav Frolov
+# Copyright (c) 2001-2009 Vyacheslav Frolov
 #
 # Open H323 Project
 #
@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.22  2008-09-11 16:10:54  frolov
-# Ported to H323 Plus trunk
+# Revision 1.23  2009-07-27 16:21:24  vfrolov
+# Moved h323lib specific code to h323lib directory
+#
+# Revision 1.23  2009/07/27 16:21:24  vfrolov
+# Moved h323lib specific code to h323lib directory
 #
 # Revision 1.22  2008/09/11 16:10:54  frolov
 # Ported to H323 Plus trunk
@@ -123,7 +126,9 @@ ifdef USE_OPAL
 
   include $(OPALDIR)/opal_inc.mak
 else
-  SOURCES += g7231_fake.cxx main.cxx
+  VPATH_CXX := h323lib
+
+  SOURCES += t38protocol.cxx g7231_fake.cxx main.cxx
 
   ifndef OPENH323DIR
     OPENH323DIR=$(HOME)/openh323

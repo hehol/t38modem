@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: main.cxx,v $
- * Revision 1.51  2009-07-15 13:23:19  vfrolov
- * Added Descriptions(args)
+ * Revision 1.52  2009-07-27 16:21:24  vfrolov
+ * Moved h323lib specific code to h323lib directory
+ *
+ * Revision 1.52  2009/07/27 16:21:24  vfrolov
+ * Moved h323lib specific code to h323lib directory
  *
  * Revision 1.51  2009/07/15 13:23:19  vfrolov
  * Added Descriptions(args)
@@ -175,7 +178,7 @@
 #include <h323t38.h>
 
 #include "main.h"
-#include "t38engine.h"
+#include "h323lib/t38protocol.h"
 #include "audio.h"
 #include "pmodem.h"
 #include "g7231_fake.h"
@@ -485,16 +488,16 @@ void MyH323EndPoint::SetOptions(MyH323Connection &/*conn*/, OpalT38Protocol *t38
   // TODO: make it per host
 
   if (t38handler != NULL) {
-    PAssert(PIsDescendant(t38handler, T38Engine), PInvalidCast);
+    PAssert(PIsDescendant(t38handler, T38Protocol), PInvalidCast);
 
-    ((T38Engine *)t38handler)->SetRedundancy(
+    ((T38Protocol *)t38handler)->SetRedundancy(
         in_redundancy,
         ls_redundancy,
         hs_redundancy,
         re_interval);
 
     if (old_asn)
-      ((T38Engine *)t38handler)->SetOldASN();
+      ((T38Protocol *)t38handler)->SetOldASN();
   }
 }
 
@@ -625,8 +628,8 @@ MyH323Connection::~MyH323Connection()
 
   if (pmodem != NULL) {
     if (t38handler != NULL) {
-      PAssert(PIsDescendant(t38handler, T38Engine), PInvalidCast);
-      pmodem->Detach((T38Engine *)t38handler);
+      PAssert(PIsDescendant(t38handler, T38Protocol), PInvalidCast);
+      pmodem->Detach((T38Protocol *)t38handler);
     }
 
     if (audioEngine != NULL)
@@ -687,9 +690,9 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler()
    */
   if( t38handler == NULL ) {
     PTRACE(2, "MyH323Connection::CreateT38ProtocolHandler create new one");
-    t38handler = new T38Engine(pmodem->ptyName());
+    t38handler = new T38Protocol(pmodem->ptyName());
     ep.SetOptions(*this, t38handler);
-    pmodem->Attach((T38Engine *)t38handler);
+    pmodem->Attach((T38Protocol *)t38handler);
   }
   return t38handler;
 }

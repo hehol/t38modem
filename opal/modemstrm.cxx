@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.cxx,v $
- * Revision 1.2  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.3  2009-07-27 16:21:24  vfrolov
+ * Moved h323lib specific code to h323lib directory
+ *
+ * Revision 1.3  2009/07/27 16:21:24  vfrolov
+ * Moved h323lib specific code to h323lib directory
  *
  * Revision 1.2  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -104,7 +107,7 @@ PBoolean T38ModemMediaStream::Close()
                 " sequence=" << currentSequenceNumber);
     }
 
-    t38engine->CleanUpOnTermination();
+    t38engine->Close();
   }
 
   return OpalMediaStream::Close();

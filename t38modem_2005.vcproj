@@ -829,6 +829,14 @@
 					/>
 				</FileConfiguration>
 			</File>
+			<Filter
+				Name="h323lib"
+				>
+				<File
+					RelativePath=".\h323lib\t38protocol.cxx"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -906,6 +914,14 @@
 				RelativePath="version.h"
 				>
 			</File>
+			<Filter
+				Name="h323lib"
+				>
+				<File
+					RelativePath=".\h323lib\t38protocol.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Resource Files"
