@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: main_process.cxx,v $
- * Revision 1.7  2009-07-15 13:23:19  vfrolov
- * Added Descriptions(args)
+ * Revision 1.8  2009-07-29 10:39:04  vfrolov
+ * Moved h323lib specific code to h323lib directory
+ *
+ * Revision 1.8  2009/07/29 10:39:04  vfrolov
+ * Moved h323lib specific code to h323lib directory
  *
  * Revision 1.7  2009/07/15 13:23:19  vfrolov
  * Added Descriptions(args)
@@ -63,7 +66,7 @@
 #ifdef USE_OPAL
   #include "opal/manager.h"
 #else
-  #include "main.h"
+  #include "h323lib/h323ep.h"
 #endif
 
 #define new PNEW

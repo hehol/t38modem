@@ -1,5 +1,5 @@
 /*
- * main.cxx
+ * h323ep.cxx
  *
  * T38Modem simulator - main program
  *
@@ -24,7 +24,10 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.52  2009-07-27 16:21:24  vfrolov
+ * Revision 1.53  2009-07-29 10:39:04  vfrolov
+ * Moved h323lib specific code to h323lib directory
+ *
+ * Revision 1.53  2009/07/29 10:39:04  vfrolov
  * Moved h323lib specific code to h323lib directory
  *
  * Revision 1.52  2009/07/27 16:21:24  vfrolov
@@ -177,15 +180,43 @@
 #include <h323pdu.h>
 #include <h323t38.h>
 
-#include "main.h"
-#include "h323lib/t38protocol.h"
-#include "audio.h"
-#include "pmodem.h"
+#include "h323ep.h"
 #include "g7231_fake.h"
-#include "drivers.h"
+#include "t38protocol.h"
+#include "../audio.h"
+#include "../pmodem.h"
+#include "../drivers.h"
 
 #define new PNEW
 
+///////////////////////////////////////////////////////////////
+class MyH323Connection : public H323Connection
+{
+  PCLASSINFO(MyH323Connection, H323Connection);
+
+  public:
+    MyH323Connection(MyH323EndPoint &, unsigned);
+    ~MyH323Connection();
+
+    PBoolean Attach(PseudoModem *_pmodem);
+
+    // overrides from H323Connection
+    AnswerCallResponse OnAnswerCall(const PString &, const H323SignalPDU &, H323SignalPDU &);
+    void OnEstablished();
+    PBoolean OnStartLogicalChannel(H323Channel & channel);
+    void OnClosedLogicalChannel(const H323Channel & channel);
+    void OnUserInputString(const PString & value);
+
+    OpalT38Protocol * CreateT38ProtocolHandler();
+    PBoolean OpenAudioChannel(PBoolean, unsigned, H323AudioCodec & codec);
+
+  protected:
+    const MyH323EndPoint & ep;
+
+    PMutex        connMutex;
+    PseudoModem * pmodem;
+    AudioEngine * audioEngine;
+};
 ///////////////////////////////////////////////////////////////
 PString MyH323EndPoint::ArgSpec()
 {

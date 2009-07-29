@@ -319,7 +319,7 @@
 			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 			>
 			<File
-				RelativePath="audio.cxx"
+				RelativePath="..\audio.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -347,7 +347,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="dle.cxx"
+				RelativePath="..\dle.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -375,7 +375,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="drivers.cxx"
+				RelativePath="..\drivers.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -403,7 +403,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="drv_c0c.cxx"
+				RelativePath="..\drv_c0c.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -431,7 +431,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="drv_pty.cxx"
+				RelativePath="..\drv_pty.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -459,7 +459,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="enginebase.cxx"
+				RelativePath="..\enginebase.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -487,7 +487,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="fcs.cxx"
+				RelativePath="..\fcs.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -515,7 +515,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="g7231_fake.cxx"
+				RelativePath="..\hdlc.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -543,7 +543,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="hdlc.cxx"
+				RelativePath="..\main_process.cxx"
+				>
+			</File>
+			<File
+				RelativePath="..\pmodem.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -571,7 +575,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="main.cxx"
+				RelativePath="..\pmodeme.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -599,11 +603,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath=".\main_process.cxx"
-				>
-			</File>
-			<File
-				RelativePath="pmodem.cxx"
+				RelativePath="..\pmodemi.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -631,7 +631,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="pmodeme.cxx"
+				RelativePath="..\pmutils.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -659,63 +659,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="pmodemi.cxx"
-				>
-				<FileConfiguration
-					Name="No Trace|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="pmutils.cxx"
-				>
-				<FileConfiguration
-					Name="No Trace|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="precompile.cxx"
+				RelativePath="..\precompile.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -746,7 +690,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="t30.cxx"
+				RelativePath="..\t30.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -774,7 +718,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="t30tone.cxx"
+				RelativePath="..\t30tone.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -802,7 +746,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="t38engine.cxx"
+				RelativePath="..\t38engine.cxx"
 				>
 				<FileConfiguration
 					Name="No Trace|Win32"
@@ -833,7 +777,63 @@
 				Name="h323lib"
 				>
 				<File
-					RelativePath=".\h323lib\t38protocol.cxx"
+					RelativePath=".\g7231_fake.cxx"
+					>
+					<FileConfiguration
+						Name="No Trace|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							PreprocessorDefinitions=""
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							PreprocessorDefinitions=""
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							PreprocessorDefinitions=""
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath=".\h323ep.cxx"
+					>
+					<FileConfiguration
+						Name="No Trace|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							PreprocessorDefinitions=""
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							PreprocessorDefinitions=""
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							PreprocessorDefinitions=""
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath=".\t38protocol.cxx"
 					>
 				</File>
 			</Filter>
@@ -843,82 +843,82 @@
 			Filter="h;hpp;hxx;hm;inl"
 			>
 			<File
-				RelativePath="audio.h"
+				RelativePath="..\audio.h"
 				>
 			</File>
 			<File
-				RelativePath="dle.h"
+				RelativePath="..\dle.h"
 				>
 			</File>
 			<File
-				RelativePath="drivers.h"
+				RelativePath="..\drivers.h"
 				>
 			</File>
 			<File
-				RelativePath="drv_c0c.h"
+				RelativePath="..\drv_c0c.h"
 				>
 			</File>
 			<File
-				RelativePath="drv_pty.h"
+				RelativePath="..\drv_pty.h"
 				>
 			</File>
 			<File
-				RelativePath="enginebase.h"
+				RelativePath="..\enginebase.h"
 				>
 			</File>
 			<File
-				RelativePath="fcs.h"
+				RelativePath="..\fcs.h"
 				>
 			</File>
 			<File
-				RelativePath="g7231_fake.h"
+				RelativePath="..\hdlc.h"
 				>
 			</File>
 			<File
-				RelativePath="hdlc.h"
+				RelativePath="..\pmodem.h"
 				>
 			</File>
 			<File
-				RelativePath="main.h"
+				RelativePath="..\pmodeme.h"
 				>
 			</File>
 			<File
-				RelativePath="pmodem.h"
+				RelativePath="..\pmodemi.h"
 				>
 			</File>
 			<File
-				RelativePath="pmodeme.h"
+				RelativePath="..\pmutils.h"
 				>
 			</File>
 			<File
-				RelativePath="pmodemi.h"
+				RelativePath="..\t30.h"
 				>
 			</File>
 			<File
-				RelativePath="pmutils.h"
+				RelativePath="..\t30tone.h"
 				>
 			</File>
 			<File
-				RelativePath="t30.h"
+				RelativePath="..\t38engine.h"
 				>
 			</File>
 			<File
-				RelativePath="t30tone.h"
-				>
-			</File>
-			<File
-				RelativePath="t38engine.h"
-				>
-			</File>
-			<File
-				RelativePath="version.h"
+				RelativePath="..\version.h"
 				>
 			</File>
 			<Filter
 				Name="h323lib"
 				>
 				<File
-					RelativePath=".\h323lib\t38protocol.h"
+					RelativePath=".\g7231_fake.h"
+					>
+				</File>
+				<File
+					RelativePath=".\h323ep.h"
+					>
+				</File>
+				<File
+					RelativePath=".\t38protocol.h"
 					>
 				</File>
 			</Filter>
@@ -932,11 +932,11 @@
 			Name="Other Files"
 			>
 			<File
-				RelativePath=".\Changes.txt"
+				RelativePath="..\Changes.txt"
 				>
 			</File>
 			<File
-				RelativePath=".\ReadMe.txt"
+				RelativePath="..\ReadMe.txt"
 				>
 			</File>
 		</Filter>

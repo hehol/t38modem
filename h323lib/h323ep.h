@@ -1,5 +1,5 @@
 /*
- * main.h
+ * h323ep.h
  *
  * T38FAX Pseudo Modem
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.22  2009-07-15 13:23:19  vfrolov
- * Added Descriptions(args)
+ * Revision 1.23  2009-07-29 10:39:04  vfrolov
+ * Moved h323lib specific code to h323lib directory
+ *
+ * Revision 1.23  2009/07/29 10:39:04  vfrolov
+ * Moved h323lib specific code to h323lib directory
  *
  * Revision 1.22  2009/07/15 13:23:19  vfrolov
  * Added Descriptions(args)
@@ -93,8 +96,8 @@
  *
  */
 
-#ifndef _PM_MAIN_H
-#define _PM_MAIN_H
+#ifndef _H323EP_H
+#define _H323EP_H
 
 #include <h323.h>
 
@@ -138,38 +141,7 @@ class MyH323EndPoint : public H323EndPoint
     PDECLARE_NOTIFIER(PObject, MyH323EndPoint, OnMyCallback);
 };
 
-class OpalT38Protocol;
-class AudioEngine;
-
-class MyH323Connection : public H323Connection
-{
-  PCLASSINFO(MyH323Connection, H323Connection);
-
-  public:
-    MyH323Connection(MyH323EndPoint &, unsigned);
-    ~MyH323Connection();
-
-    PBoolean Attach(PseudoModem *_pmodem);
-
-    // overrides from H323Connection
-    AnswerCallResponse OnAnswerCall(const PString &, const H323SignalPDU &, H323SignalPDU &);
-    void OnEstablished();
-    PBoolean OnStartLogicalChannel(H323Channel & channel);
-    void OnClosedLogicalChannel(const H323Channel & channel);
-    void OnUserInputString(const PString & value);
-
-    OpalT38Protocol * CreateT38ProtocolHandler();
-    PBoolean OpenAudioChannel(PBoolean, unsigned, H323AudioCodec & codec);
-
-  protected:
-    const MyH323EndPoint & ep;
-
-    PMutex        connMutex;
-    PseudoModem * pmodem;
-    AudioEngine * audioEngine;
-};
-
-#endif  // _PM_MAIN_H
+#endif  // _H323EP_H
 
 // End of File ///////////////////////////////////////////////////////////////
 

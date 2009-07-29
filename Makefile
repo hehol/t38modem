@@ -24,7 +24,10 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.23  2009-07-27 16:21:24  vfrolov
+# Revision 1.24  2009-07-29 10:39:04  vfrolov
+# Moved h323lib specific code to h323lib directory
+#
+# Revision 1.24  2009/07/29 10:39:04  vfrolov
 # Moved h323lib specific code to h323lib directory
 #
 # Revision 1.23  2009/07/27 16:21:24  vfrolov
@@ -128,7 +131,7 @@ ifdef USE_OPAL
 else
   VPATH_CXX := h323lib
 
-  SOURCES += t38protocol.cxx g7231_fake.cxx main.cxx
+  SOURCES += t38protocol.cxx g7231_fake.cxx h323ep.cxx
 
   ifndef OPENH323DIR
     OPENH323DIR=$(HOME)/openh323
