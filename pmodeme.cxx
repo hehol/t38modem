@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.69  2009-07-10 15:23:31  vfrolov
- * Implicitly dial modifier '@' will continue of called number
+ * Revision 1.70  2009-07-29 17:12:35  vfrolov
+ * Wait audioEngine on stConnectHandle
+ *
+ * Revision 1.70  2009/07/29 17:12:35  vfrolov
+ * Wait audioEngine on stConnectHandle
  *
  * Revision 1.69  2009/07/10 15:23:31  vfrolov
  * Implicitly dial modifier '@' will continue of called number
@@ -3429,7 +3432,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             }
             param = chEvent2;
           case chEvent2:
-            if (pPlayTone && !audioEngine) {
+            if (!audioEngine) {
               param = chWaitAudioEngine;
               timeout.Start(60000);
               break;
