@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.cxx,v $
- * Revision 1.3  2009-07-27 16:21:24  vfrolov
- * Moved h323lib specific code to h323lib directory
+ * Revision 1.4  2009-07-31 17:34:40  vfrolov
+ * Removed --h323-old-asn and --sip-old-asn options
+ *
+ * Revision 1.4  2009/07/31 17:34:40  vfrolov
+ * Removed --h323-old-asn and --sip-old-asn options
  *
  * Revision 1.3  2009/07/27 16:21:24  vfrolov
  * Moved h323lib specific code to h323lib directory
@@ -45,7 +48,6 @@
 #include <asn/t38.h>
 
 #include "../t38engine.h"
-#include "ifpmediafmt.h"
 #include "modemstrm.h"
 
 #define new PNEW
@@ -66,11 +68,7 @@ T38ModemMediaStream::T38ModemMediaStream(
 
 const OpalMediaFormat & T38ModemMediaStream::GetT38MediaFormat()
 {
-#ifdef OPTIMIZE_CORRIGENDUM_IFP
-  return OpalT38_IFP_COR;
-#else
-  return OpalT38_IFP_PRE;
-#endif
+  return OpalT38;
 }
 
 PBoolean T38ModemMediaStream::Open()

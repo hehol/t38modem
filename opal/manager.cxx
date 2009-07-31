@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.7  2009-07-22 14:42:49  vfrolov
- * Added Descriptions(args) to endpoints
+ * Revision 1.8  2009-07-31 17:34:40  vfrolov
+ * Removed --h323-old-asn and --sip-old-asn options
+ *
+ * Revision 1.8  2009/07/31 17:34:40  vfrolov
+ * Removed --h323-old-asn and --sip-old-asn options
  *
  * Revision 1.7  2009/07/22 14:42:49  vfrolov
  * Added Descriptions(args) to endpoints
@@ -58,7 +61,6 @@
 #include "h323ep.h"
 #include "sipep.h"
 #include "modemep.h"
-#include "ifpmediafmt.h"
 #include "manager.h"
 
 #define new PNEW

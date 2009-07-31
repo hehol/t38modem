@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.9  2009-07-22 17:26:54  vfrolov
- * Added ability to enable other audio formats
+ * Revision 1.10  2009-07-31 17:34:40  vfrolov
+ * Removed --h323-old-asn and --sip-old-asn options
+ *
+ * Revision 1.10  2009/07/31 17:34:40  vfrolov
+ * Removed --h323-old-asn and --sip-old-asn options
  *
  * Revision 1.9  2009/07/22 17:26:54  vfrolov
  * Added ability to enable other audio formats
@@ -63,7 +66,6 @@
 #include <sip/sipcon.h>
 
 #include "manager.h"
-#include "ifpmediafmt.h"
 #include "sipep.h"
 #include "opalutils.h"
 
@@ -111,7 +113,6 @@ PString MySIPEndPoint::ArgSpec()
 {
   return
     "-no-sip."
-    "-sip-old-asn."
     "-sip-audio:"
     "-sip-audio-list."
     /*
@@ -130,8 +131,6 @@ PStringArray MySIPEndPoint::Descriptions()
   PStringArray descriptions = PString(
       "SIP options:\n"
       "  --no-sip                  : Disable SIP protocol.\n"
-      "  --sip-old-asn             : Use original ASN.1 sequence in T.38 (06/98)\n"
-      "                              Annex A (w/o CORRIGENDUM No. 1 fix).\n"
       "  --sip-audio [!]wildcard   : Enable the audio format(s) matching the\n"
       "                              wildcard. The '*' character match any\n"
       "                              substring. The leading '!' character indicates\n"
@@ -219,11 +218,7 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
   for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++)
     cout << "  " << mediaFormatList[i] << endl;
 
-  AddMediaFormatList(args.HasOption("sip-old-asn") ? OpalT38_IFP_PRE : OpalT38_IFP_COR);
-  //AddMediaFormatList("UserInput/basicString");
-
-  if (args.HasOption("sip-old-asn"))
-    SetT38_IFP_PRE();
+  AddMediaFormatList(OpalT38);
 
   /*
   if (args.HasOption("sip-redundancy")) {

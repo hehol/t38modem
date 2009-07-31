@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.8  2009-07-22 17:26:54  vfrolov
- * Added ability to enable other audio formats
+ * Revision 1.9  2009-07-31 17:34:40  vfrolov
+ * Removed --h323-old-asn and --sip-old-asn options
+ *
+ * Revision 1.9  2009/07/31 17:34:40  vfrolov
+ * Removed --h323-old-asn and --sip-old-asn options
  *
  * Revision 1.8  2009/07/22 17:26:54  vfrolov
  * Added ability to enable other audio formats
@@ -58,7 +61,6 @@
 #include <opal/buildopts.h>
 
 #include "manager.h"
-#include "ifpmediafmt.h"
 #include "h323ep.h"
 
 #define new PNEW
@@ -109,7 +111,6 @@ PString MyH323EndPoint::ArgSpec()
 {
   return
     "-no-h323."
-    "-h323-old-asn."
     "-h323-audio:"
     "-h323-audio-list."
     /*
@@ -131,8 +132,6 @@ PStringArray MyH323EndPoint::Descriptions()
   PStringArray descriptions = PString(
       "H.323 options:\n"
       "  --no-h323                 : Disable H.323 protocol.\n"
-      "  --h323-old-asn            : Use original ASN.1 sequence in T.38 (06/98)\n"
-      "                              Annex A (w/o CORRIGENDUM No. 1 fix).\n"
       "  --h323-audio [!]wildcard  : Enable the audio format(s) matching the\n"
       "                              wildcard. The '*' character match any\n"
       "                              substring. The leading '!' character indicates\n"
@@ -219,7 +218,7 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
   for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++)
     cout << "  " << mediaFormatList[i] << endl;
 
-  AddMediaFormatList(args.HasOption("h323-old-asn") ? OpalT38_IFP_PRE : OpalT38_IFP_COR);
+  AddMediaFormatList(OpalT38);
 
   DisableFastStart(!args.HasOption("fastenable"));
   DisableH245Tunneling(args.HasOption("h245tunneldisable"));

@@ -92,7 +92,7 @@ If dialed number begins with '0' then it will be routed to a local host
 
 Starting with OPAL:
 
-  $ t38modem -n -o trace.log -p ttyx0,ttyx1 --h323-old-asn --sip-old-asn \
+  $ t38modem -n -o trace.log -p ttyx0,ttyx1 \
                                --route "modem:0.*=h323:<dn!1>@127.0.0.1" \
                                --route "modem:1.*=sip:<dn>@172.16.33.20" \
                                --route "modem:2.*=h323:<dn>@172.16.33.21" \

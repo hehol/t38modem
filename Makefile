@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.24  2009-07-29 10:39:04  vfrolov
-# Moved h323lib specific code to h323lib directory
+# Revision 1.25  2009-07-31 17:34:40  vfrolov
+# Removed --h323-old-asn and --sip-old-asn options
+#
+# Revision 1.25  2009/07/31 17:34:40  vfrolov
+# Removed --h323-old-asn and --sip-old-asn options
 #
 # Revision 1.24  2009/07/29 10:39:04  vfrolov
 # Moved h323lib specific code to h323lib directory
@@ -113,10 +116,10 @@ SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
 ifdef USE_OPAL
   VPATH_CXX := opal
 
-  SOURCES += ifptranscoder.cxx ifpmediafmt.cxx \
+  SOURCES += \
              opalutils.cxx \
              modemep.cxx modemstrm.cxx \
-             h323cap.cxx h323ep.cxx \
+             h323ep.cxx \
              sipep.cxx \
              manager.cxx
 
