@@ -411,19 +411,7 @@
 				Name="opal"
 				>
 				<File
-					RelativePath=".\h323cap.cxx"
-					>
-				</File>
-				<File
 					RelativePath=".\h323ep.cxx"
-					>
-				</File>
-				<File
-					RelativePath=".\ifpmediafmt.cxx"
-					>
-				</File>
-				<File
-					RelativePath=".\ifptranscoder.cxx"
 					>
 				</File>
 				<File
@@ -517,10 +505,6 @@
 				>
 				<File
 					RelativePath=".\h323ep.h"
-					>
-				</File>
-				<File
-					RelativePath=".\ifpmediafmt.h"
 					>
 				</File>
 				<File
