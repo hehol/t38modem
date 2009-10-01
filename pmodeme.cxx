@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.70  2009-07-29 17:12:35  vfrolov
- * Wait audioEngine on stConnectHandle
+ * Revision 1.71  2009-10-01 13:31:12  vfrolov
+ * Ported to OPAL SVN trunk
+ *
+ * Revision 1.71  2009/10/01 13:31:12  vfrolov
+ * Ported to OPAL SVN trunk
  *
  * Revision 1.70  2009/07/29 17:12:35  vfrolov
  * Wait audioEngine on stConnectHandle
@@ -1362,10 +1365,11 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
       return FALSE;
   }
 
-#define TONE_FREQUENCY_MIN	PDTMFEncoder::MinFrequency
-#define TONE_FREQUENCY_MAX	PDTMFEncoder::MaxFrequency
-#define TONE_DMS_MAX		500
-#define TONE_VOLUME		15
+#define TONE_DEFAULT_LEN    PDTMFEncoder::DefaultToneLen
+#define TONE_FREQUENCY_MIN  PDTMFEncoder::MinFrequency
+#define TONE_FREQUENCY_MAX  (8000/4)
+#define TONE_DMS_MAX        500
+#define TONE_VOLUME         15
 
   switch (*(*ppCmd - 1)) {
     case 'S':
@@ -1388,7 +1392,7 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                 PDTMFEncoder tone;
 
                 for (;;) {
-                  int dms = PDTMFEncoder::DefaultToneLen/10;
+                  int dms = TONE_DEFAULT_LEN/10;
 
                   switch (**ppCmd) {
                     case '[': {
