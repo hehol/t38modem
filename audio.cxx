@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -21,11 +21,14 @@
  *
  * The Initial Developer of the Original Code is Vyacheslav Frolov
  *
- * Contributor(s): 
+ * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.7  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.8  2009-10-05 15:01:08  vfrolov
+ * Fixed possible memory leak
+ *
+ * Revision 1.8  2009/10/05 15:01:08  vfrolov
+ * Fixed possible memory leak
  *
  * Revision 1.7  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -55,6 +58,8 @@
 #include "pmutils.h"
 #include "t30tone.h"
 #include "audio.h"
+
+#define new PNEW
 
 ///////////////////////////////////////////////////////////////
 typedef	PInt16			SIMPLE_TYPE;
@@ -247,6 +252,9 @@ PBoolean AudioEngine::SendStart(int PTRACE_PARAM(_dataType), int PTRACE_PARAM(pa
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
 
+  if (sendAudio)
+    delete sendAudio;
+
   sendAudio = new DataStream(1024*2);
 
   PTRACE(3, name << " AudioEngine::SendStart _dataType=" << _dataType
@@ -323,7 +331,11 @@ PBoolean AudioEngine::RecvStart(int _callbackParam)
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
 
+  if (recvAudio)
+    delete recvAudio;
+
   recvAudio = new DataStream(1024*2);
+
   callbackParam = _callbackParam;
 
   return TRUE;
