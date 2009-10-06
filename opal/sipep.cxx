@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.10  2009-07-31 17:34:40  vfrolov
- * Removed --h323-old-asn and --sip-old-asn options
+ * Revision 1.11  2009-10-06 17:13:10  vfrolov
+ * Fixed uncompatibility with OPAL trunk
+ *
+ * Revision 1.11  2009/10/06 17:13:10  vfrolov
+ * Fixed uncompatibility with OPAL trunk
  *
  * Revision 1.10  2009/07/31 17:34:40  vfrolov
  * Removed --h323-old-asn and --sip-old-asn options
@@ -92,8 +95,6 @@ class MySIPConnection : public SIPConnection
   //@}
 
     virtual PBoolean SetUpConnection();
-
-    virtual OpalMediaFormatList GetMediaFormats() const;
 
     virtual void AdjustMediaFormats(
       OpalMediaFormatList & mediaFormats        ///<  Media formats to use
@@ -218,6 +219,7 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
   for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++)
     cout << "  " << mediaFormatList[i] << endl;
 
+  AddMediaFormatList(OpalPCM16);
   AddMediaFormatList(OpalT38);
 
   /*
@@ -410,36 +412,9 @@ PBoolean MySIPConnection::SetUpConnection()
   return SIPConnection::SetUpConnection();
 }
 
-OpalMediaFormatList MySIPConnection::GetMediaFormats() const
-{
-  PTRACE(4, "MySIPConnection::GetMediaFormats remoteFormatList=\n"
-         << setfill('\n') << remoteFormatList << setfill(' '));
-
-  OpalMediaFormatList list = SIPConnection::GetMediaFormats();
-
-  PTRACE(4, "MySIPConnection::GetMediaFormats list=\n"
-         << setfill('\n') << list << setfill(' '));
-
-  if (list.HasFormat(OpalT38)) {
-    list -= OpalT38;
-
-    for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++) {
-      if (mediaFormatList[i].GetMediaType() == OpalMediaType::Fax()) {
-        list += mediaFormatList[i];
-        break;
-      }
-    }
-  }
-
-  PTRACE(4, "MySIPConnection::GetMediaFormats list=\n"
-         << setfill('\n') << list << setfill(' '));
-
-  return list;
-}
-
 void MySIPConnection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) const
 {
-  //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
+  //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
   SIPConnection::AdjustMediaFormats(mediaFormats);
 
@@ -467,7 +442,7 @@ void MySIPConnection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) con
 
   mediaFormats.Reorder(order);
 
-  //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
+  //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 }
 /////////////////////////////////////////////////////////////////////////////
 

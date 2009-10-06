@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.9  2009-07-31 17:34:40  vfrolov
- * Removed --h323-old-asn and --sip-old-asn options
+ * Revision 1.10  2009-10-06 17:13:10  vfrolov
+ * Fixed uncompatibility with OPAL trunk
+ *
+ * Revision 1.10  2009/10/06 17:13:10  vfrolov
+ * Fixed uncompatibility with OPAL trunk
  *
  * Revision 1.9  2009/07/31 17:34:40  vfrolov
  * Removed --h323-old-asn and --sip-old-asn options
@@ -218,6 +221,7 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
   for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++)
     cout << "  " << mediaFormatList[i] << endl;
 
+  AddMediaFormatList(OpalPCM16);
   AddMediaFormatList(OpalT38);
 
   DisableFastStart(!args.HasOption("fastenable"));
@@ -355,7 +359,7 @@ PBoolean MyH323Connection::SetUpConnection()
 
 void MyH323Connection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) const
 {
-  //PTRACE(3, "MyH323Connection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
+  //PTRACE(3, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
   H323Connection::AdjustMediaFormats(mediaFormats);
 
@@ -383,7 +387,7 @@ void MyH323Connection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) co
 
   mediaFormats.Reorder(order);
 
-  //PTRACE(3, "MyH323Connection::AdjustMediaFormats:\n" << setprecision(2) << mediaFormats);
+  //PTRACE(3, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 }
 /////////////////////////////////////////////////////////////////////////////
 
