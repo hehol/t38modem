@@ -7,6 +7,21 @@
  *
  */
 
+Changelog for t38modem 1.2.0 (Oct  8 2009)
+
+* Enabled dialing characters # and *.
+* Added ability to dial extension numbers.
+* Dial modifiers 'T' and 'P' can be used instead 'D'.
+* Fixed incompatibilities with some voice applications (V.253).
+* Added ability to dial after call answer.
+* Added semicolon concatenating of AT commands.
+* Added ability to dial and switch to answering mode ("ATD<dialstring>;A").
+* Fixed incompatibilities with some OS.
+* (OPAL) Added ability to use route pattern "modem:.*@tty".
+* (OPAL) Added ability to enable/ audio formats.
+* (OPAL) Removed --h323-old-asn and --sip-old-asn options.
+* Fixed some other bugs.
+
 Changelog for t38modem 1.1.0 (Apr 16 2009)
 
 * Fixed 100% CPU usage at the begining of T.38 session.
