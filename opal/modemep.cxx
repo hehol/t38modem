@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.9  2009-07-22 14:42:49  vfrolov
- * Added Descriptions(args) to endpoints
+ * Revision 1.10  2009-10-16 19:22:42  vfrolov
+ * Fixed race condition
+ *
+ * Revision 1.10  2009/10/16 19:22:42  vfrolov
+ * Fixed race condition
  *
  * Revision 1.9  2009/07/22 14:42:49  vfrolov
  * Added Descriptions(args) to endpoints
@@ -82,11 +85,10 @@ class ModemConnection : public OpalConnection
       OpalCall & call,
       ModemEndPoint & ep,
       const PString & token,
-      const PString & remoteParty
+      const PString & remoteParty,
+      void *userData
     );
     ~ModemConnection();
-
-    PBoolean Attach(PseudoModem *_pmodem);
 
     virtual OpalMediaStream * CreateMediaStream(
       const OpalMediaFormat & mediaFormat, /// Media format for stream
@@ -121,6 +123,8 @@ class ModemConnection : public OpalConnection
     );
 
   protected:
+    PBoolean Attach(PseudoModem *_pmodem);
+
     PseudoModem *pmodem;
     AudioEngine * audioEngine;
     T38Engine * t38engine;
@@ -238,15 +242,14 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
 
         PString callToken;
 
-        GetManager().SetUpCall(partyA, partyB, callToken);
+        GetManager().SetUpCall(partyA, partyB, callToken, modem);
 
         PSafePtr<OpalCall> call = GetManager().FindCallWithLock(callToken);
 
         if (call != NULL) {
-          PSafePtr<ModemConnection> pConn =
-              PSafePtrCast<OpalConnection, ModemConnection>(call->GetConnection(0));
+          PSafePtr<OpalConnection> pConn = call->GetConnection(0);
 
-          if (pConn != NULL && pConn->Attach(modem)) {
+          if (pConn != NULL) {
             request.SetAt("calltoken", pConn->GetToken());
             response = "confirm";
             modem = NULL;
@@ -324,7 +327,7 @@ PSafePtr<OpalConnection>
 ModemEndPoint::MakeConnection(
     OpalCall & call,
     const PString & remoteParty,
-    void * /*userData*/,
+    void *userData,
     unsigned int /*options*/,
     OpalConnection::StringOptions * /*stringOptions*/
     )
@@ -337,7 +340,7 @@ ModemEndPoint::MakeConnection(
   for (int i = 0 ; i < 10000 ; i++) {
     token = remoteParty + "/" + call.GetToken() + "/" + PString(i);
     if (!connectionsActive.Contains(token))
-      return AddConnection(new ModemConnection(call, *this, token, remoteParty));
+      return AddConnection(new ModemConnection(call, *this, token, remoteParty, userData));
   }
 
   return AddConnection(NULL);
@@ -359,7 +362,8 @@ ModemConnection::ModemConnection(
     OpalCall & call,
     ModemEndPoint & ep,
     const PString & token,
-    const PString & remoteParty)
+    const PString & remoteParty,
+    void *userData)
   : OpalConnection(call, ep, token),
     pmodem(NULL),
     audioEngine(NULL),
@@ -370,6 +374,9 @@ ModemConnection::ModemConnection(
   remotePartyAddress = remoteParty;
 
   myPTRACE(1, "ModemConnection::ModemConnection " << *this);
+
+  if (userData)
+    Attach((PseudoModem *)userData);
 }
 
 ModemConnection::~ModemConnection()
