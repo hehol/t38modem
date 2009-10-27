@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.29  2009-07-27 16:21:24  vfrolov
- * Moved h323lib specific code to h323lib directory
+ * Revision 1.30  2009-10-27 18:53:49  vfrolov
+ * Added ability to re-open T38Engine
+ * Added ability to prepare IFP packets with adaptive delay/period
+ *
+ * Revision 1.30  2009/10/27 18:53:49  vfrolov
+ * Added ability to re-open T38Engine
+ * Added ability to prepare IFP packets with adaptive delay/period
  *
  * Revision 1.29  2009/07/27 16:21:24  vfrolov
  * Moved h323lib specific code to h323lib directory
@@ -126,6 +131,7 @@
 #define _T38ENGINE_H
 
 #include "pmutils.h"
+#include <ptclib/delaychan.h>
 #include "hdlc.h"
 #include "t30.h"
 #include "enginebase.h"
@@ -197,6 +203,7 @@ class T38Engine : public EngineBase
     void RecvStop();
   //@}
 
+    void Open();
     void Close();
 
     /**Prepare outgoing T.38 packet.
@@ -207,8 +214,15 @@ class T38Engine : public EngineBase
       */
     int PreparePacket(T38_IFP & ifp);
 
-    void SetPreparePacketTimeout(int time) {
-      preparePacketTimeout = time;
+    void SetPreparePacketTimeout(int timeout, int period = -1) {
+      if (timeout == 0 && period == -1)
+        period = 20;
+
+      preparePacketTimeout = timeout;
+      preparePacketPeriod = period;
+
+      if (preparePacketPeriod > 0)
+        preparePacketDelay.Restart();
     }
 
     /**Handle incoming T.38 packet.
@@ -232,31 +246,37 @@ class T38Engine : public EngineBase
     enum { msPerOut = 30 };
 
   private:
-    int preparePacketTimeout;
-
     void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }
     void WaitOutDataReady() { outDataReadySyncPoint.Wait(); }
     PBoolean WaitOutDataReady(const PTimeInterval & timeout) {
       return outDataReadySyncPoint.Wait(timeout);
     }
 
-    PBoolean IsT38Mode() const { return T38Mode; }
+    PBoolean IsModemOpen() const { return !modemCallback.IsNULL(); }
+    PBoolean IsOpen() const { return isOpen && IsModemOpen(); }
+
     void ModemCallbackWithUnlock(INT extra);
     void _ResetModemState();
 
+  private:
+    DataStream bufOut;
+
+    int preparePacketTimeout;
+    int preparePacketPeriod;
+
+    PAdaptiveDelay preparePacketDelay;
+
     int stateOut;
-    int delayRestOut;
     int onIdleOut;
     int callbackParamOut;
-    DataStream bufOut;
     MODPARS ModParsOut;
     PBoolean startedTimeOutBufEmpty;
     PTime timeOutBufEmpty;
+    PTime timeDelayEndOut;
     PTime timeBeginOut;
     PINDEX countOut;
     PBoolean moreFramesOut;
     HDLC hdlcOut;
-    PSyncPoint outDataReadySyncPoint;
 
     int callbackParamIn;
     volatile int isCarrierIn;
@@ -271,11 +291,10 @@ class T38Engine : public EngineBase
     ModStream *modStreamInSaved;
 
     volatile int stateModem;
-    volatile PBoolean T38Mode;
+    volatile PBoolean isOpen;
 
+    PSyncPoint outDataReadySyncPoint;
     PMutex Mutex;
-    PMutex MutexOut;
-    PMutex MutexIn;
 };
 ///////////////////////////////////////////////////////////////
 

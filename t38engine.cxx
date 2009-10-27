@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.54  2009-07-27 16:21:24  vfrolov
- * Moved h323lib specific code to h323lib directory
+ * Revision 1.55  2009-10-27 18:53:49  vfrolov
+ * Added ability to re-open T38Engine
+ * Added ability to prepare IFP packets with adaptive delay/period
+ *
+ * Revision 1.55  2009/10/27 18:53:49  vfrolov
+ * Added ability to re-open T38Engine
+ * Added ability to prepare IFP packets with adaptive delay/period
  *
  * Revision 1.54  2009/07/27 16:21:24  vfrolov
  * Moved h323lib specific code to h323lib directory
@@ -221,7 +226,7 @@
 #define T38I(t30_indicator) T38_Type_of_msg_t30_indicator::t30_indicator
 #define T38D(msg_data) T38_Type_of_msg_data::msg_data
 #define T38F(field_type) T38_Data_Field_subtype_field_type::field_type
-#define msMaxOutDelay 1000
+#define msMaxOutDelay (msPerOut*5)
 
 #ifdef P_LINUX
   #define mySleep(ms) usleep((ms) * 1000L)
@@ -491,40 +496,74 @@ static void t38data(T38_IFP &ifp, unsigned type, unsigned field_type, const PBYT
 }
 ///////////////////////////////////////////////////////////////
 T38Engine::T38Engine(const PString &_name)
-  : EngineBase(_name),
-    bufOut(2048),
-    startedTimeOutBufEmpty(FALSE)
+  : EngineBase(_name)
+  , bufOut(2048)
+  , preparePacketTimeout(-1)
+  , preparePacketPeriod(-1)
+  , preparePacketDelay()
+  , stateOut(stOutNoSig)
+  , onIdleOut(dtNone)
+  , callbackParamOut(cbpReset)
+  , ModParsOut()
+  , startedTimeOutBufEmpty(FALSE)
+  , timeOutBufEmpty()
+  , timeDelayEndOut()
+  , timeBeginOut()
+  , countOut(0)
+  , moreFramesOut(FALSE)
+  , hdlcOut()
+  , callbackParamIn(cbpReset)
+  , isCarrierIn(0)
+#if PTRACING
+  , timeBeginIn()
+  , countIn(0)
+#endif
+  , t30()
+  , modStreamIn(NULL)
+  , modStreamInSaved(NULL)
+  , stateModem(stmIdle)
+  , isOpen(TRUE)
 {
   PTRACE(2, name << " T38Engine::T38Engine");
-  stateModem = stmIdle;
-  stateOut = stOutNoSig;
-  onIdleOut = dtNone;
-  delayRestOut = 0;
-
-  modStreamIn = NULL;
-  modStreamInSaved = NULL;
-
-  preparePacketTimeout = -1;
-
-  T38Mode = TRUE;
-  isCarrierIn = 0;
 }
 
 T38Engine::~T38Engine()
 {
   PTRACE(1, name << " T38Engine::~T38Engine ");
 
-  SignalOutDataReady();
-  PWaitAndSignal mutexWaitIn(MutexIn);
-  PWaitAndSignal mutexWaitOut(MutexOut);
-  PWaitAndSignal mutexWaitModem(MutexModem);
-
   if( modStreamIn != NULL )
     delete modStreamIn;
+
   if( modStreamInSaved != NULL )
     delete modStreamInSaved;
+
+  if (isOpen)
+    myPTRACE(1, name << " T38Engine::~T38Engine isOpen");
+
   if( !modemCallback.IsNULL() )
     myPTRACE(1, name << " T38Engine::~T38Engine !modemCallback.IsNULL()");
+}
+
+void T38Engine::Open()
+{
+  myPTRACE(1, name << " T38Engine::Open: " << (isOpen ? "re-open" : "open"));
+
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (isOpen)
+    return;
+
+  isOpen = TRUE;
+  preparePacketDelay.Restart();
+}
+
+void T38Engine::Close()
+{
+  myPTRACE(1, name << " T38Engine::Close: " << (isOpen ? "close" : "re-close"));
+
+  PWaitAndSignal mutexWait(Mutex);
+  isOpen = FALSE;
+  SignalOutDataReady();
 }
 
 PBoolean T38Engine::Attach(const PNotifier &callback)
@@ -549,7 +588,6 @@ void T38Engine::Detach(const PNotifier &callback)
   if (modemCallback == callback) {
     modemCallback = NULL;
     _ResetModemState();
-    T38Mode = FALSE;
     myPTRACE(1, name << " T38Engine::Detach Detached");
     SignalOutDataReady();
   } else {
@@ -564,16 +602,6 @@ void T38Engine::ModemCallbackWithUnlock(INT extra)
   Mutex.Signal();
   ModemCallback(extra);
   Mutex.Wait();
-}
-
-void T38Engine::Close()
-{
-  myPTRACE(1, name << " T38Engine::Close");
-
-  PWaitAndSignal mutexWait(Mutex);
-  T38Mode = FALSE;
-  SignalOutDataReady();
-  ModemCallbackWithUnlock(cbpReset);
 }
 
 void T38Engine::ResetModemState() {
@@ -620,7 +648,8 @@ void T38Engine::SendOnIdle(int _dataType)
 PBoolean T38Engine::SendStart(int _dataType, int param)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if (!IsT38Mode())
+
+  if (!IsModemOpen())
     return FALSE;
 
   if (stateModem != stmIdle)  {
@@ -675,7 +704,8 @@ PBoolean T38Engine::SendStart(int _dataType, int param)
 int T38Engine::Send(const void *pBuf, PINDEX count)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if (!IsT38Mode())
+
+  if (!IsModemOpen())
     return -1;
 
   if (stateModem != stmOutMoreData) {
@@ -696,7 +726,8 @@ int T38Engine::Send(const void *pBuf, PINDEX count)
 PBoolean T38Engine::SendStop(PBoolean moreFrames, int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if(!IsT38Mode())
+
+  if(!IsModemOpen())
     return FALSE;
 
   if (stateModem != stmOutMoreData ) {
@@ -720,7 +751,8 @@ PBoolean T38Engine::SendStop(PBoolean moreFrames, int _callbackParam)
 PBoolean T38Engine::RecvWait(int _dataType, int param, int _callbackParam, PBoolean &done)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if (!IsT38Mode())
+
+  if (!IsModemOpen())
     return FALSE;
 
   if( stateModem != stmIdle ) {
@@ -800,7 +832,8 @@ PBoolean T38Engine::RecvWait(int _dataType, int param, int _callbackParam, PBool
 PBoolean T38Engine::RecvStart(int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if (!IsT38Mode())
+
+  if (!IsModemOpen())
     return FALSE;
 
   if (stateModem != stmInReadyData ) {
@@ -831,7 +864,8 @@ PBoolean T38Engine::RecvStart(int _callbackParam)
 int T38Engine::Recv(void *pBuf, PINDEX count)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if (!IsT38Mode())
+
+  if (!IsModemOpen())
     return -1;
 
   if( stateModem != stmInRecvData ) {
@@ -875,7 +909,8 @@ int T38Engine::RecvDiag()
 void T38Engine::RecvStop()
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  if(!IsT38Mode())
+
+  if(!IsModemOpen())
     return;
 
   if(!isStateModemIn()) {
@@ -898,67 +933,61 @@ void T38Engine::RecvStop()
 ///////////////////////////////////////////////////////////////
 int T38Engine::PreparePacket(T38_IFP & ifp)
 {
-  PWaitAndSignal mutexWaitOut(MutexOut);
-
-  if(!IsT38Mode())
+  if(!IsOpen())
     return 0;
 
   //myPTRACE(1, PTNAME "T38Engine::PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
 
   ifp = T38_IFP();
   PBoolean doDalay = TRUE;
-  PBoolean wasCarrierIn = FALSE;
+  PTime preparePacketTimeoutEnd = (preparePacketTimeout > 0 ? (PTime() + preparePacketTimeout) : PTime(0));
+
+  if (preparePacketPeriod > 0) {
+    preparePacketDelay.Delay(preparePacketPeriod);
+
+    if(!IsOpen())
+      return 0;
+  }
 
   for(;;) {
     PBoolean redo = FALSE;
 
     if (doDalay) {
-      int outDelay;
+      //PTRACE(1, PTNAME "+++++ stM=" << stateModem << " stO=" << stateOut << " "
+      //       << timeDelayEndOut.AsString("hh:mm:ss.uuu\t", PTime::Local));
 
-      if (delayRestOut > 0)
-        outDelay = delayRestOut;
-      else switch( stateOut ) {
-        case stOutIdle:			outDelay = msPerOut; break;
+      for (;;) {
+        PTimeInterval delay = timeDelayEndOut - PTime();
 
-        case stOutCedWait:		outDelay = ModParsOut.lenInd; break;
-        case stOutSilenceWait:		outDelay = ModParsOut.lenInd; break;
-        case stOutIndWait:		outDelay = ModParsOut.lenInd; break;
-
-        case stOutData:
-        case stOutHdlcFcs:
-          outDelay = int((PInt64(hdlcOut.getRawCount()) * 8 * 1000)/ModParsOut.br +
-                     msPerOut - (PTime() - timeBeginOut).GetMilliSeconds());
+        if (delay.GetMilliSeconds() <= 0)
           break;
 
-        case stOutDataNoSig:		outDelay = msPerOut; break;
+        if (preparePacketTimeout >= 0) {
+          if (preparePacketTimeout == 0)
+            return -1;
 
-        case stOutNoSig:		outDelay = msPerOut; break;
-        default:			outDelay = 0;
-      }
+          PTimeInterval timeout = preparePacketTimeoutEnd - PTime();
 
-      //myPTRACE(1, PTNAME "T38Engine::PreparePacket outDelay=" << outDelay);
+          if (timeout.GetMilliSeconds() <= 0)
+            return -1;
 
-      if (outDelay > 0) {
-        if (preparePacketTimeout > 0 && outDelay > preparePacketTimeout) {
-          delayRestOut = outDelay - preparePacketTimeout;
-          mySleep(preparePacketTimeout);
-          return -1;
-        } else {
-          while(outDelay > msMaxOutDelay) {
-            mySleep(msMaxOutDelay);
-            if (!IsT38Mode())
-              return 0;
-            outDelay -= msMaxOutDelay;
-          }
-          mySleep(outDelay);
+          if (delay.GetMilliSeconds() > timeout.GetMilliSeconds())
+            delay = timeout;
         }
+
+        if (delay.GetMilliSeconds() > msMaxOutDelay)
+          delay = msMaxOutDelay;
+
+        mySleep(delay.GetMilliSeconds());
+
+        if (!IsOpen())
+          return 0;
       }
-    } else
+    } else {
       doDalay = TRUE;
+    }
 
-    delayRestOut = 0;
-
-    if (!IsT38Mode())
+    if (!IsOpen())
       return 0;
 
     for(;;) {
@@ -984,8 +1013,8 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                 }
 
                 if (waitms) {
-                  if (!wasCarrierIn) {
-                    wasCarrierIn = TRUE;
+                  if (isCarrierIn < 1) {
+                    isCarrierIn++;
                     timeBeginOut = PTime() + PTimeInterval(1000);
                     redo = TRUE;
                     break;
@@ -994,11 +1023,10 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                     break;
                   } else {
                     myPTRACE(1, PTNAME "T38Engine::PreparePacket isCarrierIn expired");
+                    isCarrierIn--;
                   }
                 }
               }
-
-              wasCarrierIn = FALSE;
 
               switch (ModParsOut.dataTypeT38) {
                 case dtHdlc:
@@ -1239,10 +1267,17 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
           onIdleOut = dtNone;
         }
       }
+
       if (!waitData)
         break;
-      if (preparePacketTimeout > 0) {
-        if (!WaitOutDataReady(preparePacketTimeout))
+
+      if (preparePacketTimeout >= 0) {
+        if (preparePacketTimeout == 0)
+          return -1;
+
+        PTimeInterval timeout = preparePacketTimeoutEnd - PTime();
+
+        if (timeout.GetMilliSeconds() <= 0 || !WaitOutDataReady(timeout.GetMilliSeconds()))
           return -1;
       } else {
         if (startedTimeOutBufEmpty) {
@@ -1255,7 +1290,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
         }
       }
 
-      if (!IsT38Mode())
+      if (!IsOpen())
         return 0;
 
       {
@@ -1275,20 +1310,35 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
         }
       }
     }
-    if( !redo ) break;
+
+    switch (stateOut) {
+      case stOutIdle:          timeDelayEndOut = PTime() + msPerOut; break;
+      case stOutCedWait:       timeDelayEndOut = PTime() + ModParsOut.lenInd; break;
+      case stOutSilenceWait:   timeDelayEndOut = PTime() + ModParsOut.lenInd; break;
+      case stOutIndWait:       timeDelayEndOut = PTime() + ModParsOut.lenInd; break;
+      case stOutData:
+      case stOutHdlcFcs:
+        timeDelayEndOut = timeBeginOut + (PInt64(hdlcOut.getRawCount()) * 8 * 1000)/ModParsOut.br + msPerOut;
+        break;
+      case stOutDataNoSig:     timeDelayEndOut = PTime() + msPerOut; break;
+      case stOutNoSig:         timeDelayEndOut = PTime() + msPerOut; break;
+      default:                 timeDelayEndOut = PTime();
+    }
+
+    if (!redo)
+      break;
   }
+
   return 1;
 }
 ///////////////////////////////////////////////////////////////
 PBoolean T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
 {
-  PWaitAndSignal mutexWaitIn(MutexIn);
-
-  if (!IsT38Mode())
-    return FALSE;
-
   myPTRACE(1, PTNAME "T38Engine::HandlePacketLost " << nLost);
   PWaitAndSignal mutexWait(Mutex);
+
+  if (!IsOpen())
+    return FALSE;
 
   ModStream *modStream = modStreamIn;
 
@@ -1315,11 +1365,10 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
   }
 #endif
 
-  PWaitAndSignal mutexWaitIn(MutexIn);
-  if (!IsT38Mode())
-    return FALSE;
-
   PWaitAndSignal mutexWait(Mutex);
+
+  if (!IsOpen())
+    return FALSE;
 
   switch( ifp.m_type_of_msg.GetTag() ) {
     case T38_Type_of_msg::e_t30_indicator:
