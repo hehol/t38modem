@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: modemstrm.h,v $
- * Revision 1.2  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.3  2009-10-27 19:03:50  vfrolov
+ * Added ability to re-open T38Engine
+ * Added ability to prepare IFP packets with adaptive delay/period
+ *
+ * Revision 1.3  2009/10/27 19:03:50  vfrolov
+ * Added ability to re-open T38Engine
+ * Added ability to prepare IFP packets with adaptive delay/period
  *
  * Revision 1.2  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -81,6 +86,7 @@ class T38ModemMediaStream : public OpalMediaStream
   //@{
     virtual PBoolean Open();
     virtual PBoolean Close();
+    virtual void OnStartMediaPatch();
 
     virtual PBoolean ReadPacket(
       RTP_DataFrame & packet
@@ -90,7 +96,7 @@ class T38ModemMediaStream : public OpalMediaStream
       RTP_DataFrame & packet
     );
 
-    virtual PBoolean IsSynchronous() const;
+    virtual PBoolean IsSynchronous() const { return FALSE; }
   //@}
 
   protected:

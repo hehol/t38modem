@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: modemstrm.cxx,v $
- * Revision 1.4  2009-07-31 17:34:40  vfrolov
- * Removed --h323-old-asn and --sip-old-asn options
+ * Revision 1.5  2009-10-27 19:03:50  vfrolov
+ * Added ability to re-open T38Engine
+ * Added ability to prepare IFP packets with adaptive delay/period
+ *
+ * Revision 1.5  2009/10/27 19:03:50  vfrolov
+ * Added ability to re-open T38Engine
+ * Added ability to prepare IFP packets with adaptive delay/period
  *
  * Revision 1.4  2009/07/31 17:34:40  vfrolov
  * Removed --h323-old-asn and --sip-old-asn options
@@ -46,6 +51,7 @@
 #include <opal/buildopts.h>
 
 #include <asn/t38.h>
+#include <opal/patch.h>
 
 #include "../t38engine.h"
 #include "modemstrm.h"
@@ -88,6 +94,8 @@ PBoolean T38ModemMediaStream::Open()
   totallost = 0;
 #endif
 
+  t38engine->Open();
+
   return OpalMediaStream::Open();
 }
 
@@ -111,46 +119,78 @@ PBoolean T38ModemMediaStream::Close()
   return OpalMediaStream::Close();
 }
 
+void T38ModemMediaStream::OnStartMediaPatch()
+{
+  if (isSource) {
+    if (mediaPatch != NULL) {
+      OpalMediaStreamPtr sink = mediaPatch->GetSink();
+
+      if (sink != NULL) {
+        OpalMediaFormat format = sink->GetMediaFormat();
+
+        if (format.IsValid()) {
+          if (format.GetMediaType() != OpalMediaType::Fax()) {
+            myPTRACE(3, "T38ModemMediaStream::OnStartMediaPatch: use timeout=0, period=20 for sink " << *sink);
+
+            t38engine->SetPreparePacketTimeout(0, 20);
+          }
+        } else {
+          myPTRACE(1, "T38ModemMediaStream::OnStartMediaPatch: format is invalid !!!");
+        }
+      } else {
+        myPTRACE(1, "T38ModemMediaStream::OnStartMediaPatch: sink is NULL !!!");
+      }
+    } else {
+      myPTRACE(1, "T38ModemMediaStream::OnStartMediaPatch: mediaPatch is NULL !!!");
+    }
+  }
+}
+
 PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
 {
   T38_IFP ifp;
   int res;
 
+  packet.SetTimestamp(timestamp);
+  timestamp += 160;
+
   do {
+    //PTRACE(4, "T38ModemMediaStream::ReadPacket ...");
     res = t38engine->PreparePacket(ifp);
   } while (currentSequenceNumber == 0 && res < 0);
+
+  packet[0] = 0x80;
+  packet.SetPayloadType(mediaFormat.GetPayloadType());
 
   if (res > 0) {
     PTRACE(3, "T38ModemMediaStream::ReadPacket ifp = " << setprecision(2) << ifp);
 
-    packet.SetSequenceNumber(WORD(currentSequenceNumber++ & 0xFFFF));
-
     PASN_OctetString ifp_packet;
-
     ifp_packet.EncodeSubType(ifp);
 
     packet.SetPayloadSize(ifp_packet.GetDataLength());
-    packet[0] = 0x80;
-    packet.SetPayloadType(mediaFormat.GetPayloadType());
     memcpy(packet.GetPayloadPtr(), ifp_packet.GetPointer(), ifp_packet.GetDataLength());
+    packet.SetSequenceNumber(WORD(currentSequenceNumber++ & 0xFFFF));
   }
   else
   if (res < 0) {
     // send a "repeated" packet with a "fake" payload of one byte of 0xFF
 
-    packet.SetPayloadSize(1);
-    packet[0] = 0x80;
-    packet.SetPayloadType(mediaFormat.GetPayloadType());
+    //packet.SetPayloadSize(1);
+    //packet.GetPayloadPtr()[0] = 0xFF;
+
+    packet.SetPayloadSize(0);
     packet.SetSequenceNumber(WORD((currentSequenceNumber - 1) & 0xFFFF));
-    packet.GetPayloadPtr()[0] = 0xFF;
   }
-  else
+  else {
     return FALSE;
+  }
 
   PTRACE(4, "T38ModemMediaStream::ReadPacket"
             " packet " << packet.GetSequenceNumber() <<
             " size=" << packet.GetPayloadSize() <<
-            " " << packet.GetPayloadType());
+            " type=" << packet.GetPayloadType() <<
+            " ts=" << packet.GetTimestamp());
 
   return TRUE;
 }
@@ -209,13 +249,6 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
   currentSequenceNumber = packedSequenceNumber + 1;
 
   return t38engine->HandlePacket(ifp);
-}
-
-PBoolean T38ModemMediaStream::IsSynchronous() const
-{
-  PTRACE(3, "T38ModemMediaStream::IsSynchronous " << *this);
-
-  return FALSE;
 }
 /////////////////////////////////////////////////////////////////////////////
 
