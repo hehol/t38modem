@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.71  2009-10-01 13:31:12  vfrolov
- * Ported to OPAL SVN trunk
+ * Revision 1.72  2009-10-27 18:25:22  vfrolov
+ * Added reseting send state on detaching engines
+ *
+ * Revision 1.72  2009/10/27 18:25:22  vfrolov
+ * Added reseting send state on detaching engines
  *
  * Revision 1.71  2009/10/01 13:31:12  vfrolov
  * Ported to OPAL SVN trunk
@@ -1045,6 +1048,19 @@ void ModemEngineBody::_Detach(T38Engine *_t38engine)
     Mutex.Wait();
   }
 
+  if (P.FaxClass()) {
+    switch (state) {
+      case stSend:
+        param = state;
+        state = stResetHandle;
+        break;
+      default:
+        break;
+    }
+
+    parent.SignalDataReady();
+  }
+
   myPTRACE(1, "ModemEngineBody::_Detach t38engine Detached");
 }
 
@@ -1119,6 +1135,19 @@ void ModemEngineBody::_Detach(AudioEngine *_audioEngine)
     Mutex.Signal();
     PThread::Sleep(20);
     Mutex.Wait();
+  }
+
+  if (P.AudioClass()) {
+    switch (state) {
+      case stSend:
+        param = state;
+        state = stResetHandle;
+        break;
+      default:
+        break;
+    }
+
+    parent.SignalDataReady();
   }
 
   myPTRACE(1, "ModemEngineBody::_Detach audioEngine Detached");
