@@ -24,7 +24,10 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.10  2009-10-06 17:13:10  vfrolov
+ * Revision 1.11  2009-10-28 17:30:41  vfrolov
+ * Fixed uncompatibility with OPAL trunk
+ *
+ * Revision 1.11  2009/10/28 17:30:41  vfrolov
  * Fixed uncompatibility with OPAL trunk
  *
  * Revision 1.10  2009/10/06 17:13:10  vfrolov
@@ -63,6 +66,14 @@
 
 #include <opal/buildopts.h>
 
+/////////////////////////////////////////////////////////////////////////////
+#define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
+
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 7, 1))
+  #error *** Uncompatible OPAL version (required >= 3.7.1) ***
+#endif
+/////////////////////////////////////////////////////////////////////////////
+
 #include "manager.h"
 #include "h323ep.h"
 
@@ -97,7 +108,8 @@ class MyH323Connection : public H323Connection
     virtual PBoolean SetUpConnection();
 
     virtual void AdjustMediaFormats(
-      OpalMediaFormatList & mediaFormats  ///<  Media formats to use
+      OpalMediaFormatList & mediaFormats,      ///<  Media formats to use
+      OpalConnection * otherConnection         ///<  Other connection we are adjusting media for
     ) const;
 
     void AddMediaFormatList(const OpalMediaFormatList & list) { mediaFormatList += list; }
@@ -357,11 +369,13 @@ PBoolean MyH323Connection::SetUpConnection()
   return H323Connection::SetUpConnection();
 }
 
-void MyH323Connection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) const
+void MyH323Connection::AdjustMediaFormats(
+    OpalMediaFormatList & mediaFormats,
+    OpalConnection * otherConnection) const
 {
   //PTRACE(3, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
-  H323Connection::AdjustMediaFormats(mediaFormats);
+  H323Connection::AdjustMediaFormats(mediaFormats, otherConnection);
 
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     PBoolean found = FALSE;

@@ -24,7 +24,10 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.11  2009-10-06 17:13:10  vfrolov
+ * Revision 1.12  2009-10-28 17:30:41  vfrolov
+ * Fixed uncompatibility with OPAL trunk
+ *
+ * Revision 1.12  2009/10/28 17:30:41  vfrolov
  * Fixed uncompatibility with OPAL trunk
  *
  * Revision 1.11  2009/10/06 17:13:10  vfrolov
@@ -66,6 +69,14 @@
 
 #include <opal/buildopts.h>
 
+/////////////////////////////////////////////////////////////////////////////
+#define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
+
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 7, 1))
+  #error *** Uncompatible OPAL version (required >= 3.7.1) ***
+#endif
+/////////////////////////////////////////////////////////////////////////////
+
 #include <sip/sipcon.h>
 
 #include "manager.h"
@@ -97,7 +108,8 @@ class MySIPConnection : public SIPConnection
     virtual PBoolean SetUpConnection();
 
     virtual void AdjustMediaFormats(
-      OpalMediaFormatList & mediaFormats        ///<  Media formats to use
+      OpalMediaFormatList & mediaFormats,       ///<  Media formats to use
+      OpalConnection * otherConnection          ///<  Other connection we are adjusting media for
     ) const;
 
     void AddMediaFormatList(const OpalMediaFormatList & list) { mediaFormatList += list; }
@@ -412,11 +424,13 @@ PBoolean MySIPConnection::SetUpConnection()
   return SIPConnection::SetUpConnection();
 }
 
-void MySIPConnection::AdjustMediaFormats(OpalMediaFormatList & mediaFormats) const
+void MySIPConnection::AdjustMediaFormats(
+    OpalMediaFormatList & mediaFormats,
+    OpalConnection * otherConnection) const
 {
   //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
-  SIPConnection::AdjustMediaFormats(mediaFormats);
+  SIPConnection::AdjustMediaFormats(mediaFormats, otherConnection);
 
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     PBoolean found = FALSE;
