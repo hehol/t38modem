@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.h,v $
- * Revision 1.4  2009-07-22 14:42:49  vfrolov
- * Added Descriptions(args) to endpoints
+ * Revision 1.5  2009-11-02 18:02:19  vfrolov
+ * Removed pre v3.7 compatibility code
+ *
+ * Revision 1.5  2009/11/02 18:02:19  vfrolov
+ * Removed pre v3.7 compatibility code
  *
  * Revision 1.4  2009/07/22 14:42:49  vfrolov
  * Added Descriptions(args) to endpoints
@@ -44,12 +47,16 @@
 #ifndef _MODEM_EP_H
 #define _MODEM_EP_H
 
-#include <opal/endpoint.h>
+/////////////////////////////////////////////////////////////////////////////
+#define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if OPAL_MAJOR < 3 || (OPAL_MAJOR == 3 && OPAL_MINOR < 7)
-#define IS_OPAL_PRE_3_7 1
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 7, 1))
+  #error *** Uncompatible OPAL version (required >= 3.7.1) ***
 #endif
 
+#undef PACK_VERSION
+/////////////////////////////////////////////////////////////////////////////
+#include <opal/endpoint.h>
 /////////////////////////////////////////////////////////////////////////////
 class PseudoModem;
 class PseudoModemQ;
@@ -84,12 +91,7 @@ class ModemEndPoint : public OpalEndPoint
 
   /**@name Overrides from OpalEndPoint */
   //@{
-#ifdef IS_OPAL_PRE_3_7
-    virtual PBoolean
-#else
-    virtual PSafePtr<OpalConnection>
-#endif
-    MakeConnection(
+    virtual PSafePtr<OpalConnection> MakeConnection(
       OpalCall & call,              ///< Owner of connection
       const PString & party,        ///< Remote party to call
       void * userData = NULL,       ///< Arbitrary data to pass to connection
@@ -101,17 +103,6 @@ class ModemEndPoint : public OpalEndPoint
   //@}
 
   protected:
-#ifdef IS_OPAL_PRE_3_7
-    PBoolean AddConnection(OpalConnection * connection) {
-      if (connection == NULL)
-        return FALSE;
-
-      connectionsActive.SetAt(connection->GetToken(), connection);
-
-      return TRUE;
-    }
-#endif
-
     PStringArray routes;
     PseudoModemQ *pmodem_pool;
 

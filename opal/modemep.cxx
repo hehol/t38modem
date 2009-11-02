@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.10  2009-10-16 19:22:42  vfrolov
- * Fixed race condition
+ * Revision 1.11  2009-11-02 18:02:19  vfrolov
+ * Removed pre v3.7 compatibility code
+ *
+ * Revision 1.11  2009/11/02 18:02:19  vfrolov
+ * Removed pre v3.7 compatibility code
  *
  * Revision 1.10  2009/10/16 19:22:42  vfrolov
  * Fixed race condition
@@ -316,15 +319,10 @@ void ModemEndPoint::SetReadTimeout(
 {
   PAssert(PIsDescendant(&connection, ModemConnection), PInvalidCast);
 
-  return ((ModemConnection &)connection).SetReadTimeout(timeout);
+  ((ModemConnection &)connection).SetReadTimeout(timeout);
 }
 
-#ifdef IS_OPAL_PRE_3_7
-PBoolean
-#else
-PSafePtr<OpalConnection>
-#endif
-ModemEndPoint::MakeConnection(
+PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
     OpalCall & call,
     const PString & remoteParty,
     void *userData,
