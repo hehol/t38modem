@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.72  2009-10-27 18:25:22  vfrolov
- * Added reseting send state on detaching engines
+ * Revision 1.73  2009-11-02 18:06:33  vfrolov
+ * Added fax-no-forse requestmode
+ *
+ * Revision 1.73  2009/11/02 18:06:33  vfrolov
+ * Added fax-no-forse requestmode
  *
  * Revision 1.72  2009/10/27 18:25:22  vfrolov
  * Added reseting send state on detaching engines
@@ -993,6 +996,11 @@ PBoolean ModemEngineBody::Attach(T38Engine *_t38engine)
 
   for (;;) {
     if (t38engine != NULL) {
+      if (t38engine == _t38engine) {
+        myPTRACE(1, "ModemEngineBody::Attach t38engine already Attached");
+        return TRUE;
+      }
+
       myPTRACE(1, "ModemEngineBody::Attach Other t38engine already Attached");
       return FALSE;
     }
@@ -1077,6 +1085,11 @@ PBoolean ModemEngineBody::Attach(AudioEngine *_audioEngine)
 
   for (;;) {
     if (audioEngine != NULL) {
+      if (audioEngine == _audioEngine) {
+        myPTRACE(1, "ModemEngineBody::Attach audioEngine already Attached");
+        return TRUE;
+      }
+
       myPTRACE(1, "ModemEngineBody::Attach Other audioEngine already Attached");
       return FALSE;
     }
@@ -3519,16 +3532,14 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             } else {
               state = stReqModeAckWait;
 
-              if (!forceFaxMode) {
-                timeout.Start(60000);
-                break;
-              }
-              timeout.Start(10000);
+              timeout.Start(forceFaxMode ? 10000 : 60000);
+
               PStringToString request;
+
               request.SetAt("modemtoken", parent.modemToken());
               request.SetAt("command", "requestmode");
               request.SetAt("calltoken", CallToken());
-              request.SetAt("mode", "fax");
+              request.SetAt("mode", forceFaxMode ? "fax" : "fax-no-forse");
 
               Mutex.Signal();
               callbackEndPoint(request, 4);
@@ -3536,8 +3547,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
               PString response = request("response");
 
-              if (response == "confirm") {
-              } else {
+              if (forceFaxMode && response != "confirm") {
                 state = stCommand;
                 timeout.Stop();
                 resp = RC_NO_CARRIER();
