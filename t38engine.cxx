@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.55  2009-10-27 18:53:49  vfrolov
- * Added ability to re-open T38Engine
- * Added ability to prepare IFP packets with adaptive delay/period
+ * Revision 1.56  2009-11-06 10:19:29  vfrolov
+ * Fixed indication handling after re-opening T38Engine
+ *
+ * Revision 1.56  2009/11/06 10:19:29  vfrolov
+ * Fixed indication handling after re-opening T38Engine
  *
  * Revision 1.55  2009/10/27 18:53:49  vfrolov
  * Added ability to re-open T38Engine
@@ -516,8 +518,9 @@ T38Engine::T38Engine(const PString &_name)
   , isCarrierIn(0)
 #if PTRACING
   , timeBeginIn()
-  , countIn(0)
 #endif
+  , countIn(0)
+  , firstIn(TRUE)
   , t30()
   , modStreamIn(NULL)
   , modStreamInSaved(NULL)
@@ -555,6 +558,7 @@ void T38Engine::Open()
 
   isOpen = TRUE;
   preparePacketDelay.Restart();
+  firstIn = TRUE;
 }
 
 void T38Engine::Close()
@@ -1370,27 +1374,38 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
   if (!IsOpen())
     return FALSE;
 
-  switch( ifp.m_type_of_msg.GetTag() ) {
-    case T38_Type_of_msg::e_t30_indicator:
+  switch (ifp.m_type_of_msg.GetTag()) {
+    case T38_Type_of_msg::e_t30_indicator: {
+      T38_Type_of_msg_t30_indicator type_of_msg = ifp.m_type_of_msg;
+
       if ((modStreamIn != NULL) && (modStreamIn->lastBuf != NULL &&
-            modStreamIn->ModPars.ind == (T38_Type_of_msg_t30_indicator)ifp.m_type_of_msg) ||
+            modStreamIn->ModPars.ind == type_of_msg) ||
           (modStreamInSaved != NULL) && (modStreamInSaved->lastBuf != NULL &&
-            modStreamInSaved->ModPars.ind == (T38_Type_of_msg_t30_indicator)ifp.m_type_of_msg))
+            modStreamInSaved->ModPars.ind == type_of_msg))
       {
-        myPTRACE(3, PTNAME "T38Engine::HandlePacket ignored repeated indicator " << ifp.m_type_of_msg);
+        myPTRACE(3, PTNAME "T38Engine::HandlePacket ignored repeated indicator " << type_of_msg);
         break;
       }
 
-      if( modStreamIn != NULL && modStreamIn->PutEof(diagOutOfOrder) )
+      if (modStreamIn != NULL && modStreamIn->lastBuf != NULL) {
         myPTRACE(1, PTNAME "T38Engine::HandlePacket indicator && modStreamIn->lastBuf != NULL");
 
-      if( modStreamInSaved != NULL ) {
+        if (firstIn && countIn == 0 && type_of_msg == T38I(e_no_signal)) {
+          myPTRACE(1, PTNAME "T38Engine::HandlePacket ignored first indicator " << type_of_msg);
+          break;
+        } else {
+          modStreamIn->PutEof(diagOutOfOrder);
+          myPTRACE(1, PTNAME "T38Engine::HandlePacket out of order");
+        }
+      }
+
+      if (modStreamInSaved != NULL) {
         myPTRACE(1, PTNAME "T38Engine::HandlePacket indicator && modStreamInSaved != NULL, clean");
         delete modStreamInSaved;
         modStreamInSaved = NULL;
       }
 
-      switch( (T38_Type_of_msg_t30_indicator)ifp.m_type_of_msg ) {
+      switch (type_of_msg) {
         case T38I(e_no_signal):
         case T38I(e_cng):
         case T38I(e_ced):
@@ -1410,11 +1425,9 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
         case T38I(e_v17_14400_short_training):
         case T38I(e_v17_14400_long_training):
           isCarrierIn = 1;
-          modStreamInSaved = new ModStream(GetModPars((T38_Type_of_msg_t30_indicator)ifp.m_type_of_msg, by_ind));
+          modStreamInSaved = new ModStream(GetModPars(type_of_msg, by_ind));
           modStreamInSaved->PushBuf();
-#if PTRACING
           countIn = 0;
-#endif
 
           if( stateModem == stmInWaitData ) {
             if( modStreamIn != NULL ) {
@@ -1442,8 +1455,8 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
           myPTRACE(1, PTNAME "T38Engine::HandlePacket type_of_msg is bad !!! " << setprecision(2) << ifp);
       }
       break;
-    case T38_Type_of_msg::e_data:
-      {
+    }
+    case T38_Type_of_msg::e_data: {
         unsigned type_of_msg = (T38_Type_of_msg_data)ifp.m_type_of_msg;
         ModStream *modStream = modStreamIn;
 
@@ -1497,8 +1510,8 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
 #if PTRACING
                       if (!countIn)
                         timeBeginIn = PTime();
-                      countIn += size;
 #endif
+                      countIn += size;
                     }
                     break;
                   default:
@@ -1541,10 +1554,13 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
         if( stateModem == stmInRecvData )
           ModemCallbackWithUnlock(callbackParamIn);
         break;
-      }
+    }
     default:
       myPTRACE(1, PTNAME "T38Engine::HandlePacket Tag is bad !!! " << setprecision(2) << ifp);
   }
+
+  firstIn = FALSE;
+
   return TRUE;
 }
 ///////////////////////////////////////////////////////////////

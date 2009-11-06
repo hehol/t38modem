@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.30  2009-10-27 18:53:49  vfrolov
- * Added ability to re-open T38Engine
- * Added ability to prepare IFP packets with adaptive delay/period
+ * Revision 1.31  2009-11-06 10:19:29  vfrolov
+ * Fixed indication handling after re-opening T38Engine
+ *
+ * Revision 1.31  2009/11/06 10:19:29  vfrolov
+ * Fixed indication handling after re-opening T38Engine
  *
  * Revision 1.30  2009/10/27 18:53:49  vfrolov
  * Added ability to re-open T38Engine
@@ -282,8 +284,9 @@ class T38Engine : public EngineBase
     volatile int isCarrierIn;
 #if PTRACING
     PTime timeBeginIn;
-    PINDEX countIn;
 #endif
+    PINDEX countIn;
+    PBoolean firstIn;
 
     T30 t30;
 
