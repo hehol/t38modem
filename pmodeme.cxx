@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.73  2009-11-02 18:06:33  vfrolov
- * Added fax-no-forse requestmode
+ * Revision 1.74  2009-11-06 10:02:29  vfrolov
+ * Fixed typo in fax-no-force
+ *
+ * Revision 1.74  2009/11/06 10:02:29  vfrolov
+ * Fixed typo in fax-no-force
  *
  * Revision 1.73  2009/11/02 18:06:33  vfrolov
  * Added fax-no-forse requestmode
@@ -3539,7 +3542,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               request.SetAt("modemtoken", parent.modemToken());
               request.SetAt("command", "requestmode");
               request.SetAt("calltoken", CallToken());
-              request.SetAt("mode", forceFaxMode ? "fax" : "fax-no-forse");
+              request.SetAt("mode", forceFaxMode ? "fax" : "fax-no-force");
 
               Mutex.Signal();
               callbackEndPoint(request, 4);
