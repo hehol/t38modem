@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2003-2008 Vyacheslav Frolov
+ * Copyright (c) 2003-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: hdlc.cxx,v $
- * Revision 1.6  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.7  2009-11-09 19:12:57  vfrolov
+ * Changed T38Engine to EngineBase
+ *
+ * Revision 1.7  2009/11/09 19:12:57  vfrolov
+ * Changed T38Engine to EngineBase
  *
  * Revision 1.6  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -44,12 +47,12 @@
  *
  * Revision 1.1  2003/12/04 13:38:33  vfrolov
  * Initial revision
- * 
+ *
  */
 
 #include <ptlib.h>
 #include "hdlc.h"
-#include "t38engine.h"
+#include "enginebase.h"
 
 ///////////////////////////////////////////////////////////////
 
@@ -191,9 +194,9 @@ int HDLC::GetRawData(void *_pBuf, PINDEX count)
   BYTE *pBuf = (BYTE *)_pBuf;
 
   switch (inDataType) {
-  case T38Engine::dtHdlc:
+  case EngineBase::dtHdlc:
     break;
-  case T38Engine::dtRaw:
+  case EngineBase::dtRaw:
     return GetInData(pBuf, count);
   default:
     return 0;
@@ -220,7 +223,7 @@ int HDLC::GetRawData(void *_pBuf, PINDEX count)
       if (inLen < 0) {
         Buf[0] = BYTE(fcs >> 8);
         Buf[1] = BYTE(fcs & 0xFF);
-        if (inData->GetDiag() & T38Engine::diagBadFcs)
+        if (inData->GetDiag() & EngineBase::diagBadFcs)
           Buf[0]++;
         pack(Buf, 2);
         pack("\x7e\x7e", 2, TRUE);
@@ -264,12 +267,12 @@ int HDLC::GetHdlcData(void *_pBuf, PINDEX count)
   BYTE *pBuf = (BYTE *)_pBuf;
 
   switch (inDataType) {
-  case T38Engine::dtHdlc:
+  case EngineBase::dtHdlc:
     len = GetInData(pBuf, count);
     if (len > 0)
       fcs.build(pBuf, len);
     return len;
-  case T38Engine::dtRaw:
+  case EngineBase::dtRaw:
     break;
   default:
     return 0;
@@ -349,7 +352,7 @@ int HDLC::GetHdlcData(void *_pBuf, PINDEX count)
 }
 ///////////////////////////////////////////////////////////////
 HDLC::HDLC() :
-    inDataType(T38Engine::dtNone), outDataType(T38Engine::dtNone),
+    inDataType(EngineBase::dtNone), outDataType(EngineBase::dtNone),
     inData(NULL), lastChar(-1), rawCount(0),
     rawByteLen(0), rawOnes(0), hdlcState(stEof)
 {
@@ -372,24 +375,24 @@ PBoolean HDLC::isFcsOK()
 
 void HDLC::PutRawData(DataStream *_inData)
 {
-  inDataType = T38Engine::dtRaw;
+  inDataType = EngineBase::dtRaw;
   inData = _inData;
   lastChar = -1;
 }
 
 void HDLC::PutHdlcData(DataStream *_inData)
 {
-  inDataType = T38Engine::dtHdlc;
+  inDataType = EngineBase::dtHdlc;
   inData = _inData;
   lastChar = -1;
 }
 
 void HDLC::GetRawStart(PINDEX flags)
 {
-  outDataType = T38Engine::dtRaw;
+  outDataType = EngineBase::dtRaw;
   outData.Clean();
   fcs = FCS();
-  if (inDataType == T38Engine::dtHdlc) {
+  if (inDataType == EngineBase::dtHdlc) {
     while (flags--)
       pack("\x7e", 1, TRUE);
   }
@@ -397,10 +400,10 @@ void HDLC::GetRawStart(PINDEX flags)
 
 void HDLC::GetHdlcStart(PBoolean sync)
 {
-  outDataType = T38Engine::dtHdlc;
+  outDataType = EngineBase::dtHdlc;
   outData.Clean();
   fcs = FCS();
-  if (inDataType == T38Engine::dtRaw) {
+  if (inDataType == EngineBase::dtRaw) {
     hdlcChunkLen = 0;
     rawOnes = 0;
     hdlcState = sync ? stSync : stSkipFlags;
@@ -414,9 +417,9 @@ void HDLC::GetHdlcStart(PBoolean sync)
 int HDLC::GetData(void *pBuf, PINDEX count)
 {
   switch (outDataType) {
-  case T38Engine::dtHdlc:
+  case EngineBase::dtHdlc:
     return GetHdlcData(pBuf, count);
-  case T38Engine::dtRaw:
+  case EngineBase::dtRaw:
     return GetRawData(pBuf, count);
   default:
     myPTRACE(1, "HDLC::GetData bad outDataType=" << outDataType);
