@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.31  2009-11-06 10:19:29  vfrolov
- * Fixed indication handling after re-opening T38Engine
+ * Revision 1.32  2009-11-10 08:13:38  vfrolov
+ * Fixed race condition on re-opening T38Engine
+ *
+ * Revision 1.32  2009/11/10 08:13:38  vfrolov
+ * Fixed race condition on re-opening T38Engine
  *
  * Revision 1.31  2009/11/06 10:19:29  vfrolov
  * Fixed indication handling after re-opening T38Engine
@@ -205,8 +208,12 @@ class T38Engine : public EngineBase
     void RecvStop();
   //@}
 
-    void Open();
-    void Close();
+    void OpenIn();
+    void OpenOut();
+    void CloseIn();
+    void CloseOut();
+
+    void Close() { CloseIn(); CloseOut(); }
 
     /**Prepare outgoing T.38 packet.
 
@@ -255,7 +262,8 @@ class T38Engine : public EngineBase
     }
 
     PBoolean IsModemOpen() const { return !modemCallback.IsNULL(); }
-    PBoolean IsOpen() const { return isOpen && IsModemOpen(); }
+    PBoolean IsOpenIn() const { return isOpenIn && IsModemOpen(); }
+    PBoolean IsOpenOut() const { return isOpenOut && IsModemOpen(); }
 
     void ModemCallbackWithUnlock(INT extra);
     void _ResetModemState();
@@ -294,7 +302,8 @@ class T38Engine : public EngineBase
     ModStream *modStreamInSaved;
 
     volatile int stateModem;
-    volatile PBoolean isOpen;
+    volatile PBoolean isOpenIn;
+    volatile PBoolean isOpenOut;
 
     PSyncPoint outDataReadySyncPoint;
     PMutex Mutex;

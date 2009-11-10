@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.cxx,v $
- * Revision 1.5  2009-10-27 19:03:50  vfrolov
- * Added ability to re-open T38Engine
- * Added ability to prepare IFP packets with adaptive delay/period
+ * Revision 1.6  2009-11-10 08:13:38  vfrolov
+ * Fixed race condition on re-opening T38Engine
+ *
+ * Revision 1.6  2009/11/10 08:13:38  vfrolov
+ * Fixed race condition on re-opening T38Engine
  *
  * Revision 1.5  2009/10/27 19:03:50  vfrolov
  * Added ability to re-open T38Engine
@@ -94,7 +96,10 @@ PBoolean T38ModemMediaStream::Open()
   totallost = 0;
 #endif
 
-  t38engine->Open();
+  if (IsSink())
+    t38engine->OpenIn();
+  else
+    t38engine->OpenOut();
 
   return OpalMediaStream::Open();
 }
@@ -108,12 +113,14 @@ PBoolean T38ModemMediaStream::Close()
       PTRACE(2, "T38ModemMediaStream::Close Send statistics:"
                 " sequence=" << currentSequenceNumber <<
                 " lost=" << totallost);
+
+      t38engine->CloseIn();
     } else {
       PTRACE(2, "T38ModemMediaStream::Close Receive statistics:"
                 " sequence=" << currentSequenceNumber);
-    }
 
-    t38engine->Close();
+      t38engine->CloseOut();
+    }
   }
 
   return OpalMediaStream::Close();

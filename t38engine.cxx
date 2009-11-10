@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.56  2009-11-06 10:19:29  vfrolov
- * Fixed indication handling after re-opening T38Engine
+ * Revision 1.57  2009-11-10 08:13:38  vfrolov
+ * Fixed race condition on re-opening T38Engine
+ *
+ * Revision 1.57  2009/11/10 08:13:38  vfrolov
+ * Fixed race condition on re-opening T38Engine
  *
  * Revision 1.56  2009/11/06 10:19:29  vfrolov
  * Fixed indication handling after re-opening T38Engine
@@ -525,7 +528,13 @@ T38Engine::T38Engine(const PString &_name)
   , modStreamIn(NULL)
   , modStreamInSaved(NULL)
   , stateModem(stmIdle)
-  , isOpen(TRUE)
+#ifdef USE_OPAL
+  , isOpenIn(FALSE)
+  , isOpenOut(FALSE)
+#else
+  , isOpenIn(TRUE)
+  , isOpenOut(TRUE)
+#endif
 {
   PTRACE(2, name << " T38Engine::T38Engine");
 }
@@ -540,33 +549,57 @@ T38Engine::~T38Engine()
   if( modStreamInSaved != NULL )
     delete modStreamInSaved;
 
-  if (isOpen)
-    myPTRACE(1, name << " T38Engine::~T38Engine isOpen");
+  if (isOpenIn)
+    myPTRACE(1, name << " T38Engine::~T38Engine isOpenIn");
+
+  if (isOpenOut)
+    myPTRACE(1, name << " T38Engine::~T38Engine isOpenOut");
 
   if( !modemCallback.IsNULL() )
     myPTRACE(1, name << " T38Engine::~T38Engine !modemCallback.IsNULL()");
 }
 
-void T38Engine::Open()
+void T38Engine::OpenIn()
 {
-  myPTRACE(1, name << " T38Engine::Open: " << (isOpen ? "re-open" : "open"));
+  myPTRACE(1, name << " T38Engine::OpenIn: " << (isOpenIn ? "re-open" : "open"));
 
   PWaitAndSignal mutexWait(Mutex);
 
-  if (isOpen)
+  if (isOpenIn)
     return;
 
-  isOpen = TRUE;
-  preparePacketDelay.Restart();
+  isOpenIn = TRUE;
   firstIn = TRUE;
 }
 
-void T38Engine::Close()
+void T38Engine::OpenOut()
 {
-  myPTRACE(1, name << " T38Engine::Close: " << (isOpen ? "close" : "re-close"));
+  myPTRACE(1, name << " T38Engine::OpenOut: " << (isOpenOut ? "re-open" : "open"));
 
   PWaitAndSignal mutexWait(Mutex);
-  isOpen = FALSE;
+
+  if (isOpenOut)
+    return;
+
+  isOpenOut = TRUE;
+  preparePacketDelay.Restart();
+}
+
+void T38Engine::CloseIn()
+{
+  myPTRACE(1, name << " T38Engine::CloseIn: " << (isOpenIn ? "close" : "re-close"));
+
+  PWaitAndSignal mutexWait(Mutex);
+  isOpenIn = FALSE;
+  SignalOutDataReady();
+}
+
+void T38Engine::CloseOut()
+{
+  myPTRACE(1, name << " T38Engine::CloseOut: " << (isOpenOut ? "close" : "re-close"));
+
+  PWaitAndSignal mutexWait(Mutex);
+  isOpenOut = FALSE;
   SignalOutDataReady();
 }
 
@@ -937,7 +970,7 @@ void T38Engine::RecvStop()
 ///////////////////////////////////////////////////////////////
 int T38Engine::PreparePacket(T38_IFP & ifp)
 {
-  if(!IsOpen())
+  if (!IsOpenOut())
     return 0;
 
   //myPTRACE(1, PTNAME "T38Engine::PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
@@ -949,7 +982,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
   if (preparePacketPeriod > 0) {
     preparePacketDelay.Delay(preparePacketPeriod);
 
-    if(!IsOpen())
+    if (!IsOpenOut())
       return 0;
   }
 
@@ -984,14 +1017,14 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
 
         mySleep(delay.GetMilliSeconds());
 
-        if (!IsOpen())
+        if (!IsOpenOut())
           return 0;
       }
     } else {
       doDalay = TRUE;
     }
 
-    if (!IsOpen())
+    if (!IsOpenOut())
       return 0;
 
     for(;;) {
@@ -1294,7 +1327,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
         }
       }
 
-      if (!IsOpen())
+      if (!IsOpenOut())
         return 0;
 
       {
@@ -1341,7 +1374,7 @@ PBoolean T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
   myPTRACE(1, PTNAME "T38Engine::HandlePacketLost " << nLost);
   PWaitAndSignal mutexWait(Mutex);
 
-  if (!IsOpen())
+  if (!IsOpenIn())
     return FALSE;
 
   ModStream *modStream = modStreamIn;
@@ -1371,7 +1404,7 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
 
   PWaitAndSignal mutexWait(Mutex);
 
-  if (!IsOpen())
+  if (!IsOpenIn())
     return FALSE;
 
   switch (ifp.m_type_of_msg.GetTag()) {
