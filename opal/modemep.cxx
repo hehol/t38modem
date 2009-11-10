@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.11  2009-11-02 18:02:19  vfrolov
- * Removed pre v3.7 compatibility code
+ * Revision 1.12  2009-11-10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
+ *
+ * Revision 1.12  2009/11/10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
  *
  * Revision 1.11  2009/11/02 18:02:19  vfrolov
  * Removed pre v3.7 compatibility code
@@ -66,12 +69,12 @@
 #include <ptlib.h>
 
 #include <opal/buildopts.h>
+#include <opal/patch.h>
 
 #include "../t38engine.h"
 #include "../audio.h"
 #include "../pmodem.h"
 #include "../drivers.h"
-#include "manager.h"
 #include "modemstrm.h"
 #include "modemep.h"
 #include "opalutils.h"
@@ -125,18 +128,46 @@ class ModemConnection : public OpalConnection
       unsigned duration = 0         ///<  Duration of tone in milliseconds
     );
 
+    enum PseudoModemMode {
+      pmmUnknown,
+      pmmAny,
+      pmmFax,
+      pmmFaxNoForce,
+    };
+
+    bool RequestMode(
+      PseudoModemMode mode
+    );
+
   protected:
+    bool SwitchToFaxPassthrough(OpalConnection &connection);
     PBoolean Attach(PseudoModem *_pmodem);
+
+    PDECLARE_NOTIFIER(PThread, ModemConnection, RequestMode);
+    const PNotifier requestMode;
 
     PseudoModem *pmodem;
     AudioEngine * audioEngine;
     T38Engine * t38engine;
     int preparePacketTimeout;
+    PseudoModemMode requestedMode;
 };
 /////////////////////////////////////////////////////////////////////////////
 //
 //  Implementation
 //
+/////////////////////////////////////////////////////////////////////////////
+#if PTRACING
+ostream & operator<<(ostream & out, ModemConnection::PseudoModemMode mode)
+{
+  switch (mode) {
+    case ModemConnection::pmmAny:         return out << "any";
+    case ModemConnection::pmmFax:         return out << "fax";
+    case ModemConnection::pmmFaxNoForce:  return out << "fax-no-force";
+    default:                              return out << "unknown" << INT(mode);
+  }
+}
+#endif
 /////////////////////////////////////////////////////////////////////////////
 ModemEndPoint::ModemEndPoint(OpalManager & mgr, const char * prefix)
   : OpalEndPoint(mgr, prefix, CanTerminateCall)
@@ -243,11 +274,7 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
 
         myPTRACE(1, "MyManager::OnMyCallback SetUpCall(" << partyA << ", " << partyB << ")");
 
-        PString callToken;
-
-        GetManager().SetUpCall(partyA, partyB, callToken, modem);
-
-        PSafePtr<OpalCall> call = GetManager().FindCallWithLock(callToken);
+        PSafePtr<OpalCall> call = GetManager().SetUpCall(partyA, partyB, modem);
 
         if (call != NULL) {
           PSafePtr<OpalConnection> pConn = call->GetConnection(0);
@@ -271,14 +298,22 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
         response = "confirm";
       }
     } else if (command == "requestmode") {
-      PSafePtr<OpalConnection> pConn = GetConnectionWithLock(request("calltoken"), PSafeReference);
+      PSafePtr<ModemConnection> pConn =
+          PSafePtrCast<OpalConnection, ModemConnection>(GetConnectionWithLock(request("calltoken"), PSafeReference));
 
       if (pConn != NULL) {
-        if (request("mode") == "fax") {
-          if (((MyManager &)GetManager()).OnRequestModeChange(*pConn, OpalMediaType::Fax()))
+        const PString &newModeString = request("mode");
+        ModemConnection::PseudoModemMode mode;
+
+        if (newModeString == "fax")           { mode = ModemConnection::pmmFax;         } else
+        if (newModeString == "fax-no-force")  { mode = ModemConnection::pmmFaxNoForce;  } else
+                                              { mode = ModemConnection::pmmUnknown;     }
+
+        if (mode != ModemConnection::pmmUnknown) {
+          if (pConn->RequestMode(mode))
             response = "confirm";
         } else {
-          myPTRACE(1, "ModemEndPoint::OnMyCallback unknown mode");
+          myPTRACE(1, "ModemEndPoint::OnMyCallback: unknown mode " << newModeString);
         }
       }
     } else if (command == "clearcall") {
@@ -362,11 +397,19 @@ ModemConnection::ModemConnection(
     const PString & token,
     const PString & remoteParty,
     void *userData)
-  : OpalConnection(call, ep, token),
-    pmodem(NULL),
-    audioEngine(NULL),
-    t38engine(NULL),
-    preparePacketTimeout(-1)
+  : OpalConnection(call, ep, token)
+#ifdef _MSC_VER
+#pragma warning(disable:4355) // warning C4355: 'this' : used in base member initializer list
+#endif
+  , requestMode(PCREATE_NOTIFIER(RequestMode))
+#ifdef _MSC_VER
+#pragma warning(default:4355)
+#endif
+  , pmodem(NULL)
+  , audioEngine(NULL)
+  , t38engine(NULL)
+  , preparePacketTimeout(-1)
+  , requestedMode(pmmAny)
 {
   remotePartyNumber = GetPartyName(remoteParty);
   remotePartyAddress = remoteParty;
@@ -591,7 +634,23 @@ OpalMediaFormatList ModemConnection::GetMediaFormats() const
 {
   PTRACE(1, "ModemConnection::GetMediaFormats " << *this);
 
-  return endpoint.GetMediaFormats();
+  OpalMediaFormatList mediaFormats = endpoint.GetMediaFormats();
+
+  switch (requestedMode) {
+    case pmmFax:
+      for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
+        if (mediaFormats[i].GetMediaType() == OpalMediaType::Audio()) {
+          PTRACE(3, "ModemConnection::GetMediaFormats Remove " << mediaFormats[i]);
+          mediaFormats -= mediaFormats[i];
+          i--;
+        }
+      }
+      break;
+    default:
+      break;
+  }
+
+  return mediaFormats;
 }
 
 void ModemConnection::OnConnected()
@@ -635,6 +694,197 @@ PBoolean ModemConnection::SendUserInputTone(char tone, unsigned PTRACE_PARAM(dur
   audioEngine->WriteUserInput(tone);
 
   return true;
+}
+
+void ModemConnection::RequestMode(PThread &, INT faxMode)
+{
+  PSafePtr<OpalConnection> other = GetOtherPartyConnection();
+
+  if (other != NULL) {
+    if (!LockReadWrite()) {
+      myPTRACE(1, "ModemConnection::RequestMode " << *this << " Can't lock");
+      return;
+    }
+
+    bool done = false;
+
+    if (faxMode) {
+      OpalMediaFormatList otherMediaFormats = other->GetMediaFormats();
+      other->AdjustMediaFormats(otherMediaFormats, NULL);
+
+      PTRACE(4, "ModemConnection::RequestMode: other connection formats: \n" <<
+                setfill('\n') << otherMediaFormats << setfill(' '));
+
+      if (!otherMediaFormats.HasType(OpalMediaType::Fax())) {
+        PTRACE(3, "ModemConnection::RequestMode: other connection has not fax type");
+
+        faxMode = false;
+        done = SwitchToFaxPassthrough(*other);
+      }
+      else
+      if (other->GetStringOptions().Contains("No-Force-T38-Mode")) {
+        PTRACE(3, "ModemConnection::RequestMode: other connection has option No-Force-T38-Mode");
+
+        faxMode = false;
+        done = SwitchToFaxPassthrough(*other);
+      }
+    }
+
+    if (!done && !other->SwitchFaxMediaStreams(faxMode)) {
+      myPTRACE(1, "ModemConnection::RequestMode " << *this << " Change to mode " <<
+                  (faxMode ? "fax" : "audio") << " failed");
+    }
+
+    UnlockReadWrite();
+  }
+}
+
+bool ModemConnection::RequestMode(PseudoModemMode mode)
+{
+  myPTRACE(1, "ModemConnection::RequestMode: " << *this << " " << mode);
+
+  PseudoModemMode oldMode = requestedMode;
+  requestedMode = mode;
+
+  for (;;) {
+    switch (requestedMode) {
+      case pmmAny:
+        break;
+      case pmmFax:
+        PTRACE(3, "ModemConnection::RequestMode: force fax mode for other connection");
+
+        PThread::Create(requestMode, (INT)TRUE);
+        break;
+      case pmmFaxNoForce: {
+        PSafePtr<OpalConnection> other = GetOtherPartyConnection();
+
+        if (other != NULL) {
+          OpalMediaFormatList otherMediaFormats = other->GetMediaFormats();
+          other->AdjustMediaFormats(otherMediaFormats, NULL);
+
+          PTRACE(4, "ModemConnection::RequestMode: other connection formats: \n" <<
+                    setfill('\n') << otherMediaFormats << setfill(' '));
+
+          if (!otherMediaFormats.HasType(OpalMediaType::Fax())) {
+            PTRACE(3, "ModemConnection::RequestMode: other connection has not fax type");
+            requestedMode = pmmFax;
+            continue;
+          }
+
+          PTRACE(4, "ModemConnection::RequestMode: other connection options: \n" <<
+                    setfill('\n') << other->GetStringOptions() << setfill(' '));
+
+          if (other->GetStringOptions().Contains("Force-Fax-Mode")) {
+            PTRACE(3, "ModemConnection::RequestMode: other connection has option Force-Fax-Mode");
+            requestedMode = pmmFax;
+            continue;
+          }
+        }
+        break;
+      }
+      default:
+        myPTRACE(1, "ModemConnection::RequestMode: " << *this << " unknown mode " << requestMode);
+        requestedMode = oldMode;
+        return FALSE;
+    }
+
+    break;
+  }
+
+  return TRUE;
+}
+
+bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
+{
+  OpalMediaFormatList mediaFormats = connection.GetMediaFormats();
+  connection.AdjustMediaFormats(mediaFormats, NULL);
+
+  PTRACE(3, "ModemConnection::SwitchToFaxPassthrough:\n"
+         << setfill('\n') << mediaFormats << setfill(' '));
+
+  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
+    if (mediaFormats[i] != OpalG711uLaw && mediaFormats[i] != OpalG711ALaw) {
+      mediaFormats -= mediaFormats[i];
+      i--;
+    }
+  }
+
+  if (mediaFormats.GetSize() < 1) {
+    PTRACE(2, "ModemConnection::SwitchToFaxPassthrough: G.711 is not supported");
+    return false;
+  }
+
+  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
+    OpalMediaStreamPtr sink = connection.GetMediaStream(mediaFormats[i].GetMediaType(), false);
+
+    if (sink == NULL)
+      continue;
+
+    if (!sink->IsOpen())
+      continue;
+
+    OpalMediaFormat sinkFormat = sink->GetMediaFormat();
+
+    if (sinkFormat != mediaFormats[i])
+      continue;
+
+    PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: sink=" << *sink << " sinkFormat=" << sinkFormat);
+
+    PStringArray order;
+    order += sinkFormat.GetName();
+    order += '@' + OpalMediaType::Fax();
+
+    OpalMediaFormatList sourceMediaFormats = GetMediaFormats();
+    AdjustMediaFormats(sourceMediaFormats, NULL);
+    connection.AdjustMediaFormats(sourceMediaFormats, this);
+    sourceMediaFormats.Reorder(order);
+
+    OpalMediaFormat sourceFormat;
+
+    if (GetCall().SelectMediaFormats(
+                                       OpalMediaType::Fax(),
+                                       sourceMediaFormats,
+                                       sinkFormat,
+                                       GetLocalMediaFormats(),
+                                       sourceFormat,
+                                       sinkFormat))
+    {
+      PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: selected "
+             << sourceFormat << " --> " << sinkFormat);
+
+      OpalMediaPatch *patch = sink->GetPatch();
+
+      if (patch != NULL) {
+        sink->RemovePatch(patch);
+        patch->GetSource().Close();
+      }
+
+      unsigned sessionID = connection.GetNextSessionID(OpalMediaType::Fax(), false);
+
+      PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: using session " << sessionID << " on " << connection);
+
+      OpalMediaStreamPtr source = OpenMediaStream(sourceFormat, sessionID, true);
+
+      if (source != NULL) {
+        patch = GetEndPoint().GetManager().CreateMediaPatch(*source,
+                                       sink->RequiresPatchThread(source) && source->RequiresPatchThread(sink));
+
+        if (patch != NULL) {
+          patch->AddSink(sink);
+          connection.AutoStartMediaStreams(true);
+          PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: fallback to " << sinkFormat << " - OK");
+          return true;
+        }
+      }
+    }
+
+    break;
+  }
+
+  PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: no sink for\n"
+         << setfill('\n') << mediaFormats << setfill(' '));
+
+  return false;
 }
 /////////////////////////////////////////////////////////////////////////////
 

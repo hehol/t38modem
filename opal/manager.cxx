@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.8  2009-07-31 17:34:40  vfrolov
- * Removed --h323-old-asn and --sip-old-asn options
+ * Revision 1.9  2009-11-10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
+ *
+ * Revision 1.9  2009/11/10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
  *
  * Revision 1.8  2009/07/31 17:34:40  vfrolov
  * Removed --h323-old-asn and --sip-old-asn options
@@ -302,42 +305,6 @@ PString MyManager::ApplyRouteTable(const PString & proto, const PString & addr, 
   }
 
   return destination;
-}
-/////////////////////////////////////////////////////////////////////////////
-PBoolean MyManager::OnRequestModeChange(
-    OpalConnection & connection,
-    const OpalMediaType & mediaType)
-{
-  PSafePtr<OpalConnection> pOtherConn = connection.GetOtherPartyConnection();
-
-  if (pOtherConn != NULL) {
-    if (PIsDescendant(&pOtherConn->GetEndPoint(), MyH323EndPoint)) {
-      if (((MyH323EndPoint &)pOtherConn->GetEndPoint()).RequestModeChange(*pOtherConn, mediaType)) {
-        myPTRACE(2, "MyManager::RequestModeChange(" << connection << ", " <<  mediaType << ")"
-                    " RequestModeChange(" << *pOtherConn << ") - OK");
-        return PTrue;
-      }
-    }
-    else
-    if (PIsDescendant(&pOtherConn->GetEndPoint(), MySIPEndPoint)) {
-      if (((MySIPEndPoint &)pOtherConn->GetEndPoint()).RequestModeChange(*pOtherConn, mediaType)) {
-        myPTRACE(2, "MyManager::RequestModeChange(" << connection << ", " <<  mediaType << ")"
-                    " RequestModeChange(" << *pOtherConn << ") - OK");
-        return PTrue;
-      }
-    }
-    else {
-        myPTRACE(1, "MyManager::RequestModeChange(" << connection << ", " <<  mediaType << ")"
-                    " RequestModeChange(" << *pOtherConn << ") - not implemented");
-    }
-  } else {
-    myPTRACE(1, "MyManager::RequestModeChange(" << connection << ", " <<  mediaType << ")"
-                " GetOtherPartyConnection - fail");
-  }
-
-  myPTRACE(1, "MyManager::RequestModeChange(" << connection << ", " <<  mediaType << ")"
-              " - fail");
-  return PFalse;
 }
 /////////////////////////////////////////////////////////////////////////////
 

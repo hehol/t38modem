@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.12  2009-10-28 17:30:41  vfrolov
- * Fixed uncompatibility with OPAL trunk
+ * Revision 1.13  2009-11-10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
+ *
+ * Revision 1.13  2009/11/10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
  *
  * Revision 1.12  2009/10/28 17:30:41  vfrolov
  * Fixed uncompatibility with OPAL trunk
@@ -75,13 +78,13 @@
 #if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 7, 1))
   #error *** Uncompatible OPAL version (required >= 3.7.1) ***
 #endif
+
+#undef PACK_VERSION
 /////////////////////////////////////////////////////////////////////////////
 
 #include <sip/sipcon.h>
 
-#include "manager.h"
 #include "sipep.h"
-#include "opalutils.h"
 
 #define new PNEW
 
@@ -102,10 +105,23 @@ class MySIPConnection : public SIPConnection
       unsigned int options = 0,                 ///<  Connection options
       OpalConnection::StringOptions * stringOptions = NULL  ///<  complex string options
     )
-    : SIPConnection(call, endpoint, token, address, transport, options, stringOptions) {}
+    : SIPConnection(call, endpoint, token, address, transport, options, stringOptions)
+    , switchingToFaxMode(false)
+    {}
   //@}
 
     virtual PBoolean SetUpConnection();
+
+    virtual bool SwitchFaxMediaStreams(
+      bool enableFax                            ///< Enable FAX or return to audio mode
+    );
+
+    virtual void OnSwitchedFaxMediaStreams(
+      bool enabledFax                           ///< Enabled FAX or audio mode
+    );
+
+    virtual OpalMediaFormatList GetMediaFormats() const;
+    virtual OpalMediaFormatList GetLocalMediaFormats();
 
     virtual void AdjustMediaFormats(
       OpalMediaFormatList & mediaFormats,       ///<  Media formats to use
@@ -116,6 +132,7 @@ class MySIPConnection : public SIPConnection
 
   protected:
     OpalMediaFormatList mediaFormatList;
+    bool switchingToFaxMode;
 };
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -231,7 +248,6 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
   for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++)
     cout << "  " << mediaFormatList[i] << endl;
 
-  AddMediaFormatList(OpalPCM16);
   AddMediaFormatList(OpalT38);
 
   /*
@@ -331,7 +347,14 @@ SIPConnection * MySIPEndPoint::CreateConnection(
   MySIPConnection * connection =
       new MySIPConnection(call, *this, token, destination, transport, options, stringOptions);
 
-  connection->AddMediaFormatList(mediaFormatList);
+  OpalMediaFormatList mediaFormats = mediaFormatList;
+
+  if (connection->GetStringOptions().Contains("Disable-T38-Mode")) {
+    PTRACE(3, "MySIPEndPoint::CreateConnection: Disable-T38-Mode");
+    mediaFormats -= OpalT38;
+  }
+
+  connection->AddMediaFormatList(mediaFormats);
 
   return connection;
 }
@@ -344,64 +367,6 @@ void MySIPEndPoint::SetWriteInterval(
   ((MyManager &)GetManager()).SetWriteInterval(connection, interval);
 }
 */
-
-struct RequestModeChangeArgs {
-  RequestModeChangeArgs(
-    OpalEndPoint &_endpoint,
-    const PString &_connectionToken,
-    const OpalMediaFormat &_mediaFormat)
-  : endpoint(_endpoint),
-    connectionToken(_connectionToken),
-    mediaFormat(_mediaFormat)
-  {}
-
-  OpalEndPoint &endpoint;
-  PString connectionToken;
-  OpalMediaFormat mediaFormat;
-};
-
-static void RequestModeChange(RequestModeChangeArgs args)
-{
-  PSafePtr<OpalConnection> connection = args.endpoint.GetConnectionWithLock(args.connectionToken);
-
-  if (connection == NULL) {
-    PTRACE(1, "::RequestModeChange Cannot get connection " << args.connectionToken);
-    return;
-  }
-
-  if (!connection->GetCall().OpenSourceMediaStreams(*connection,
-                                                    args.mediaFormat.GetMediaType(),
-                                                    1,
-                                                    args.mediaFormat))
-  {
-    PTRACE(1, "::RequestModeChange(" << *connection << ", " << args.mediaFormat << ")"
-              " OpenSourceMediaStreams() - failed");
-    return;
-  }
-
-  PTRACE(4, "::RequestModeChange(" << *connection << ", " << args.mediaFormat << ") - OK");
-}
-
-PBoolean MySIPEndPoint::RequestModeChange(
-    OpalConnection & connection,
-    const OpalMediaType & mediaType)
-{
-  if (mediaType != OpalMediaType::Fax())
-    return PFalse;
-
-  for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++) {
-    if (mediaFormatList[i].GetMediaType() == mediaType) {
-      new PThread1Arg<RequestModeChangeArgs>(
-              RequestModeChangeArgs(*this, connection.GetToken(), mediaFormatList[i]),
-              ::RequestModeChange,
-              true);
-
-      return PTrue;
-    }
-  }
-
-  return PFalse;
-}
 /////////////////////////////////////////////////////////////////////////////
 PBoolean MySIPConnection::SetUpConnection()
 {
@@ -424,13 +389,45 @@ PBoolean MySIPConnection::SetUpConnection()
   return SIPConnection::SetUpConnection();
 }
 
-void MySIPConnection::AdjustMediaFormats(
-    OpalMediaFormatList & mediaFormats,
-    OpalConnection * otherConnection) const
+bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
 {
-  //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  OpalMediaFormatList mediaFormats = GetMediaFormats();
+  AdjustMediaFormats(mediaFormats, NULL);
 
-  SIPConnection::AdjustMediaFormats(mediaFormats, otherConnection);
+  PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams:\n" << setfill('\n') << mediaFormats << setfill(' '));
+
+  const OpalMediaType &mediaType = enableFax ? OpalMediaType::Fax() : OpalMediaType::Audio();
+
+  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
+    if (mediaFormats[i].GetMediaType() == mediaType) {
+      switchingToFaxMode = enableFax;
+      return SIPConnection::SwitchFaxMediaStreams(enableFax);
+    }
+  }
+
+  PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << mediaType << " is not supported");
+
+  return false;
+}
+
+void MySIPConnection::OnSwitchedFaxMediaStreams(bool enabledFax)
+{
+  PTRACE(3, "MySIPConnection::OnSwitchedFaxMediaStreams: "
+         << (enabledFax == switchingToFaxMode ? "" : "NOT ") << "switched to "
+         << (switchingToFaxMode ? "fax" : "audio"));
+
+  if (switchingToFaxMode && !enabledFax) {
+      PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: fallback to audio");
+      mediaFormatList -= OpalT38;
+      SwitchFaxMediaStreams(false);
+  }
+}
+
+OpalMediaFormatList MySIPConnection::GetMediaFormats() const
+{
+  OpalMediaFormatList mediaFormats = SIPConnection::GetMediaFormats();
+
+  PTRACE(4, "MySIPConnection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     PBoolean found = FALSE;
@@ -443,11 +440,52 @@ void MySIPConnection::AdjustMediaFormats(
     }
 
     if (!found) {
-      //PTRACE(3, "MySIPConnection::AdjustMediaFormats Remove " << mediaFormats[i]);
+      PTRACE(3, "MySIPConnection::GetMediaFormats Remove " << mediaFormats[i]);
       mediaFormats -= mediaFormats[i];
       i--;
     }
   }
+
+  PTRACE(4, "MySIPConnection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+
+  return mediaFormats;
+}
+
+OpalMediaFormatList MySIPConnection::GetLocalMediaFormats()
+{
+  OpalMediaFormatList mediaFormats = SIPConnection::GetLocalMediaFormats();
+
+  PTRACE(4, "MySIPConnection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+
+  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
+    PBoolean found = FALSE;
+
+    for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
+      if (mediaFormats[i] == mediaFormatList[j]) {
+        found = TRUE;
+        break;
+      }
+    }
+
+    if (!found) {
+      PTRACE(3, "MySIPConnection::GetLocalMediaFormats Remove " << mediaFormats[i]);
+      mediaFormats -= mediaFormats[i];
+      i--;
+    }
+  }
+
+  PTRACE(4, "MySIPConnection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+
+  return mediaFormats;
+}
+
+void MySIPConnection::AdjustMediaFormats(
+    OpalMediaFormatList & mediaFormats,
+    OpalConnection * otherConnection) const
+{
+  PTRACE(4, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+
+  SIPConnection::AdjustMediaFormats(mediaFormats, otherConnection);
 
   PStringArray order;
 
@@ -456,7 +494,7 @@ void MySIPConnection::AdjustMediaFormats(
 
   mediaFormats.Reorder(order);
 
-  //PTRACE(3, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  PTRACE(4, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 }
 /////////////////////////////////////////////////////////////////////////////
 

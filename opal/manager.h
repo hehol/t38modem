@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.h,v $
- * Revision 1.4  2009-07-15 13:23:20  vfrolov
- * Added Descriptions(args)
+ * Revision 1.5  2009-11-10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
+ *
+ * Revision 1.5  2009/11/10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
  *
  * Revision 1.4  2009/07/15 13:23:20  vfrolov
  * Added Descriptions(args)
@@ -78,11 +81,6 @@ class MyManager : public OpalManager
     virtual void OnClosedMediaStream(const OpalMediaStream & stream);
 
     virtual PString ApplyRouteTable(const PString & proto, const PString & addr, PINDEX & entry);
-
-    PBoolean OnRequestModeChange(
-      OpalConnection & connection,
-      const OpalMediaType & mediaType
-    );
 };
 /////////////////////////////////////////////////////////////////////////////
 

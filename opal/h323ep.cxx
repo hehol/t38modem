@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.11  2009-10-28 17:30:41  vfrolov
- * Fixed uncompatibility with OPAL trunk
+ * Revision 1.12  2009-11-10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
+ *
+ * Revision 1.12  2009/11/10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
  *
  * Revision 1.11  2009/10/28 17:30:41  vfrolov
  * Fixed uncompatibility with OPAL trunk
@@ -72,9 +75,10 @@
 #if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 7, 1))
   #error *** Uncompatible OPAL version (required >= 3.7.1) ***
 #endif
+
+#undef PACK_VERSION
 /////////////////////////////////////////////////////////////////////////////
 
-#include "manager.h"
 #include "h323ep.h"
 
 #define new PNEW
@@ -102,10 +106,23 @@ class MyH323Connection : public H323Connection
       unsigned options = 0,                    ///<  Connection option bits
       OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
     )
-    : H323Connection(call, endpoint, token, alias, address, options, stringOptions) {}
+    : H323Connection(call, endpoint, token, alias, address, options, stringOptions)
+    , switchingToFaxMode(false)
+    {}
   //@}
 
     virtual PBoolean SetUpConnection();
+
+    virtual bool SwitchFaxMediaStreams(
+      bool enableFax                           ///< Enable FAX or return to audio mode
+    );
+
+    virtual void OnSwitchedFaxMediaStreams(
+      bool enabledFax                          ///< Enabled FAX or audio mode
+    );
+
+    virtual OpalMediaFormatList GetMediaFormats() const;
+    virtual OpalMediaFormatList GetLocalMediaFormats();
 
     virtual void AdjustMediaFormats(
       OpalMediaFormatList & mediaFormats,      ///<  Media formats to use
@@ -116,6 +133,7 @@ class MyH323Connection : public H323Connection
 
   protected:
     OpalMediaFormatList mediaFormatList;
+    bool switchingToFaxMode;
 };
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -233,7 +251,6 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
   for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++)
     cout << "  " << mediaFormatList[i] << endl;
 
-  AddMediaFormatList(OpalPCM16);
   AddMediaFormatList(OpalT38);
 
   DisableFastStart(!args.HasOption("fastenable"));
@@ -316,7 +333,14 @@ H323Connection * MyH323EndPoint::CreateConnection(
   MyH323Connection *connection =
       new MyH323Connection(call, *this, token, alias, address, options, stringOptions);
 
-  connection->AddMediaFormatList(mediaFormatList);
+  OpalMediaFormatList mediaFormats = mediaFormatList;
+
+  if (connection->GetStringOptions().Contains("Disable-T38-Mode")) {
+    PTRACE(3, "MyH323EndPoint::CreateConnection: Disable-T38-Mode");
+    mediaFormats -= OpalT38;
+  }
+
+  connection->AddMediaFormatList(mediaFormats);
 
   return connection;
 }
@@ -329,24 +353,6 @@ void MyH323EndPoint::SetWriteInterval(
   ((MyManager &)GetManager()).SetWriteInterval(connection, interval);
 }
 */
-
-PBoolean MyH323EndPoint::RequestModeChange(
-    OpalConnection & connection,
-    const OpalMediaType & mediaType)
-{
-  if (mediaType != OpalMediaType::Fax())
-    return PFalse;
-
-  for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++) {
-    if (mediaFormatList[i].GetMediaType() == mediaType) {
-      PAssert(PIsDescendant(&connection, MyH323Connection), PInvalidCast);
-
-      return ((MyH323Connection &)connection).RequestModeChangeT38(mediaFormatList[i].GetName());
-    }
-  }
-
-  return PFalse;
-}
 /////////////////////////////////////////////////////////////////////////////
 PBoolean MyH323Connection::SetUpConnection()
 {
@@ -369,13 +375,45 @@ PBoolean MyH323Connection::SetUpConnection()
   return H323Connection::SetUpConnection();
 }
 
-void MyH323Connection::AdjustMediaFormats(
-    OpalMediaFormatList & mediaFormats,
-    OpalConnection * otherConnection) const
+bool MyH323Connection::SwitchFaxMediaStreams(bool enableFax)
 {
-  //PTRACE(3, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  OpalMediaFormatList mediaFormats = GetMediaFormats();
+  AdjustMediaFormats(mediaFormats, NULL);
 
-  H323Connection::AdjustMediaFormats(mediaFormats, otherConnection);
+  PTRACE(3, "MyH323Connection::SwitchFaxMediaStreams:\n" << setfill('\n') << mediaFormats << setfill(' '));
+
+  const OpalMediaType &mediaType = enableFax ? OpalMediaType::Fax() : OpalMediaType::Audio();
+
+  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
+    if (mediaFormats[i].GetMediaType() == mediaType) {
+      switchingToFaxMode = enableFax;
+      return H323Connection::SwitchFaxMediaStreams(enableFax);
+    }
+  }
+
+  PTRACE(3, "MyH323Connection::SwitchFaxMediaStreams: " << mediaType << " is not supported");
+
+  return false;
+}
+
+void MyH323Connection::OnSwitchedFaxMediaStreams(bool enabledFax)
+{
+  PTRACE(3, "MyH323Connection::OnSwitchedFaxMediaStreams: "
+         << (enabledFax == switchingToFaxMode ? "" : "NOT ") << "switched to "
+         << (switchingToFaxMode ? "fax" : "audio"));
+
+  if (switchingToFaxMode && !enabledFax) {
+      PTRACE(3, "MyH323Connection::SwitchFaxMediaStreams: fallback to audio");
+      mediaFormatList -= OpalT38;
+      SwitchFaxMediaStreams(false);
+  }
+}
+
+OpalMediaFormatList MyH323Connection::GetMediaFormats() const
+{
+  OpalMediaFormatList mediaFormats = H323Connection::GetMediaFormats();
+
+  PTRACE(4, "MyH323Connection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     PBoolean found = FALSE;
@@ -388,11 +426,52 @@ void MyH323Connection::AdjustMediaFormats(
     }
 
     if (!found) {
-      //PTRACE(3, "MyH323Connection::AdjustMediaFormats Remove " << mediaFormats[i]);
+      PTRACE(3, "MyH323Connection::GetMediaFormats Remove " << mediaFormats[i]);
       mediaFormats -= mediaFormats[i];
       i--;
     }
   }
+
+  PTRACE(4, "MyH323Connection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+
+  return mediaFormats;
+}
+
+OpalMediaFormatList MyH323Connection::GetLocalMediaFormats()
+{
+  OpalMediaFormatList mediaFormats = H323Connection::GetLocalMediaFormats();
+
+  PTRACE(4, "MyH323Connection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+
+  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
+    PBoolean found = FALSE;
+
+    for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
+      if (mediaFormats[i] == mediaFormatList[j]) {
+        found = TRUE;
+        break;
+      }
+    }
+
+    if (!found) {
+      PTRACE(3, "MyH323Connection::GetLocalMediaFormats Remove " << mediaFormats[i]);
+      mediaFormats -= mediaFormats[i];
+      i--;
+    }
+  }
+
+  PTRACE(4, "MyH323Connection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+
+  return mediaFormats;
+}
+
+void MyH323Connection::AdjustMediaFormats(
+    OpalMediaFormatList & mediaFormats,
+    OpalConnection * otherConnection) const
+{
+  PTRACE(4, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+
+  H323Connection::AdjustMediaFormats(mediaFormats, otherConnection);
 
   PStringArray order;
 
@@ -401,7 +480,7 @@ void MyH323Connection::AdjustMediaFormats(
 
   mediaFormats.Reorder(order);
 
-  //PTRACE(3, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  PTRACE(4, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 }
 /////////////////////////////////////////////////////////////////////////////
 

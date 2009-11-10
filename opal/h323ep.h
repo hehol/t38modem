@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.h,v $
- * Revision 1.3  2009-07-22 14:42:49  vfrolov
- * Added Descriptions(args) to endpoints
+ * Revision 1.4  2009-11-10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
+ *
+ * Revision 1.4  2009/11/10 11:30:57  vfrolov
+ * Implemented G.711 fallback to fax pass-through mode
  *
  * Revision 1.3  2009/07/22 14:42:49  vfrolov
  * Added Descriptions(args) to endpoints
@@ -102,11 +105,6 @@ class MyH323EndPoint : public H323EndPoint
         const PTimeInterval &interval
     );
     */
-
-    PBoolean RequestModeChange(
-      OpalConnection & connection,
-      const OpalMediaType & mediaType
-    );
 
   protected:
     OpalMediaFormatList mediaFormatList;
