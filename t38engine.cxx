@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.57  2009-11-10 08:13:38  vfrolov
- * Fixed race condition on re-opening T38Engine
+ * Revision 1.58  2009-11-10 09:56:54  vfrolov
+ * Fixed isCarrierIn handling
+ *
+ * Revision 1.58  2009/11/10 09:56:54  vfrolov
+ * Fixed isCarrierIn handling
  *
  * Revision 1.57  2009/11/10 08:13:38  vfrolov
  * Fixed race condition on re-opening T38Engine
@@ -1035,8 +1038,9 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
           switch( stateOut ) {
             case stOutIdle:
               if (isCarrierIn) {
-                myPTRACE(1, PTNAME "T38Engine::PreparePacket isCarrierIn for dataType=" << ModParsOut.dataType);
-                int waitms = 0;
+                myPTRACE(1, PTNAME "T38Engine::PreparePacket isCarrierIn=" << isCarrierIn
+                                << " for dataType=" << ModParsOut.dataType);
+
                 /*
                  * We can't to begin sending data while the carrier is detected because
                  * it's possible that all data (including indication) will be losted.
@@ -1044,15 +1048,20 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                  * MCF generated for previous page after sending small page that was
                  * not delivered.
                  */
-                switch( ModParsOut.dataType ) {
-                  case dtHdlc:		waitms = 500; break;	// it's can't be too long
-                  case dtRaw:		waitms = 2000; break;	// it's can't be too short
+
+                int waitms;
+
+                switch (ModParsOut.dataType) {
+                  case dtHdlc:      waitms = 500;     break; // it's can't be too long
+                  case dtRaw:       waitms = 2000;    break; // it's can't be too short
+                  case dtSilence:   waitms = 5000;    break;
+                  default:          waitms = 0;       break;
                 }
 
                 if (waitms) {
-                  if (isCarrierIn < 1) {
-                    isCarrierIn++;
-                    timeBeginOut = PTime() + PTimeInterval(1000);
+                  if (isCarrierIn == 1) {
+                    isCarrierIn = 2;
+                    timeBeginOut = PTime() + PTimeInterval(waitms);
                     redo = TRUE;
                     break;
                   } else if (timeBeginOut > PTime()) {
@@ -1060,7 +1069,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                     break;
                   } else {
                     myPTRACE(1, PTNAME "T38Engine::PreparePacket isCarrierIn expired");
-                    isCarrierIn--;
+                    isCarrierIn = 0;
                   }
                 }
               }
