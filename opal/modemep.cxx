@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.12  2009-11-10 11:30:57  vfrolov
- * Implemented G.711 fallback to fax pass-through mode
+ * Revision 1.13  2009-11-11 18:05:00  vfrolov
+ * Added ability to apply options for incoming connections
+ *
+ * Revision 1.13  2009/11/11 18:05:00  vfrolov
+ * Added ability to apply options for incoming connections
  *
  * Revision 1.12  2009/11/10 11:30:57  vfrolov
  * Implemented G.711 fallback to fax pass-through mode
@@ -362,18 +365,36 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
     const PString & remoteParty,
     void *userData,
     unsigned int /*options*/,
-    OpalConnection::StringOptions * /*stringOptions*/
+    OpalConnection::StringOptions * stringOptions
     )
 {
   myPTRACE(1, "ModemEndPoint::MakeConnection " << remoteParty);
+
+  PINDEX iParams = remoteParty.Find(';');
+
+  PString remotePartyAddress = remoteParty.Left(iParams);
+
+  if (stringOptions != NULL && iParams != P_MAX_INDEX) {
+    PStringToString params;
+
+    PURL::SplitVars(remoteParty(iParams + 1, P_MAX_INDEX), params, ';', '=');
+
+    for (PINDEX i = 0; i < params.GetSize(); i++) {
+      PCaselessString key = params.GetKeyAt(i);
+
+      if (key.NumCompare("OPAL-") == EqualTo) {
+        stringOptions->SetAt(key.Mid(5), params.GetDataAt(i));
+      }
+    }
+  }
 
   PWaitAndSignal wait(inUseFlag);
   PString token;
 
   for (int i = 0 ; i < 10000 ; i++) {
-    token = remoteParty + "/" + call.GetToken() + "/" + PString(i);
+    token = remotePartyAddress + "/" + call.GetToken() + "/" + PString(i);
     if (!connectionsActive.Contains(token))
-      return AddConnection(new ModemConnection(call, *this, token, remoteParty, userData));
+      return AddConnection(new ModemConnection(call, *this, token, remotePartyAddress, userData));
   }
 
   return AddConnection(NULL);
