@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.13  2009-11-11 18:05:00  vfrolov
- * Added ability to apply options for incoming connections
+ * Revision 1.14  2009-11-15 18:21:18  vfrolov
+ * Replaced AutoStartMediaStreams() by more adequate code
+ *
+ * Revision 1.14  2009/11/15 18:21:18  vfrolov
+ * Replaced AutoStartMediaStreams() by more adequate code
  *
  * Revision 1.13  2009/11/11 18:05:00  vfrolov
  * Added ability to apply options for incoming connections
@@ -774,7 +777,7 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
       case pmmFax:
         PTRACE(3, "ModemConnection::RequestMode: force fax mode for other connection");
 
-        PThread::Create(requestMode, (INT)TRUE);
+        PThread::Create(requestMode, (INT)true);
         break;
       case pmmFaxNoForce: {
         PSafePtr<OpalConnection> other = GetOtherPartyConnection();
@@ -806,13 +809,13 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
       default:
         myPTRACE(1, "ModemConnection::RequestMode: " << *this << " unknown mode " << requestMode);
         requestedMode = oldMode;
-        return FALSE;
+        return false;
     }
 
     break;
   }
 
-  return TRUE;
+  return true;
 }
 
 bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
@@ -834,6 +837,9 @@ bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
     PTRACE(2, "ModemConnection::SwitchToFaxPassthrough: G.711 is not supported");
     return false;
   }
+
+  unsigned sessionID = 0;  // both sinks must have the same session ID !
+  bool ok = false;
 
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     OpalMediaStreamPtr sink = connection.GetMediaStream(mediaFormats[i].GetMediaType(), false);
@@ -870,7 +876,7 @@ bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
                                        sourceFormat,
                                        sinkFormat))
     {
-      PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: selected "
+      PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: selected source format "
              << sourceFormat << " --> " << sinkFormat);
 
       OpalMediaPatch *patch = sink->GetPatch();
@@ -880,9 +886,9 @@ bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
         patch->GetSource().Close();
       }
 
-      unsigned sessionID = connection.GetNextSessionID(OpalMediaType::Fax(), false);
+      sessionID = sink->GetSessionID();
 
-      PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: using session " << sessionID << " on " << connection);
+      PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: using session " << sessionID);
 
       OpalMediaStreamPtr source = OpenMediaStream(sourceFormat, sessionID, true);
 
@@ -892,9 +898,8 @@ bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
 
         if (patch != NULL) {
           patch->AddSink(sink);
-          connection.AutoStartMediaStreams(true);
-          PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: fallback to " << sinkFormat << " - OK");
-          return true;
+          ok = true;
+          PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: created patch " << *patch);
         }
       }
     }
@@ -902,10 +907,87 @@ bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
     break;
   }
 
-  PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: no sink for\n"
-         << setfill('\n') << mediaFormats << setfill(' '));
+  if (!ok) {
+    PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: can't create patch for "
+           << *this << " --> " << connection << "\n"
+           << setfill('\n') << mediaFormats << setfill(' '));
+    return false;
+  }
 
-  return false;
+  ok = false;
+
+  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
+    OpalMediaStreamPtr source = connection.GetMediaStream(mediaFormats[i].GetMediaType(), true);
+
+    if (source == NULL)
+      continue;
+
+    if (!source->IsOpen())
+      continue;
+
+    OpalMediaFormat sourceFormat = source->GetMediaFormat();
+
+    if (sourceFormat != mediaFormats[i])
+      continue;
+
+    PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: source=" << *source << " sourceFormat=" << sourceFormat);
+
+    PStringArray order;
+    order += sourceFormat.GetName();
+    order += '@' + OpalMediaType::Fax();
+
+    OpalMediaFormatList sinkMediaFormats = GetMediaFormats();
+    AdjustMediaFormats(sinkMediaFormats, NULL);
+    connection.AdjustMediaFormats(sinkMediaFormats, this);
+    sinkMediaFormats.Reorder(order);
+
+    OpalMediaFormat sinkFormat;
+
+    if (GetCall().SelectMediaFormats(
+                                       OpalMediaType::Fax(),
+                                       sourceFormat,
+                                       sinkMediaFormats,
+                                       GetLocalMediaFormats(),
+                                       sourceFormat,
+                                       sinkFormat))
+    {
+      PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: selected sink format "
+             << sinkFormat << " <-- " << sourceFormat);
+
+      OpalMediaPatch *patch = source->GetPatch();
+
+      if (patch != NULL)
+        source->RemovePatch(patch);
+
+      OpalMediaStreamPtr sink = OpenMediaStream(sinkFormat, sessionID, false);
+
+      if (sink != NULL) {
+        patch = GetEndPoint().GetManager().CreateMediaPatch(*source,
+                                       sink->RequiresPatchThread(source) && source->RequiresPatchThread(sink));
+
+        if (patch != NULL) {
+          patch->AddSink(sink);
+          ok = true;
+          PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: created patch " << *patch);
+        }
+      }
+    }
+
+    break;
+  }
+
+  if (!ok) {
+    PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: can't create patch for "
+           << *this << " <-- " << connection << "\n"
+           << setfill('\n') << mediaFormats << setfill(' '));
+    return false;
+  }
+
+  StartMediaStreams();
+
+  PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: fallback - OK");
+
+  return true;
 }
 /////////////////////////////////////////////////////////////////////////////
 
