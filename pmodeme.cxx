@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.74  2009-11-06 10:02:29  vfrolov
- * Fixed typo in fax-no-force
+ * Revision 1.75  2009-11-17 11:25:48  vfrolov
+ * Added missing delay before sending fax-no-force requestmode
+ * Redesigned handling stConnectHandle state
+ *
+ * Revision 1.75  2009/11/17 11:25:48  vfrolov
+ * Added missing delay before sending fax-no-force requestmode
+ * Redesigned handling stConnectHandle state
  *
  * Revision 1.74  2009/11/06 10:02:29  vfrolov
  * Fixed typo in fax-no-force
@@ -522,12 +527,13 @@ class ModemEngineBody : public PObject
     };
 
     enum {
-      chEvent1,
-      chDelay,
-      chEvent2,
+      chConnected,
       chWaitAudioEngine,
-      chHandle,
+      chAudioEngineAttached,
       chWaitPlayTone,
+      chTonePlayed,
+      chDelay,
+      chConnectionEstablished,
     };
 
   /**@name Construction */
@@ -956,7 +962,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       myPTRACE(1, "ModemEngineBody::Request not in use");
     } else if (CallToken() == request("calltoken")) {
       if (state == stConnectWait) {
-        param = chEvent1;
+        param = chConnected;
         state = stConnectHandle;
         parent.SignalDataReady();
         request.SetAt("response", "confirm");
@@ -1119,7 +1125,7 @@ PBoolean ModemEngineBody::Attach(AudioEngine *_audioEngine)
     audioEngine->SendOnIdle(EngineBase::dtCng);
 
   if (state == stConnectHandle && param == chWaitAudioEngine) {
-    param = chHandle;
+    param = chAudioEngineAttached;
     timeout.Stop();
     parent.SignalDataReady();
   }
@@ -1189,7 +1195,7 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
         break;
       case stConnectHandle:
         if (param == chWaitPlayTone) {
-          param = chHandle;
+          param = chTonePlayed;
           timeout.Stop();
         }
         break;
@@ -1693,7 +1699,7 @@ PBoolean ModemEngineBody::Answer()
     }
   } else {
     timeout.Stop();
-    param = chHandle;
+    param = chConnectionEstablished;
     state = stConnectHandle;
     parent.SignalDataReady();
   }
@@ -1958,7 +1964,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 
                   callDirection = setCallDirection;
                   forceFaxMode = (forceFaxMode || setForceFaxMode);
-                  param = chEvent1;
+                  param = chConnected;
                   state = stConnectHandle;
                   parent.SignalDataReady();
 
@@ -3351,7 +3357,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         break;
       case stConnectHandle:
         if (param == chDelay) {
-          param = chEvent2;
+          param = chConnectionEstablished;
           break;
         }
       case stConnectWait:
@@ -3473,21 +3479,14 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       {
         PWaitAndSignal mutexWait(Mutex);
         switch(param) {
-          case chEvent1:
-            if (forceFaxMode && P.FaxClass()) {
-              param = chDelay;
-              timeout.Start(1000);    // wait 1 sec before request mode
-              break;
-            }
-            param = chEvent2;
-          case chEvent2:
+          case chConnected:
             if (!audioEngine) {
               param = chWaitAudioEngine;
               timeout.Start(60000);
               break;
             }
-            param = chHandle;
-          case chHandle:
+            param = chAudioEngineAttached;
+          case chAudioEngineAttached:
             if (pPlayTone) {
               PBoolean err = FALSE;
 
@@ -3519,7 +3518,15 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               pPlayTone = NULL;
               break;
             }
-
+            param = chTonePlayed;
+          case chTonePlayed:
+            if (!connectionEstablished && P.FaxClass()) {
+              param = chDelay;
+              timeout.Start(1000);    // wait 1 sec before request mode
+              break;
+            }
+            param = chConnectionEstablished;
+          case chConnectionEstablished:
             connectionEstablished = TRUE;
 
             if (P.AudioClass()) {
