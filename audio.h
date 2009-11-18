@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -21,11 +21,14 @@
  *
  * The Initial Developer of the Original Code is Vyacheslav Frolov
  *
- * Contributor(s): 
+ * Contributor(s):
  *
  * $Log: audio.h,v $
- * Revision 1.2  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.3  2009-11-18 19:08:47  vfrolov
+ * Moved common code to class EngineBase
+ *
+ * Revision 1.3  2009/11/18 19:08:47  vfrolov
+ * Moved common code to class EngineBase
  *
  * Revision 1.2  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -55,11 +58,6 @@ class AudioEngine : public PChannel, public EngineBase
     AudioEngine(const PString &_name = "");
     ~AudioEngine();
 
-    PBoolean Attach(const PNotifier &callback);
-    void Detach(const PNotifier &callback);
-    void ModemCallbackWithUnlock(INT extra);
-    void AudioClass(PBoolean _audioClass);
-
     PBoolean Read(void * buffer, PINDEX amount);
     void SendOnIdle(int _dataType);
     PBoolean SendStart(int _dataType, int param);
@@ -72,10 +70,12 @@ class AudioEngine : public PChannel, public EngineBase
     PBoolean RecvStart(int _callbackParam);
     int Recv(void *pBuf, PINDEX count);
     void RecvStop();
-    void WriteUserInput(const PString & value);
-    int RecvUserInput(void * pBuf, PINDEX count);
 
   protected:
+
+    virtual void OnAttach();
+    virtual void OnDetach();
+    virtual void OnChangeModemClass();
 
     PAdaptiveDelay readDelay;
     PAdaptiveDelay writeDelay;
@@ -85,14 +85,8 @@ class AudioEngine : public PChannel, public EngineBase
     DataStream *volatile sendAudio;
     DataStream *volatile recvAudio;
 
-    DataStream *volatile recvUserInput;
-
     T30Tone *volatile t30Tone;
     T30ToneDetect *volatile t30ToneDetect;
-
-    PBoolean audioClass;
-
-    PMutex Mutex;
 };
 ///////////////////////////////////////////////////////////////
 

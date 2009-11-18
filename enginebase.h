@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2008 Vyacheslav Frolov
+ * Copyright (c) 2007-2009 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -21,11 +21,14 @@
  *
  * The Initial Developer of the Original Code is Vyacheslav Frolov
  *
- * Contributor(s): 
+ * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.3  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.4  2009-11-18 19:08:47  vfrolov
+ * Moved common code to class EngineBase
+ *
+ * Revision 1.4  2009/11/18 19:08:47  vfrolov
+ * Moved common code to class EngineBase
  *
  * Revision 1.3  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -49,7 +52,8 @@ class EngineBase : public PObject
 
   public:
 
-    EngineBase(const PString &_name = "") : name(_name) {}
+    EngineBase(const PString &_name = "");
+    virtual ~EngineBase();
 
     enum {
       diagOutOfOrder	= 0x01,
@@ -76,27 +80,48 @@ class EngineBase : public PObject
       cbpUserInput	= -3,
     };
 
-#if PTRACING
-    friend ostream & operator<<(ostream & o, ModemCallbackParam param);
-#endif
+    enum ModemClass {
+      mcUndefined,
+      mcAudio,
+      mcFax,
+    };
 
   /**@name Modem API */
   //@{
+    PBoolean Attach(const PNotifier &callback);
+    void Detach(const PNotifier &callback);
+
     PBoolean TryLockModemCallback();
     void UnlockModemCallback();
+
+    void ChangeModemClass(ModemClass newModemClass);
+
+    void WriteUserInput(const PString & value);
+    int RecvUserInput(void * pBuf, PINDEX count);
   //@}
 
   protected:
 
-    void ModemCallback(INT extra);
+    virtual void OnAttach();
+    virtual void OnDetach();
+    virtual void OnChangeModemClass();
+
+    const PString name;
+    DataStream *volatile recvUserInput;
+    ModemClass modemClass;
+
+    void ModemCallbackWithUnlock(INT extra);
 
     PNotifier modemCallback;
     PTimedMutex MutexModemCallback;
 
     PMutex MutexModem;
-
-    const PString name;
+    PMutex Mutex;
 };
+
+#if PTRACING
+ostream & operator<<(ostream & out, EngineBase::ModemCallbackParam param);
+#endif
 ///////////////////////////////////////////////////////////////
 
 #endif  // _ENGINEBASE_H

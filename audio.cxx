@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.8  2009-10-05 15:01:08  vfrolov
- * Fixed possible memory leak
+ * Revision 1.9  2009-11-18 19:08:47  vfrolov
+ * Moved common code to class EngineBase
+ *
+ * Revision 1.9  2009/11/18 19:08:47  vfrolov
+ * Moved common code to class EngineBase
  *
  * Revision 1.8  2009/10/05 15:01:08  vfrolov
  * Fixed possible memory leak
@@ -66,13 +69,11 @@ typedef	PInt16			SIMPLE_TYPE;
 #define	BYTES_PER_SIMPLE	sizeof(SIMPLE_TYPE)
 ///////////////////////////////////////////////////////////////
 AudioEngine::AudioEngine(const PString &_name)
-  : EngineBase(_name),
-    sendAudio(NULL),
-    recvAudio(NULL),
-    recvUserInput(NULL),
-    t30Tone(NULL),
-    t30ToneDetect(NULL),
-    audioClass(FALSE)
+  : EngineBase(_name + " AudioEngine")
+  , sendAudio(NULL)
+  , recvAudio(NULL)
+  , t30Tone(NULL)
+  , t30ToneDetect(NULL)
 {
 }
 
@@ -84,9 +85,6 @@ AudioEngine::~AudioEngine()
   if (recvAudio)
     delete recvAudio;
 
-  if (recvUserInput)
-    delete recvUserInput;
-
   if (t30Tone)
     delete t30Tone;
 
@@ -94,92 +92,42 @@ AudioEngine::~AudioEngine()
     delete t30ToneDetect;
 }
 
-PBoolean AudioEngine::Attach(const PNotifier &callback)
+void AudioEngine::OnAttach()
 {
-  PTRACE(1, name << " AudioEngine::Attach");
-
-  if (!modemCallback.IsNULL()) {
-    myPTRACE(1, name << " AudioEngine::Attach !modemCallback.IsNULL()");
-    return FALSE;
-  }
+  EngineBase::OnAttach();
 
   readDelay.Restart();
   writeDelay.Restart();
-  modemCallback = callback;
-
-  return TRUE;
 }
 
-void AudioEngine::Detach(const PNotifier &callback)
+void AudioEngine::OnDetach()
 {
-  PTRACE(1, name << " AudioEngine::Detach");
+  EngineBase::OnDetach();
 
-  if (modemCallback == callback) {
-    modemCallback = NULL;
+  if (sendAudio) {
+    delete sendAudio;
+    sendAudio = NULL;
+  }
 
-    PWaitAndSignal mutexWait(Mutex);
+  if (recvAudio) {
+    delete recvAudio;
+    recvAudio = NULL;
+  }
 
-    audioClass = FALSE;
-
-    if (sendAudio) {
-      delete sendAudio;
-      sendAudio = NULL;
-    }
-
-    if (recvAudio) {
-      delete recvAudio;
-      recvAudio = NULL;
-    }
-
-    if (recvUserInput) {
-      delete recvUserInput;
-      recvUserInput = NULL;
-    }
-
-    if (t30Tone) {
-      delete t30Tone;
-      t30Tone = NULL;
-    }
-
-    if (t30ToneDetect) {
-      delete t30ToneDetect;
-      t30ToneDetect = NULL;
-    }
-
-    myPTRACE(1, name << " AudioEngine::Detach Detached");
-  } else {
-    myPTRACE(1, name << " AudioEngine::Detach "
-      << (modemCallback.IsNULL() ? "Already Detached" : "modemCallback != callback"));
+  if (t30Tone) {
+    delete t30Tone;
+    t30Tone = NULL;
   }
 }
 
-void AudioEngine::ModemCallbackWithUnlock(INT extra)
+void AudioEngine::OnChangeModemClass()
 {
-  Mutex.Signal();
-  ModemCallback(extra);
-  Mutex.Wait();
-}
+  EngineBase::OnChangeModemClass();
 
-void AudioEngine::AudioClass(PBoolean _audioClass)
-{
-  PWaitAndSignal mutexWait(Mutex);
-
-  audioClass = _audioClass;
-
-  myPTRACE(1, name << " AudioClass=" << (audioClass ? "TRUE" : "FALSE"));
-
-  if (audioClass) {
-    if (!recvUserInput)
-      recvUserInput = new DataStream(64);
-
+  if (modemClass == mcAudio) {
     if (!t30ToneDetect)
       t30ToneDetect = new T30ToneDetect;
   } else {
-    if (recvUserInput) {
-      delete recvUserInput;
-      recvUserInput = NULL;
-    }
-
     if (t30ToneDetect) {
       delete t30ToneDetect;
       t30ToneDetect = NULL;
@@ -226,7 +174,7 @@ PBoolean AudioEngine::Read(void * buffer, PINDEX amount)
 
 void AudioEngine::SendOnIdle(int _dataType)
 {
-  PTRACE(2, name << " AudioEngine::SendOnIdle " << _dataType);
+  PTRACE(2, name << " SendOnIdle " << _dataType);
 
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
@@ -243,7 +191,7 @@ void AudioEngine::SendOnIdle(int _dataType)
     case dtNone:
       break;
     default:
-      PTRACE(1, name << " AudioEngine::SendOnIdle dataType(" << _dataType << ") is not supported");
+      PTRACE(1, name << " SendOnIdle dataType(" << _dataType << ") is not supported");
   }
 }
 
@@ -257,7 +205,7 @@ PBoolean AudioEngine::SendStart(int PTRACE_PARAM(_dataType), int PTRACE_PARAM(pa
 
   sendAudio = new DataStream(1024*2);
 
-  PTRACE(3, name << " AudioEngine::SendStart _dataType=" << _dataType
+  PTRACE(3, name << " SendStart _dataType=" << _dataType
                  << " param=" << param);
 
   return TRUE;
@@ -284,7 +232,7 @@ PBoolean AudioEngine::SendStop(PBoolean PTRACE_PARAM(moreFrames), int _callbackP
 
   callbackParam = _callbackParam;
 
-  PTRACE(3, name << " AudioEngine::SendStop moreFrames=" << moreFrames
+  PTRACE(3, name << " SendStop moreFrames=" << moreFrames
                  << " callbackParam=" << callbackParam);
 
   return TRUE;
@@ -361,30 +309,6 @@ void AudioEngine::RecvStop()
     delete recvAudio;
     recvAudio = NULL;
   }
-}
-
-void AudioEngine::WriteUserInput(const PString & value)
-{
-  myPTRACE(1, name << " AudioEngine::WriteUserInput " << value);
-
-  PWaitAndSignal mutexWait(Mutex);
-
-  if (recvUserInput && !recvUserInput->isFull()) {
-    recvUserInput->PutData((const char *)value, value.GetLength());
-
-    ModemCallbackWithUnlock(cbpUserInput);
-  }
-}
-
-int AudioEngine::RecvUserInput(void * pBuf, PINDEX count)
-{
-  PWaitAndSignal mutexWaitModem(MutexModem);
-  PWaitAndSignal mutexWait(Mutex);
-
-  if (!recvUserInput)
-    return -1;
-
-  return recvUserInput->GetData(pBuf, count);
 }
 ///////////////////////////////////////////////////////////////
 

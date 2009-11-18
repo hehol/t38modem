@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.75  2009-11-17 11:25:48  vfrolov
- * Added missing delay before sending fax-no-force requestmode
- * Redesigned handling stConnectHandle state
+ * Revision 1.76  2009-11-18 19:08:47  vfrolov
+ * Moved common code to class EngineBase
+ *
+ * Revision 1.76  2009/11/18 19:08:47  vfrolov
+ * Moved common code to class EngineBase
  *
  * Revision 1.75  2009/11/17 11:25:48  vfrolov
  * Added missing delay before sending fax-no-force requestmode
@@ -1030,6 +1032,8 @@ PBoolean ModemEngineBody::Attach(T38Engine *_t38engine)
     Mutex.Wait();
   }
 
+  t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
+
   if (state == stReqModeAckWait) {
     state = stReqModeAckHandle;
     timeout.Stop();
@@ -1119,7 +1123,7 @@ PBoolean ModemEngineBody::Attach(AudioEngine *_audioEngine)
     Mutex.Wait();
   }
 
-  audioEngine->AudioClass(P.AudioClass());
+  audioEngine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
 
   if (callDirection == cdOutgoing && P.FaxClass())
     audioEngine->SendOnIdle(EngineBase::dtCng);
@@ -2057,7 +2061,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             P.ModemClass("1");
 
             if (audioEngine)
-              audioEngine->AudioClass(P.AudioClass());
+              audioEngine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
+
+            if (t38engine)
+              t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
           } else {
             err = TRUE;
           }
@@ -2202,7 +2209,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               P = Profiles[val];
 
               if (audioEngine)
-                audioEngine->AudioClass(P.AudioClass());
+                audioEngine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
+
+              if (t38engine)
+                t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
             } else {
               err = TRUE;
             }
@@ -2270,7 +2280,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                             }
 
                             if (audioEngine)
-                              audioEngine->AudioClass(P.AudioClass());
+                              audioEngine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
+
+                            if (t38engine)
+                              t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
                         }
                         break;
                       case '?':
@@ -2969,7 +2982,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 P = Profiles[0];
 
                 if (audioEngine)
-                  audioEngine->AudioClass(P.AudioClass());
+                  audioEngine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
+
+                if (t38engine)
+                  t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
               }
               break;
             case 'H':					// &H

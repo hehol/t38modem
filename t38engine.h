@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.32  2009-11-10 08:13:38  vfrolov
- * Fixed race condition on re-opening T38Engine
+ * Revision 1.33  2009-11-18 19:08:47  vfrolov
+ * Moved common code to class EngineBase
+ *
+ * Revision 1.33  2009/11/18 19:08:47  vfrolov
+ * Moved common code to class EngineBase
  *
  * Revision 1.32  2009/11/10 08:13:38  vfrolov
  * Fixed race condition on re-opening T38Engine
@@ -190,9 +193,6 @@ class T38Engine : public EngineBase
 
   /**@name Modem API */
   //@{
-    PBoolean Attach(const PNotifier &callback);
-    void Detach(const PNotifier &callback);
-
     void ResetModemState();
     PBoolean isOutBufFull() const;
 
@@ -252,6 +252,10 @@ class T38Engine : public EngineBase
 
   protected:
 
+    virtual void OnAttach();
+    virtual void OnDetach();
+    virtual void OnChangeModemClass();
+
     enum { msPerOut = 30 };
 
   private:
@@ -265,7 +269,6 @@ class T38Engine : public EngineBase
     PBoolean IsOpenIn() const { return isOpenIn && IsModemOpen(); }
     PBoolean IsOpenOut() const { return isOpenOut && IsModemOpen(); }
 
-    void ModemCallbackWithUnlock(INT extra);
     void _ResetModemState();
 
   private:
@@ -306,7 +309,6 @@ class T38Engine : public EngineBase
     volatile PBoolean isOpenOut;
 
     PSyncPoint outDataReadySyncPoint;
-    PMutex Mutex;
 };
 ///////////////////////////////////////////////////////////////
 
