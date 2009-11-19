@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.76  2009-11-18 19:08:47  vfrolov
- * Moved common code to class EngineBase
+ * Revision 1.77  2009-11-19 11:18:16  vfrolov
+ * Added handling T.38 CED indication
+ *
+ * Revision 1.77  2009/11/19 11:18:16  vfrolov
+ * Added handling T.38 CED indication
  *
  * Revision 1.76  2009/11/18 19:08:47  vfrolov
  * Moved common code to class EngineBase
@@ -3389,11 +3392,18 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
   if (connectionEstablished && P.AudioClass()) {
     PWaitAndSignal mutexWait(Mutex);
 
-    if (audioEngine) {
+    EngineBase *engines[] = {audioEngine, t38engine};
+
+    for (int i = 0 ; i < (int)(sizeof(engines)/sizeof(engines[0])) ; i++) {
+      EngineBase *engine = engines[i];
+
+      if (engine == NULL)
+        continue;
+
       for(;;) {
         BYTE c;
 
-        if (audioEngine->RecvUserInput(&c, 1) <= 0)
+        if (engine->RecvUserInput(&c, 1) <= 0)
           break;
 
         switch (c) {

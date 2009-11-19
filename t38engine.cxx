@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.59  2009-11-18 19:08:47  vfrolov
- * Moved common code to class EngineBase
+ * Revision 1.60  2009-11-19 11:18:16  vfrolov
+ * Added handling T.38 CED indication
+ *
+ * Revision 1.60  2009/11/19 11:18:16  vfrolov
+ * Added handling T.38 CED indication
  *
  * Revision 1.59  2009/11/18 19:08:47  vfrolov
  * Moved common code to class EngineBase
@@ -1429,8 +1432,11 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
 
       switch (type_of_msg) {
         case T38I(e_no_signal):
-        case T38I(e_cng):
         case T38I(e_ced):
+          isCarrierIn = 0;
+          break;
+        case T38I(e_cng):
+          OnUserInput('c');
           isCarrierIn = 0;
           break;
         case T38I(e_v21_preamble):
