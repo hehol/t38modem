@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.9  2009-11-18 19:08:47  vfrolov
- * Moved common code to class EngineBase
+ * Revision 1.10  2009-11-19 11:14:04  vfrolov
+ * Added OnUserInput
+ *
+ * Revision 1.10  2009/11/19 11:14:04  vfrolov
+ * Added OnUserInput
  *
  * Revision 1.9  2009/11/18 19:08:47  vfrolov
  * Moved common code to class EngineBase
@@ -256,10 +259,10 @@ PBoolean AudioEngine::Write(const void * buffer, PINDEX len)
 
   PBoolean cng = t30ToneDetect && t30ToneDetect->Write(buffer, len);
 
-  Mutex.Signal();
-
   if (cng)
-    WriteUserInput('c');
+    OnUserInput('c');
+
+  Mutex.Signal();
 
   lastWriteCount = len;
 

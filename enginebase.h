@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.4  2009-11-18 19:08:47  vfrolov
- * Moved common code to class EngineBase
+ * Revision 1.5  2009-11-19 11:14:04  vfrolov
+ * Added OnUserInput
+ *
+ * Revision 1.5  2009/11/19 11:14:04  vfrolov
+ * Added OnUserInput
  *
  * Revision 1.4  2009/11/18 19:08:47  vfrolov
  * Moved common code to class EngineBase
@@ -105,6 +108,7 @@ class EngineBase : public PObject
     virtual void OnAttach();
     virtual void OnDetach();
     virtual void OnChangeModemClass();
+    virtual void OnUserInput(const PString & value);
 
     const PString name;
     DataStream *volatile recvUserInput;

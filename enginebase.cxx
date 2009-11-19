@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.cxx,v $
- * Revision 1.4  2009-11-18 19:08:47  vfrolov
- * Moved common code to class EngineBase
+ * Revision 1.5  2009-11-19 11:14:04  vfrolov
+ * Added OnUserInput
+ *
+ * Revision 1.5  2009/11/19 11:14:04  vfrolov
+ * Added OnUserInput
  *
  * Revision 1.4  2009/11/18 19:08:47  vfrolov
  * Moved common code to class EngineBase
@@ -205,6 +208,13 @@ void EngineBase::WriteUserInput(const PString & value)
   myPTRACE(1, name << " WriteUserInput " << value);
 
   PWaitAndSignal mutexWait(Mutex);
+
+  OnUserInput(value);
+}
+
+void EngineBase::OnUserInput(const PString & value)
+{
+  PTRACE(4, name << " OnUserInput " << value);
 
   if (recvUserInput && !recvUserInput->isFull()) {
     recvUserInput->PutData((const char *)value, value.GetLength());
