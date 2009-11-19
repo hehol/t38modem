@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.60  2009-11-19 11:18:16  vfrolov
- * Added handling T.38 CED indication
+ * Revision 1.61  2009-11-19 14:48:28  vfrolov
+ * Moved common code to class EngineBase
+ *
+ * Revision 1.61  2009/11/19 14:48:28  vfrolov
+ * Moved common code to class EngineBase
  *
  * Revision 1.60  2009/11/19 11:18:16  vfrolov
  * Added handling T.38 CED indication
@@ -537,13 +540,6 @@ T38Engine::T38Engine(const PString &_name)
   , modStreamIn(NULL)
   , modStreamInSaved(NULL)
   , stateModem(stmIdle)
-#ifdef USE_OPAL
-  , isOpenIn(FALSE)
-  , isOpenOut(FALSE)
-#else
-  , isOpenIn(TRUE)
-  , isOpenOut(TRUE)
-#endif
 {
   PTRACE(2, name << " T38Engine");
 }
@@ -568,47 +564,27 @@ T38Engine::~T38Engine()
     myPTRACE(1, name << " ~T38Engine !modemCallback.IsNULL()");
 }
 
-void T38Engine::OpenIn()
+void T38Engine::OnOpenIn()
 {
-  myPTRACE(1, name << " OpenIn: " << (isOpenIn ? "re-open" : "open"));
-
-  PWaitAndSignal mutexWait(Mutex);
-
-  if (isOpenIn)
-    return;
-
-  isOpenIn = TRUE;
+  EngineBase::OnOpenIn();
   firstIn = TRUE;
 }
 
-void T38Engine::OpenOut()
+void T38Engine::OnOpenOut()
 {
-  myPTRACE(1, name << " OpenOut: " << (isOpenOut ? "re-open" : "open"));
-
-  PWaitAndSignal mutexWait(Mutex);
-
-  if (isOpenOut)
-    return;
-
-  isOpenOut = TRUE;
+  EngineBase::OnOpenOut();
   preparePacketDelay.Restart();
 }
 
-void T38Engine::CloseIn()
+void T38Engine::OnCloseIn()
 {
-  myPTRACE(1, name << " CloseIn: " << (isOpenIn ? "close" : "re-close"));
-
-  PWaitAndSignal mutexWait(Mutex);
-  isOpenIn = FALSE;
+  EngineBase::OnCloseIn();
   SignalOutDataReady();
 }
 
-void T38Engine::CloseOut()
+void T38Engine::OnCloseOut()
 {
-  myPTRACE(1, name << " CloseOut: " << (isOpenOut ? "close" : "re-close"));
-
-  PWaitAndSignal mutexWait(Mutex);
-  isOpenOut = FALSE;
+  EngineBase::OnCloseOut();
   SignalOutDataReady();
 }
 

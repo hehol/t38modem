@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.5  2009-11-19 11:14:04  vfrolov
- * Added OnUserInput
+ * Revision 1.6  2009-11-19 14:48:28  vfrolov
+ * Moved common code to class EngineBase
+ *
+ * Revision 1.6  2009/11/19 14:48:28  vfrolov
+ * Moved common code to class EngineBase
  *
  * Revision 1.5  2009/11/19 11:14:04  vfrolov
  * Added OnUserInput
@@ -48,6 +51,7 @@
 #define _ENGINEBASE_H
 
 ///////////////////////////////////////////////////////////////
+class DataStream;
 
 class EngineBase : public PObject
 {
@@ -94,6 +98,11 @@ class EngineBase : public PObject
     PBoolean Attach(const PNotifier &callback);
     void Detach(const PNotifier &callback);
 
+    void OpenIn();
+    void OpenOut();
+    void CloseIn();
+    void CloseOut();
+
     PBoolean TryLockModemCallback();
     void UnlockModemCallback();
 
@@ -104,15 +113,25 @@ class EngineBase : public PObject
   //@}
 
   protected:
+    PBoolean IsModemOpen() const { return !modemCallback.IsNULL(); }
+    PBoolean IsOpenIn() const { return isOpenIn && IsModemOpen(); }
+    PBoolean IsOpenOut() const { return isOpenOut && IsModemOpen(); }
 
     virtual void OnAttach();
     virtual void OnDetach();
     virtual void OnChangeModemClass();
     virtual void OnUserInput(const PString & value);
 
+    virtual void OnOpenIn() {}
+    virtual void OnOpenOut() {}
+    virtual void OnCloseIn() {}
+    virtual void OnCloseOut() {}
+
     const PString name;
     DataStream *volatile recvUserInput;
     ModemClass modemClass;
+    volatile PBoolean isOpenIn;
+    volatile PBoolean isOpenOut;
 
     void ModemCallbackWithUnlock(INT extra);
 

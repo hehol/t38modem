@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.cxx,v $
- * Revision 1.5  2009-11-19 11:14:04  vfrolov
- * Added OnUserInput
+ * Revision 1.6  2009-11-19 14:48:28  vfrolov
+ * Moved common code to class EngineBase
+ *
+ * Revision 1.6  2009/11/19 14:48:28  vfrolov
+ * Moved common code to class EngineBase
  *
  * Revision 1.5  2009/11/19 11:14:04  vfrolov
  * Added OnUserInput
@@ -81,6 +84,13 @@ EngineBase::EngineBase(const PString &_name)
   : name(_name)
   , recvUserInput(NULL)
   , modemClass(mcUndefined)
+#ifdef USE_OPAL
+  , isOpenIn(FALSE)
+  , isOpenOut(FALSE)
+#else
+  , isOpenIn(TRUE)
+  , isOpenOut(TRUE)
+#endif
 {
 }
 
@@ -142,6 +152,62 @@ void EngineBase::Detach(const PNotifier &callback)
 void EngineBase::OnDetach()
 {
   myPTRACE(1, name << " OnDetach Detached");
+}
+
+void EngineBase::OpenIn()
+{
+  myPTRACE(1, name << " OpenIn: " << (isOpenIn ? "re-open" : "open"));
+
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (isOpenIn)
+    return;
+
+  isOpenIn = TRUE;
+
+  OnOpenIn();
+}
+
+void EngineBase::OpenOut()
+{
+  myPTRACE(1, name << " OpenOut: " << (isOpenOut ? "re-open" : "open"));
+
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (isOpenOut)
+    return;
+
+  isOpenOut = TRUE;
+
+  OnOpenOut();
+}
+
+void EngineBase::CloseIn()
+{
+  myPTRACE(1, name << " CloseIn: " << (isOpenIn ? "close" : "re-close"));
+
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (!isOpenIn)
+    return;
+
+  isOpenIn = FALSE;
+
+  OnCloseIn();
+}
+
+void EngineBase::CloseOut()
+{
+  myPTRACE(1, name << " CloseOut: " << (isOpenOut ? "close" : "re-close"));
+
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (!isOpenOut)
+    return;
+
+  isOpenOut = FALSE;
+
+  OnCloseOut();
 }
 
 void EngineBase::ChangeModemClass(ModemClass newModemClass)

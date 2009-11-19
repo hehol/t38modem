@@ -24,7 +24,10 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.33  2009-11-18 19:08:47  vfrolov
+ * Revision 1.34  2009-11-19 14:48:28  vfrolov
+ * Moved common code to class EngineBase
+ *
+ * Revision 1.34  2009/11/19 14:48:28  vfrolov
  * Moved common code to class EngineBase
  *
  * Revision 1.33  2009/11/18 19:08:47  vfrolov
@@ -208,11 +211,6 @@ class T38Engine : public EngineBase
     void RecvStop();
   //@}
 
-    void OpenIn();
-    void OpenOut();
-    void CloseIn();
-    void CloseOut();
-
     void Close() { CloseIn(); CloseOut(); }
 
     /**Prepare outgoing T.38 packet.
@@ -255,6 +253,10 @@ class T38Engine : public EngineBase
     virtual void OnAttach();
     virtual void OnDetach();
     virtual void OnChangeModemClass();
+    virtual void OnOpenIn();
+    virtual void OnOpenOut();
+    virtual void OnCloseIn();
+    virtual void OnCloseOut();
 
     enum { msPerOut = 30 };
 
@@ -264,10 +266,6 @@ class T38Engine : public EngineBase
     PBoolean WaitOutDataReady(const PTimeInterval & timeout) {
       return outDataReadySyncPoint.Wait(timeout);
     }
-
-    PBoolean IsModemOpen() const { return !modemCallback.IsNULL(); }
-    PBoolean IsOpenIn() const { return isOpenIn && IsModemOpen(); }
-    PBoolean IsOpenOut() const { return isOpenOut && IsModemOpen(); }
 
     void _ResetModemState();
 
@@ -305,8 +303,6 @@ class T38Engine : public EngineBase
     ModStream *modStreamInSaved;
 
     volatile int stateModem;
-    volatile PBoolean isOpenIn;
-    volatile PBoolean isOpenOut;
 
     PSyncPoint outDataReadySyncPoint;
 };
