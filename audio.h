@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.h,v $
- * Revision 1.3  2009-11-18 19:08:47  vfrolov
- * Moved common code to class EngineBase
+ * Revision 1.4  2009-11-20 16:37:27  vfrolov
+ * Fixed audio class application blocking by forced T.38 mode
+ *
+ * Revision 1.4  2009/11/20 16:37:27  vfrolov
+ * Fixed audio class application blocking by forced T.38 mode
  *
  * Revision 1.3  2009/11/18 19:08:47  vfrolov
  * Moved common code to class EngineBase
@@ -76,9 +79,18 @@ class AudioEngine : public PChannel, public EngineBase
     virtual void OnAttach();
     virtual void OnDetach();
     virtual void OnChangeModemClass();
+    virtual void OnOpenIn();
+    virtual void OnOpenOut();
+    virtual void OnCloseIn();
+    virtual void OnCloseOut();
 
     PAdaptiveDelay readDelay;
     PAdaptiveDelay writeDelay;
+
+    PTime  targetTimeFakeOut;
+    mutable PTimer timerFakeOut;
+    PDECLARE_NOTIFIER(PTimer, AudioEngine, OnTimerFakeOutCallback);
+    const PNotifier timerFakeOutCallback;
 
     int callbackParam;
 

@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.cxx,v $
- * Revision 1.6  2009-11-10 08:13:38  vfrolov
- * Fixed race condition on re-opening T38Engine
+ * Revision 1.7  2009-11-20 16:37:27  vfrolov
+ * Fixed audio class application blocking by forced T.38 mode
+ *
+ * Revision 1.7  2009/11/20 16:37:27  vfrolov
+ * Fixed audio class application blocking by forced T.38 mode
  *
  * Revision 1.6  2009/11/10 08:13:38  vfrolov
  * Fixed race condition on re-opening T38Engine
@@ -55,11 +58,58 @@
 #include <asn/t38.h>
 #include <opal/patch.h>
 
+#include "../audio.h"
 #include "../t38engine.h"
 #include "modemstrm.h"
 
 #define new PNEW
 
+/////////////////////////////////////////////////////////////////////////////
+AudioModemMediaStream::AudioModemMediaStream(
+    OpalConnection & conn,
+    const OpalMediaFormat & mediaFormat,
+    unsigned sessionID,
+    PBoolean isSource,
+    AudioEngine *_audioEngine)
+  : OpalRawMediaStream(conn, mediaFormat, sessionID, isSource, _audioEngine, FALSE),
+    audioEngine(_audioEngine)
+{
+  PTRACE(4, "AudioModemMediaStream::AudioModemMediaStream " << *this);
+}
+
+PBoolean AudioModemMediaStream::Open()
+{
+  if (isOpen)
+    return TRUE;
+
+  if (!audioEngine) {
+    PTRACE(1, "AudioModemMediaStream::Open No audioEngine.");
+    return FALSE;
+  }
+
+  PTRACE(3, "AudioModemMediaStream::Open " << *this);
+
+  if (IsSink())
+    audioEngine->OpenIn();
+  else
+    audioEngine->OpenOut();
+
+  return OpalMediaStream::Open();
+}
+
+PBoolean AudioModemMediaStream::Close()
+{
+  if (isOpen) {
+    PTRACE(3, "AudioModemMediaStream::Close " << *this);
+
+    if (IsSink())
+      audioEngine->CloseIn();
+    else
+      audioEngine->CloseOut();
+  }
+
+  return OpalMediaStream::Close();
+}
 /////////////////////////////////////////////////////////////////////////////
 T38ModemMediaStream::T38ModemMediaStream(
     OpalConnection & conn,
@@ -193,7 +243,7 @@ PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
     return FALSE;
   }
 
-  PTRACE(4, "T38ModemMediaStream::ReadPacket"
+  PTRACE(5, "T38ModemMediaStream::ReadPacket"
             " packet " << packet.GetSequenceNumber() <<
             " size=" << packet.GetPayloadSize() <<
             " type=" << packet.GetPayloadType() <<

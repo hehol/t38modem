@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.h,v $
- * Revision 1.3  2009-10-27 19:03:50  vfrolov
- * Added ability to re-open T38Engine
- * Added ability to prepare IFP packets with adaptive delay/period
+ * Revision 1.4  2009-11-20 16:37:27  vfrolov
+ * Fixed audio class application blocking by forced T.38 mode
+ *
+ * Revision 1.4  2009/11/20 16:37:27  vfrolov
+ * Fixed audio class application blocking by forced T.38 mode
  *
  * Revision 1.3  2009/10/27 19:03:50  vfrolov
  * Added ability to re-open T38Engine
@@ -46,6 +48,8 @@
 #include <opal/mediastrm.h>
 
 /////////////////////////////////////////////////////////////////////////////
+class AudioEngine;
+
 class AudioModemMediaStream : public OpalRawMediaStream
 {
     PCLASSINFO(AudioModemMediaStream, OpalRawMediaStream);
@@ -55,11 +59,19 @@ class AudioModemMediaStream : public OpalRawMediaStream
       const OpalMediaFormat & mediaFormat, ///<  Media format for stream
       unsigned sessionID,                  ///<  Session number for stream
       PBoolean isSource,                   ///<  Is a source stream
-      PChannel * channel                   ///<  I/O channel to stream to/from
-    )
-    : OpalRawMediaStream(conn, mediaFormat, sessionID, isSource, channel, FALSE) {}
+      AudioEngine *_audioEngine            ///<  I/O channel to stream to/from
+    );
+
+  /**@name Overrides of OpalRawMediaStream class */
+  //@{
+    virtual PBoolean Open();
+    virtual PBoolean Close();
 
     virtual PBoolean IsSynchronous() const { return FALSE; }
+  //@}
+
+  protected:
+    AudioEngine *audioEngine;
 };
 /////////////////////////////////////////////////////////////////////////////
 class T38Engine;

@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.10  2009-11-19 11:14:04  vfrolov
- * Added OnUserInput
+ * Revision 1.11  2009-11-20 16:37:27  vfrolov
+ * Fixed audio class application blocking by forced T.38 mode
+ *
+ * Revision 1.11  2009/11/20 16:37:27  vfrolov
+ * Fixed audio class application blocking by forced T.38 mode
  *
  * Revision 1.10  2009/11/19 11:14:04  vfrolov
  * Added OnUserInput
@@ -73,15 +76,26 @@ typedef	PInt16			SIMPLE_TYPE;
 ///////////////////////////////////////////////////////////////
 AudioEngine::AudioEngine(const PString &_name)
   : EngineBase(_name + " AudioEngine")
+#ifdef _MSC_VER
+#pragma warning(disable:4355) // warning C4355: 'this' : used in base member initializer list
+#endif
+  , timerFakeOutCallback(PCREATE_NOTIFIER(OnTimerFakeOutCallback))
+#ifdef _MSC_VER
+#pragma warning(default:4355)
+#endif
+  , callbackParam(cbpReset)
   , sendAudio(NULL)
   , recvAudio(NULL)
   , t30Tone(NULL)
   , t30ToneDetect(NULL)
 {
+  timerFakeOut.SetNotifier(timerFakeOutCallback);
 }
 
 AudioEngine::~AudioEngine()
 {
+  timerFakeOut = 0;
+
   if (sendAudio)
     delete sendAudio;
 
@@ -138,6 +152,52 @@ void AudioEngine::OnChangeModemClass()
   }
 }
 ///////////////////////////////////////////////////////////////
+void AudioEngine::OnOpenOut()
+{
+  EngineBase::OnOpenOut();
+  readDelay.Restart();
+  timerFakeOut = 0;
+
+  if (sendAudio && !sendAudio->isFull())
+    ModemCallbackWithUnlock(cbpOutBufNoFull);
+}
+
+void AudioEngine::OnCloseOut()
+{
+  EngineBase::OnCloseOut();
+
+  if (sendAudio) {
+    int countTotal = 0;
+
+    for (;;) {
+      static BYTE buffer[64];
+
+      PBoolean wasFull = sendAudio->isFull();
+
+      int count = sendAudio->GetData(buffer, sizeof(buffer));
+
+      if (count < 0) {
+        delete sendAudio;
+        sendAudio = NULL;
+        ModemCallbackWithUnlock(callbackParam);
+        break;
+      }
+      else {
+        if (wasFull && !sendAudio->isFull())
+          ModemCallbackWithUnlock(cbpOutBufNoFull);
+
+        if (count == 0)
+          break;
+
+        countTotal += count;
+      }
+    }
+
+    if (sendAudio)
+      targetTimeFakeOut = PTime() + countTotal/16;
+  }
+}
+
 PBoolean AudioEngine::Read(void * buffer, PINDEX amount)
 {
   Mutex.Wait();
@@ -211,6 +271,9 @@ PBoolean AudioEngine::SendStart(int PTRACE_PARAM(_dataType), int PTRACE_PARAM(pa
   PTRACE(3, name << " SendStart _dataType=" << _dataType
                  << " param=" << param);
 
+  if (!isOpenOut)
+    targetTimeFakeOut = PTime();
+
   return TRUE;
 }
 
@@ -219,8 +282,12 @@ int AudioEngine::Send(const void *pBuf, PINDEX count)
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
 
-  if (sendAudio)
-    sendAudio->PutData(pBuf, count);
+  if (sendAudio) {
+    if (isOpenOut)
+      sendAudio->PutData(pBuf, count);
+    else
+      targetTimeFakeOut += count/16;
+  }
 
   return count;
 }
@@ -230,10 +297,21 @@ PBoolean AudioEngine::SendStop(PBoolean PTRACE_PARAM(moreFrames), int _callbackP
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
 
-  if (sendAudio)
-    sendAudio->PutEof();
-
   callbackParam = _callbackParam;
+
+  if (sendAudio) {
+    if (isOpenOut) {
+      sendAudio->PutEof();
+    } else {
+      delete sendAudio;
+      sendAudio = NULL;
+
+      PTimeInterval delay = targetTimeFakeOut - PTime();
+      int sleep_time = (int)delay.GetMilliSeconds();
+
+      timerFakeOut = (sleep_time > 0 ? sleep_time : 1);
+    }
+  }
 
   PTRACE(3, name << " SendStop moreFrames=" << moreFrames
                  << " callbackParam=" << callbackParam);
@@ -245,9 +323,46 @@ PBoolean AudioEngine::isOutBufFull() const
 {
   PWaitAndSignal mutexWait(Mutex);
 
-  return sendAudio && sendAudio->isFull();
+  if (!sendAudio)
+    return FALSE;
+
+  if (!isOpenOut) {
+    PTimeInterval delay = targetTimeFakeOut - PTime();
+    int sleep_time = (int)delay.GetMilliSeconds();
+
+    if (sleep_time <= 0)
+      return FALSE;
+
+    timerFakeOut = sleep_time;
+
+    return TRUE;
+  }
+
+  return sendAudio->isFull();
+}
+
+void AudioEngine::OnTimerFakeOutCallback(PTimer & PTRACE_PARAM(from), INT PTRACE_PARAM(extra))
+{
+  PTRACE(4, "AudioEngine::OnTimerFakeOutCallback"
+            " " << ModemCallbackParam(sendAudio ? cbpOutBufNoFull : callbackParam) <<
+            " " <<from.GetClass() << " " << extra);
+
+  PWaitAndSignal mutexWait(Mutex);
+
+  ModemCallbackWithUnlock(sendAudio ? cbpOutBufNoFull : callbackParam);
 }
 ///////////////////////////////////////////////////////////////
+void AudioEngine::OnOpenIn()
+{
+  EngineBase::OnOpenIn();
+  writeDelay.Restart();
+}
+
+void AudioEngine::OnCloseIn()
+{
+  EngineBase::OnCloseIn();
+}
+
 PBoolean AudioEngine::Write(const void * buffer, PINDEX len)
 {
   Mutex.Wait();

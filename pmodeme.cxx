@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.77  2009-11-19 11:18:16  vfrolov
- * Added handling T.38 CED indication
+ * Revision 1.78  2009-11-20 16:37:27  vfrolov
+ * Fixed audio class application blocking by forced T.38 mode
+ *
+ * Revision 1.78  2009/11/20 16:37:27  vfrolov
+ * Fixed audio class application blocking by forced T.38 mode
  *
  * Revision 1.77  2009/11/19 11:18:16  vfrolov
  * Added handling T.38 CED indication
@@ -881,6 +884,9 @@ ModemEngineBody::~ModemEngineBody()
 {
   PWaitAndSignal mutexWait(Mutex);
 
+  timeout.Stop();
+  timerRing.Stop();
+
   if (!CallToken().IsEmpty()) {
     myPTRACE(1, "ModemEngineBody::~ModemEngineBody Call " << CallToken() << " was not cleared");
     _ClearCall();
@@ -1616,14 +1622,14 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                 moreFrames = FALSE;
                 state = stSend;
                 if (audioEngine && audioEngine->SendStart(dataType, 0)) {
-                  state = stSendAckWait;
-
                   PINDEX len = tone.GetSize();
 
                   if (len) {
                     const PInt16 *ps = tone.GetPointer();
                     audioEngine->Send(ps, len*sizeof(*ps));
                   }
+
+                  state = stSendAckWait;
 
                   if (!audioEngine->SendStop(FALSE, NextSeq())) {
                     state = stCommand;
@@ -3524,10 +3530,11 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                   audioEngine->Send(ps, len*sizeof(*ps));
                 }
 
+                param = chWaitPlayTone;
                 if (audioEngine->SendStop(FALSE, NextSeq())) {
-                  param = chWaitPlayTone;
                   timeout.Start(60000);
                 } else {
+                  param = chAudioEngineAttached;
                   err = TRUE;
                 }
               } else {
