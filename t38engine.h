@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.34  2009-11-19 14:48:28  vfrolov
- * Moved common code to class EngineBase
+ * Revision 1.35  2009-11-26 07:21:37  vfrolov
+ * Added delay between transmitting of signals
+ *
+ * Revision 1.35  2009/11/26 07:21:37  vfrolov
+ * Added delay between transmitting of signals
  *
  * Revision 1.34  2009/11/19 14:48:28  vfrolov
  * Moved common code to class EngineBase
@@ -281,6 +284,7 @@ class T38Engine : public EngineBase
     int onIdleOut;
     int callbackParamOut;
     MODPARS ModParsOut;
+    PBoolean delaySignalOut;
     PBoolean startedTimeOutBufEmpty;
     PTime timeOutBufEmpty;
     PTime timeDelayEndOut;

@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.61  2009-11-19 14:48:28  vfrolov
- * Moved common code to class EngineBase
+ * Revision 1.62  2009-11-26 07:21:37  vfrolov
+ * Added delay between transmitting of signals
+ *
+ * Revision 1.62  2009/11/26 07:21:37  vfrolov
+ * Added delay between transmitting of signals
  *
  * Revision 1.61  2009/11/19 14:48:28  vfrolov
  * Moved common code to class EngineBase
@@ -522,6 +525,7 @@ T38Engine::T38Engine(const PString &_name)
   , onIdleOut(dtNone)
   , callbackParamOut(cbpReset)
   , ModParsOut()
+  , delaySignalOut(FALSE)
   , startedTimeOutBufEmpty(FALSE)
   , timeOutBufEmpty()
   , timeDelayEndOut()
@@ -993,11 +997,21 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
       PBoolean waitData = FALSE;
       {
         PWaitAndSignal mutexWait(Mutex);
-        if( isStateModemOut() || stateOut != stOutIdle ) {
-          switch( stateOut ) {
+        if (isStateModemOut() || stateOut != stOutIdle) {
+          switch (stateOut) {
             case stOutIdle:
+              if (delaySignalOut) {
+                if (ModParsOut.dataType != dtSilence && timeBeginOut > PTime()) {
+                  redo = TRUE;
+                  myPTRACE(4, name << " PreparePacket delaySignalOut");
+                  break;
+                }
+
+                delaySignalOut = FALSE;
+              }
+
               if (isCarrierIn) {
-                myPTRACE(1, name << " PreparePacket isCarrierIn=" << isCarrierIn
+                myPTRACE(3, name << " PreparePacket isCarrierIn=" << isCarrierIn
                                 << " for dataType=" << ModParsOut.dataType);
 
                 /*
@@ -1182,6 +1196,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                 t30.v21End(TRUE);
                 t30.v21Begin();
               }
+
               if (ModParsOut.dataType == dtRaw) {
                 PBoolean wasFull = bufOut.isFull();
 
@@ -1253,6 +1268,8 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
             case stOutNoSig:
               t38indicator(ifp, T38I(e_no_signal));
               stateOut = stOutIdle;
+              delaySignalOut = TRUE;
+              timeBeginOut = PTime() + PTimeInterval(75);
               break;
             default:
               myPTRACE(1, name << " PreparePacket bad stateOut=" << stateOut);
