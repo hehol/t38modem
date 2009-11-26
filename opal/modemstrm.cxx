@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.cxx,v $
- * Revision 1.7  2009-11-20 16:37:27  vfrolov
- * Fixed audio class application blocking by forced T.38 mode
+ * Revision 1.8  2009-11-26 07:24:22  vfrolov
+ * Added adjusting sequence numbers
+ *
+ * Revision 1.8  2009/11/26 07:24:22  vfrolov
+ * Added adjusting sequence numbers
  *
  * Revision 1.7  2009/11/20 16:37:27  vfrolov
  * Fixed audio class application blocking by forced T.38 mode
@@ -220,7 +223,7 @@ PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
   packet.SetPayloadType(mediaFormat.GetPayloadType());
 
   if (res > 0) {
-    PTRACE(3, "T38ModemMediaStream::ReadPacket ifp = " << setprecision(2) << ifp);
+    PTRACE(4, "T38ModemMediaStream::ReadPacket ifp = " << setprecision(2) << ifp);
 
     PASN_OctetString ifp_packet;
     ifp_packet.EncodeSubType(ifp);
@@ -273,23 +276,12 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
   }
 
   if (lost < 0) {
-#if PTRACING
-    if (PTrace::CanTrace(5)) {
-      PBoolean fake = packet.GetPayloadSize() == 1 && packet.GetPayloadPtr()[0] == 0xFF;
+    PTRACE(lost == -1 ? 5 : 3,
+        "T38ModemMediaStream::WritePacket: " << (packet.GetPayloadSize() == 0 ? "Fake" : "Repeated") <<
+        " packet " << packedSequenceNumber << " (expected " << currentSequenceNumber << ")");
 
-      PTRACE(5, "T38ModemMediaStream::WritePacket " << (fake ? "Fake" : "Repeated")
-          << " packet " << packedSequenceNumber << " (expected " << currentSequenceNumber << ")");
-    }
-#endif
-    return TRUE;
-  }
-  else
-  if (lost > 0) {
-#if PTRACING
-    totallost += lost;
-#endif
-    if (!t38engine->HandlePacketLost(lost))
-      return FALSE;
+    if (lost > -10)
+      return TRUE;
   }
 
   PASN_OctetString ifp_packet((const char *)packet.GetPayloadPtr(), packet.GetPayloadSize());
@@ -301,6 +293,20 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
         << PRTHEX(PBYTEArray(ifp_packet)) << "\n  ifp = "
         << setprecision(2) << ifp);
     return TRUE;
+  }
+
+  if (lost != 0) {
+    if (lost < 0 || lost > 10)
+      lost = 1;
+
+#if PTRACING
+    totallost += lost;
+#endif
+
+    if (!t38engine->HandlePacketLost(lost))
+      return FALSE;
+
+    PTRACE(3, "T38ModemMediaStream::WritePacket: adjusting sequence number to " << packedSequenceNumber);
   }
 
   currentSequenceNumber = packedSequenceNumber + 1;
