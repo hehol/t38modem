@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.78  2009-11-20 16:37:27  vfrolov
- * Fixed audio class application blocking by forced T.38 mode
+ * Revision 1.79  2009-12-02 09:06:42  vfrolov
+ * Added a short delay after transmitting of signal before call clearing
+ *
+ * Revision 1.79  2009/12/02 09:06:42  vfrolov
+ * Added a short delay after transmitting of signal before call clearing
  *
  * Revision 1.78  2009/11/20 16:37:27  vfrolov
  * Fixed audio class application blocking by forced T.38 mode
@@ -2064,9 +2067,6 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           if( ParseNum(&pCmd, 0, 1, 0) >= 0 ) {	// ATH & ATH0
             PWaitAndSignal mutexWait(Mutex);
 
-            if (callDirection != cdUndefined || P.ClearMode())
-              _ClearCall();
-
             P.ModemClass("1");
 
             if (audioEngine)
@@ -2074,6 +2074,21 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 
             if (t38engine)
               t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
+
+            if (callDirection != cdUndefined) {
+              if (t38engine && t38engine->SendingNotCompleted()) {
+                Mutex.Signal();
+                myPTRACE(2, "ModemEngineBody::HandleCmd: Sending is not completed");
+                PThread::Sleep(100);
+                Mutex.Wait();
+              }
+
+              _ClearCall();
+            }
+            else
+            if (P.ClearMode()) {
+              _ClearCall();
+            }
           } else {
             err = TRUE;
           }
@@ -2212,9 +2227,6 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             if( val >= 0 ) {
               PWaitAndSignal mutexWait(Mutex);
 
-              if (callDirection != cdUndefined)
-                _ClearCall();
-
               P = Profiles[val];
 
               if (audioEngine)
@@ -2222,6 +2234,17 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 
               if (t38engine)
                 t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
+
+              if (callDirection != cdUndefined) {
+                if (t38engine && t38engine->SendingNotCompleted()) {
+                  Mutex.Signal();
+                  myPTRACE(2, "ModemEngineBody::HandleCmd: Sending is not completed");
+                  PThread::Sleep(100);
+                  Mutex.Wait();
+                }
+
+                _ClearCall();
+              }
             } else {
               err = TRUE;
             }

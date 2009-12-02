@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.35  2009-11-26 07:21:37  vfrolov
- * Added delay between transmitting of signals
+ * Revision 1.36  2009-12-02 09:06:42  vfrolov
+ * Added a short delay after transmitting of signal before call clearing
+ *
+ * Revision 1.36  2009/12/02 09:06:42  vfrolov
+ * Added a short delay after transmitting of signal before call clearing
  *
  * Revision 1.35  2009/11/26 07:21:37  vfrolov
  * Added delay between transmitting of signals
@@ -212,6 +215,8 @@ class T38Engine : public EngineBase
     int Recv(void *pBuf, PINDEX count);
     int RecvDiag();
     void RecvStop();
+
+    PBoolean SendingNotCompleted() const;
   //@}
 
     void Close() { CloseIn(); CloseOut(); }
