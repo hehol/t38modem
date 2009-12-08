@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.h,v $
- * Revision 1.4  2009-11-20 16:37:27  vfrolov
- * Fixed audio class application blocking by forced T.38 mode
+ * Revision 1.5  2009-12-08 15:06:22  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ *
+ * Revision 1.5  2009/12/08 15:06:22  vfrolov
+ * Fixed incompatibility with OPAL trunk
  *
  * Revision 1.4  2009/11/20 16:37:27  vfrolov
  * Fixed audio class application blocking by forced T.38 mode
@@ -91,8 +94,6 @@ class T38ModemMediaStream : public OpalMediaStream
       T38Engine *_t38engine
     );
   //@}
-
-    static const OpalMediaFormat & GetT38MediaFormat();
 
   /**@name Overrides of OpalMediaStream class */
   //@{

@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.12  2009-11-10 11:30:57  vfrolov
- * Implemented G.711 fallback to fax pass-through mode
+ * Revision 1.13  2009-12-08 15:06:22  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ *
+ * Revision 1.13  2009/12/08 15:06:22  vfrolov
+ * Fixed incompatibility with OPAL trunk
  *
  * Revision 1.12  2009/11/10 11:30:57  vfrolov
  * Implemented G.711 fallback to fax pass-through mode
@@ -252,6 +255,7 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
     cout << "  " << mediaFormatList[i] << endl;
 
   AddMediaFormatList(OpalT38);
+  AddMediaFormatList(OpalRFC2833);
 
   DisableFastStart(!args.HasOption("fastenable"));
   DisableH245Tunneling(args.HasOption("h245tunneldisable"));
@@ -401,6 +405,8 @@ void MyH323Connection::OnSwitchedFaxMediaStreams(bool enabledFax)
   PTRACE(3, "MyH323Connection::OnSwitchedFaxMediaStreams: "
          << (enabledFax == switchingToFaxMode ? "" : "NOT ") << "switched to "
          << (switchingToFaxMode ? "fax" : "audio"));
+
+  H323Connection::OnSwitchedFaxMediaStreams(enabledFax);
 
   if (switchingToFaxMode && !enabledFax) {
       PTRACE(3, "MyH323Connection::SwitchFaxMediaStreams: fallback to audio");

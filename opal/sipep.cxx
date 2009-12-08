@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.13  2009-11-10 11:30:57  vfrolov
- * Implemented G.711 fallback to fax pass-through mode
+ * Revision 1.14  2009-12-08 15:06:22  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ *
+ * Revision 1.14  2009/12/08 15:06:22  vfrolov
+ * Fixed incompatibility with OPAL trunk
  *
  * Revision 1.13  2009/11/10 11:30:57  vfrolov
  * Implemented G.711 fallback to fax pass-through mode
@@ -249,6 +252,7 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
     cout << "  " << mediaFormatList[i] << endl;
 
   AddMediaFormatList(OpalT38);
+  AddMediaFormatList(OpalRFC2833);
 
   /*
   if (args.HasOption("sip-redundancy")) {
@@ -415,6 +419,8 @@ void MySIPConnection::OnSwitchedFaxMediaStreams(bool enabledFax)
   PTRACE(3, "MySIPConnection::OnSwitchedFaxMediaStreams: "
          << (enabledFax == switchingToFaxMode ? "" : "NOT ") << "switched to "
          << (switchingToFaxMode ? "fax" : "audio"));
+
+  SIPConnection::OnSwitchedFaxMediaStreams(enabledFax);
 
   if (switchingToFaxMode && !enabledFax) {
       PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: fallback to audio");

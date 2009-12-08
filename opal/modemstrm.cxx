@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.cxx,v $
- * Revision 1.8  2009-11-26 07:24:22  vfrolov
- * Added adjusting sequence numbers
+ * Revision 1.9  2009-12-08 15:06:22  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ *
+ * Revision 1.9  2009/12/08 15:06:22  vfrolov
+ * Fixed incompatibility with OPAL trunk
  *
  * Revision 1.8  2009/11/26 07:24:22  vfrolov
  * Added adjusting sequence numbers
@@ -119,17 +122,12 @@ T38ModemMediaStream::T38ModemMediaStream(
     unsigned sessionID,
     PBoolean isSource,
     T38Engine *_t38engine)
-  : OpalMediaStream(conn, GetT38MediaFormat(), sessionID, isSource),
+  : OpalMediaStream(conn, OpalT38, sessionID, isSource),
     t38engine(_t38engine)
 {
   PTRACE(4, "T38ModemMediaStream::T38ModemMediaStream " << *this);
 
   PTRACE(4, "T38ModemMediaStream::T38ModemMediaStream DataSize=" << GetDataSize());
-}
-
-const OpalMediaFormat & T38ModemMediaStream::GetT38MediaFormat()
-{
-  return OpalT38;
 }
 
 PBoolean T38ModemMediaStream::Open()

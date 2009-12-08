@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.14  2009-11-15 18:21:18  vfrolov
- * Replaced AutoStartMediaStreams() by more adequate code
+ * Revision 1.15  2009-12-08 15:06:22  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ *
+ * Revision 1.15  2009/12/08 15:06:22  vfrolov
+ * Fixed incompatibility with OPAL trunk
  *
  * Revision 1.14  2009/11/15 18:21:18  vfrolov
  * Replaced AutoStartMediaStreams() by more adequate code
@@ -410,7 +413,8 @@ OpalMediaFormatList ModemEndPoint::GetMediaFormats() const
   OpalMediaFormatList formats;
 
   formats += OpalPCM16;
-  formats += T38ModemMediaStream::GetT38MediaFormat();
+  formats += OpalT38;
+  formats += OpalRFC2833;
 
   return formats;
 }
@@ -483,7 +487,7 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
   myPTRACE(2, "ModemConnection::CreateMediaStream " << *this <<
       " mediaFormat=" << mediaFormat << " sessionID=" << sessionID << " isSource=" << isSource);
 
-  if (mediaFormat == T38ModemMediaStream::GetT38MediaFormat()) {
+  if (mediaFormat == OpalT38) {
     PAssert(t38engine != NULL, "t38engine is NULL");
 
     if (!isSource) {
@@ -663,7 +667,7 @@ OpalMediaFormatList ModemConnection::GetMediaFormats() const
   switch (requestedMode) {
     case pmmFax:
       for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-        if (mediaFormats[i].GetMediaType() == OpalMediaType::Audio()) {
+        if (mediaFormats[i].GetMediaType() != OpalMediaType::Fax()) {
           PTRACE(3, "ModemConnection::GetMediaFormats Remove " << mediaFormats[i]);
           mediaFormats -= mediaFormats[i];
           i--;
