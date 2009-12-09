@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.13  2009-12-08 15:06:22  vfrolov
- * Fixed incompatibility with OPAL trunk
+ * Revision 1.14  2009-12-09 13:27:22  vfrolov
+ * Fixed Disable-T38-Mode
+ *
+ * Revision 1.14  2009/12/09 13:27:22  vfrolov
+ * Fixed Disable-T38-Mode
  *
  * Revision 1.13  2009/12/08 15:06:22  vfrolov
  * Fixed incompatibility with OPAL trunk
@@ -135,7 +138,7 @@ class MyH323Connection : public H323Connection
     void AddMediaFormatList(const OpalMediaFormatList & list) { mediaFormatList += list; }
 
   protected:
-    OpalMediaFormatList mediaFormatList;
+    mutable OpalMediaFormatList mediaFormatList;
     bool switchingToFaxMode;
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -426,6 +429,12 @@ OpalMediaFormatList MyH323Connection::GetMediaFormats() const
 
     for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
       if (mediaFormats[i] == mediaFormatList[j]) {
+        if (mediaFormats[i] == OpalT38 && GetStringOptions().Contains("Disable-T38-Mode")) {
+          PTRACE(3, "MyH323Connection::GetMediaFormats: Disable-T38-Mode");
+          mediaFormatList -= OpalT38;
+          break;
+        }
+
         found = TRUE;
         break;
       }
@@ -454,6 +463,12 @@ OpalMediaFormatList MyH323Connection::GetLocalMediaFormats()
 
     for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
       if (mediaFormats[i] == mediaFormatList[j]) {
+        if (mediaFormats[i] == OpalT38 && GetStringOptions().Contains("Disable-T38-Mode")) {
+          PTRACE(3, "MyH323Connection::GetLocalMediaFormats: Disable-T38-Mode");
+          mediaFormatList -= OpalT38;
+          break;
+        }
+
         found = TRUE;
         break;
       }
