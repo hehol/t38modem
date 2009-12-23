@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.15  2009-12-08 15:06:22  vfrolov
- * Fixed incompatibility with OPAL trunk
+ * Revision 1.16  2009-12-23 17:50:57  vfrolov
+ * Added missing calls to OnPatchMediaStream()
+ *
+ * Revision 1.16  2009/12/23 17:50:57  vfrolov
+ * Added missing calls to OnPatchMediaStream()
  *
  * Revision 1.15  2009/12/08 15:06:22  vfrolov
  * Fixed incompatibility with OPAL trunk
@@ -903,6 +906,10 @@ bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
         if (patch != NULL) {
           patch->AddSink(sink);
           ok = true;
+
+          connection.OnPatchMediaStream(false, *patch);
+          OnPatchMediaStream(true, *patch);
+
           PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: created patch " << *patch);
         }
       }
@@ -972,6 +979,10 @@ bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
         if (patch != NULL) {
           patch->AddSink(sink);
           ok = true;
+
+          connection.OnPatchMediaStream(true, *patch);
+          OnPatchMediaStream(false, *patch);
+
           PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: created patch " << *patch);
         }
       }
