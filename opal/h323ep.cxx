@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.14  2009-12-09 13:27:22  vfrolov
- * Fixed Disable-T38-Mode
+ * Revision 1.15  2009-12-23 17:54:24  vfrolov
+ * Implemented --h323-bearer-capability option
+ *
+ * Revision 1.15  2009/12/23 17:54:24  vfrolov
+ * Implemented --h323-bearer-capability option
  *
  * Revision 1.14  2009/12/09 13:27:22  vfrolov
  * Fixed Disable-T38-Mode
@@ -85,6 +88,7 @@
 #undef PACK_VERSION
 /////////////////////////////////////////////////////////////////////////////
 
+#include <h323/h323pdu.h>
 #include "h323ep.h"
 
 #define new PNEW
@@ -118,6 +122,18 @@ class MyH323Connection : public H323Connection
   //@}
 
     virtual PBoolean SetUpConnection();
+    virtual void ApplyStringOptions(OpalConnection::StringOptions & stringOptions);
+
+    virtual PBoolean OnSendSignalSetup(
+      H323SignalPDU & setupPDU                 ///<  Setup PDU to send
+    );
+
+    virtual AnswerCallResponse OnAnswerCall(
+      const PString & callerName,              ///< Name of caller
+      const H323SignalPDU & setupPDU,          ///< Received setup PDU
+      H323SignalPDU & connectPDU,              ///< Connect PDU to send. 
+      H323SignalPDU & progressPDU              ///< Progress PDU to send. 
+    );
 
     virtual bool SwitchFaxMediaStreams(
       bool enableFax                           ///< Enable FAX or return to audio mode
@@ -139,6 +155,7 @@ class MyH323Connection : public H323Connection
 
   protected:
     mutable OpalMediaFormatList mediaFormatList;
+    PIntArray bearerCapability;
     bool switchingToFaxMode;
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -163,6 +180,7 @@ PString MyH323EndPoint::ArgSpec()
     "g-gatekeeper:"
     "n-no-gatekeeper."
     "-require-gatekeeper."
+    "-h323-bearer-capability:"
   ;
 }
 
@@ -194,6 +212,14 @@ PStringArray MyH323EndPoint::Descriptions()
       "  -g --gatekeeper host      : Specify gatekeeper host.\n"
       "  -n --no-gatekeeper        : Disable gatekeeper discovery.\n"
       "  --require-gatekeeper      : Exit if gatekeeper discovery fails.\n"
+      "  --h323-bearer-capability S:C:R:P\n"
+      "                            : Bearer capability information element (Q.931)\n"
+      "                                S - coding standard (0-3)\n"
+      "                                C - information transfer capability (0-31)\n"
+      "                                R - information transfer rate (1-127)\n"
+      "                                P - user information layer 1 protocol (2-5).\n"
+      "                              Can be overriden by route option\n"
+      "                                OPAL-H323-Bearer-Capability=S:C:R:P\n"
   ).Lines();
 
   return descriptions;
@@ -283,6 +309,9 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
     re_interval = (int)args.GetOptionString("h323-repeat").AsInteger();
   */
 
+  if (args.HasOption("h323-bearer-capability"))
+    bearerCapability = args.GetOptionString("h323-bearer-capability");
+
   if (!args.HasOption("h323-no-listen")) {
     PStringArray listeners;
 
@@ -340,14 +369,15 @@ H323Connection * MyH323EndPoint::CreateConnection(
   MyH323Connection *connection =
       new MyH323Connection(call, *this, token, alias, address, options, stringOptions);
 
-  OpalMediaFormatList mediaFormats = mediaFormatList;
+  connection->AddMediaFormatList(mediaFormatList);
 
-  if (connection->GetStringOptions().Contains("Disable-T38-Mode")) {
-    PTRACE(3, "MyH323EndPoint::CreateConnection: Disable-T38-Mode");
-    mediaFormats -= OpalT38;
+  if (!connection->GetStringOptions().Contains("H323-Bearer-Capability") && !bearerCapability.IsEmpty()) {
+    OpalConnection::StringOptions options;
+
+    options.SetAt("H323-Bearer-Capability", bearerCapability);
+
+    connection->SetStringOptions(options, false);
   }
-
-  connection->AddMediaFormatList(mediaFormats);
 
   return connection;
 }
@@ -380,6 +410,88 @@ PBoolean MyH323Connection::SetUpConnection()
   }
 
   return H323Connection::SetUpConnection();
+}
+
+void MyH323Connection::ApplyStringOptions(OpalConnection::StringOptions & stringOptions)
+{
+  if (LockReadWrite()) {
+    if (GetStringOptions().Contains("Disable-T38-Mode")) {
+      PTRACE(3, "MyH323Connection::ApplyStringOptions: Disable-T38-Mode=true");
+      mediaFormatList -= OpalT38;
+    }
+
+    if (GetStringOptions().Contains("H323-Bearer-Capability")) {
+      PString bc = GetStringOptions()["H323-Bearer-Capability"];
+      PStringArray sBC = bc.Tokenise(":", FALSE);
+      PIntArray iBC(4);
+
+      if (sBC.GetSize() == iBC.GetSize()) {
+        for (PINDEX i = 0 ; i < iBC.GetSize() ; i++)
+          iBC[i] = sBC[i].AsUnsigned();
+
+        if (iBC[0] >= 0 && iBC[0] <= 3 &&
+            iBC[1] >= 0 && iBC[1] <= 31 &&
+            iBC[2] >= 1 && iBC[2] <= 127 &&
+            iBC[3] >= 2 && iBC[3] <= 5)
+        {
+          PTRACE(3, "MyH323Connection::ApplyStringOptions: H323-Bearer-Capability=" << bc);
+          bearerCapability = iBC;
+        } else {
+          iBC[0] = -1;
+        }
+      } else {
+        iBC[0] = -1;
+      }
+
+      if (iBC[0] < 0) {
+        PTRACE(3, "MyH323Connection::ApplyStringOptions: Wrong H323-Bearer-Capability=" << bc << " (ignored)");
+      }
+    }
+
+    UnlockReadWrite();
+  }
+
+  H323Connection::ApplyStringOptions(stringOptions);
+}
+
+PBoolean MyH323Connection::OnSendSignalSetup(H323SignalPDU & setupPDU)
+{
+  if (!bearerCapability.IsEmpty()) {
+    PTRACE(3, "MyH323Connection::OnSendSignalSetup: Set Bearer capability '" << bearerCapability << "'");
+
+    setupPDU.GetQ931().SetBearerCapabilities(
+        Q931::InformationTransferCapability(bearerCapability[1]),
+        bearerCapability[2],
+        bearerCapability[0],
+        bearerCapability[3]);
+  }
+
+  return H323Connection::OnSendSignalSetup(setupPDU);
+}
+
+H323Connection::AnswerCallResponse MyH323Connection::OnAnswerCall(
+    const PString & caller,
+    const H323SignalPDU & setupPDU,
+    H323SignalPDU & connectPDU,
+    H323SignalPDU & progressPDU)
+{
+  if (!bearerCapability.IsEmpty()) {
+    PTRACE(3, "MyH323Connection::OnAnswerCall: Set Bearer capability '" << bearerCapability << "'");
+
+    connectPDU.GetQ931().SetBearerCapabilities(
+        Q931::InformationTransferCapability(bearerCapability[1]),
+        bearerCapability[2],
+        bearerCapability[0],
+        bearerCapability[3]);
+
+    progressPDU.GetQ931().SetBearerCapabilities(
+        Q931::InformationTransferCapability(bearerCapability[1]),
+        bearerCapability[2],
+        bearerCapability[0],
+        bearerCapability[3]);
+  }
+
+  return H323Connection::OnAnswerCall(caller, setupPDU, connectPDU, progressPDU);
 }
 
 bool MyH323Connection::SwitchFaxMediaStreams(bool enableFax)
@@ -429,12 +541,6 @@ OpalMediaFormatList MyH323Connection::GetMediaFormats() const
 
     for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
       if (mediaFormats[i] == mediaFormatList[j]) {
-        if (mediaFormats[i] == OpalT38 && GetStringOptions().Contains("Disable-T38-Mode")) {
-          PTRACE(3, "MyH323Connection::GetMediaFormats: Disable-T38-Mode");
-          mediaFormatList -= OpalT38;
-          break;
-        }
-
         found = TRUE;
         break;
       }
@@ -463,12 +569,6 @@ OpalMediaFormatList MyH323Connection::GetLocalMediaFormats()
 
     for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
       if (mediaFormats[i] == mediaFormatList[j]) {
-        if (mediaFormats[i] == OpalT38 && GetStringOptions().Contains("Disable-T38-Mode")) {
-          PTRACE(3, "MyH323Connection::GetLocalMediaFormats: Disable-T38-Mode");
-          mediaFormatList -= OpalT38;
-          break;
-        }
-
         found = TRUE;
         break;
       }

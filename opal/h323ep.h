@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.h,v $
- * Revision 1.4  2009-11-10 11:30:57  vfrolov
- * Implemented G.711 fallback to fax pass-through mode
+ * Revision 1.5  2009-12-23 17:54:24  vfrolov
+ * Implemented --h323-bearer-capability option
+ *
+ * Revision 1.5  2009/12/23 17:54:24  vfrolov
+ * Implemented --h323-bearer-capability option
  *
  * Revision 1.4  2009/11/10 11:30:57  vfrolov
  * Implemented G.711 fallback to fax pass-through mode
@@ -108,6 +111,7 @@ class MyH323EndPoint : public H323EndPoint
 
   protected:
     OpalMediaFormatList mediaFormatList;
+    PString bearerCapability;
 
     /*
     int in_redundancy;
