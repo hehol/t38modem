@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.9  2009-11-10 11:30:57  vfrolov
- * Implemented G.711 fallback to fax pass-through mode
+ * Revision 1.10  2009-12-23 17:53:00  vfrolov
+ * Deprecated route comma delimiter
+ *
+ * Revision 1.10  2009/12/23 17:53:00  vfrolov
+ * Deprecated route comma delimiter
  *
  * Revision 1.9  2009/11/10 11:30:57  vfrolov
  * Implemented G.711 fallback to fax pass-through mode
@@ -93,7 +96,8 @@ PStringArray MyManager::Descriptions()
       "Common options:\n"
       "  --ports T:B-M[,...]       : For (T)ype set (B)ase and (M)ax ports to use.\n"
       "                              T is 'udp', 'rtp' or 'tcp'. B and M are numbers.\n"
-      "  --route pat=dst[,...]     : Route the incoming calls with destination address\n"
+      "  --route pat=dst[;option[=value][;...]]\n"
+      "                            : Route the incoming calls with destination address\n"
       "                              matching the regexp pat to the outgoing\n"
       "                              destination address dst.\n"
       "                              If dst contains '<dn>', it will be replaced by a\n"
@@ -101,7 +105,7 @@ PStringArray MyManager::Descriptions()
       "                              number use '<dn!N>' form.\n"
       "                              If the specification is of the form @filename,\n"
       "                              then the file is read with each line consisting\n"
-      "                              of a pat=dst route specification.\n"
+      "                              of a pat=dst[;...] route specification.\n"
       "  -u --username str         : Set the default username to str.\n"
       "  --stun server             : Set STUN server.\n"
   ).Lines();
@@ -205,7 +209,7 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
     return FALSE;
 
   if (args.HasOption("route")) {
-    SetRouteTable(args.GetOptionString("route").Tokenise(",\r\n", FALSE));
+    SetRouteTable(args.GetOptionString("route").Tokenise("\r\n", FALSE));
 
     cout << "Route table:" << endl;
 
