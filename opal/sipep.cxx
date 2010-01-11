@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.15  2009-12-09 13:27:22  vfrolov
- * Fixed Disable-T38-Mode
+ * Revision 1.16  2010-01-11 14:26:49  vfrolov
+ * Duplicated code moved to ApplyStringOptions()
+ *
+ * Revision 1.16  2010/01/11 14:26:49  vfrolov
+ * Duplicated code moved to ApplyStringOptions()
  *
  * Revision 1.15  2009/12/09 13:27:22  vfrolov
  * Fixed Disable-T38-Mode
@@ -117,6 +120,7 @@ class MySIPConnection : public SIPConnection
   //@}
 
     virtual PBoolean SetUpConnection();
+    virtual void ApplyStringOptions(OpalConnection::StringOptions & stringOptions);
 
     virtual bool SwitchFaxMediaStreams(
       bool enableFax                            ///< Enable FAX or return to audio mode
@@ -354,14 +358,7 @@ SIPConnection * MySIPEndPoint::CreateConnection(
   MySIPConnection * connection =
       new MySIPConnection(call, *this, token, destination, transport, options, stringOptions);
 
-  OpalMediaFormatList mediaFormats = mediaFormatList;
-
-  if (connection->GetStringOptions().Contains("Disable-T38-Mode")) {
-    PTRACE(3, "MySIPEndPoint::CreateConnection: Disable-T38-Mode");
-    mediaFormats -= OpalT38;
-  }
-
-  connection->AddMediaFormatList(mediaFormats);
+  connection->AddMediaFormatList(mediaFormatList);
 
   return connection;
 }
@@ -394,6 +391,20 @@ PBoolean MySIPConnection::SetUpConnection()
   }
 
   return SIPConnection::SetUpConnection();
+}
+
+void MySIPConnection::ApplyStringOptions(OpalConnection::StringOptions & stringOptions)
+{
+  if (LockReadWrite()) {
+    if (GetStringOptions().Contains("Disable-T38-Mode")) {
+      PTRACE(3, "MySIPConnection::ApplyStringOptions: Disable-T38-Mode=true");
+      mediaFormatList -= OpalT38;
+    }
+
+    UnlockReadWrite();
+  }
+
+  SIPConnection::ApplyStringOptions(stringOptions);
 }
 
 bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
@@ -443,12 +454,6 @@ OpalMediaFormatList MySIPConnection::GetMediaFormats() const
 
     for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
       if (mediaFormats[i] == mediaFormatList[j]) {
-        if (mediaFormats[i] == OpalT38 && GetStringOptions().Contains("Disable-T38-Mode")) {
-          PTRACE(3, "MySIPConnection::GetMediaFormats: Disable-T38-Mode");
-          mediaFormatList -= OpalT38;
-          break;
-        }
-
         found = TRUE;
         break;
       }
@@ -477,12 +482,6 @@ OpalMediaFormatList MySIPConnection::GetLocalMediaFormats()
 
     for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
       if (mediaFormats[i] == mediaFormatList[j]) {
-        if (mediaFormats[i] == OpalT38 && GetStringOptions().Contains("Disable-T38-Mode")) {
-          PTRACE(3, "MySIPConnection::GetLocalMediaFormats: Disable-T38-Mode");
-          mediaFormatList -= OpalT38;
-          break;
-        }
-
         found = TRUE;
         break;
       }
