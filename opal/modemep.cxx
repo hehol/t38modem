@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.16  2009-12-23 17:50:57  vfrolov
- * Added missing calls to OnPatchMediaStream()
+ * Revision 1.17  2010-01-13 09:59:19  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ * Fixed incorrect codec selection for the incoming offer
+ *
+ * Revision 1.17  2010/01/13 09:59:19  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ * Fixed incorrect codec selection for the incoming offer
  *
  * Revision 1.16  2009/12/23 17:50:57  vfrolov
  * Added missing calls to OnPatchMediaStream()
@@ -741,7 +746,7 @@ void ModemConnection::RequestMode(PThread &, INT faxMode)
 
     if (faxMode) {
       OpalMediaFormatList otherMediaFormats = other->GetMediaFormats();
-      other->AdjustMediaFormats(otherMediaFormats, NULL);
+      other->AdjustMediaFormats(false, otherMediaFormats, NULL);
 
       PTRACE(4, "ModemConnection::RequestMode: other connection formats: \n" <<
                 setfill('\n') << otherMediaFormats << setfill(' '));
@@ -791,7 +796,7 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
 
         if (other != NULL) {
           OpalMediaFormatList otherMediaFormats = other->GetMediaFormats();
-          other->AdjustMediaFormats(otherMediaFormats, NULL);
+          other->AdjustMediaFormats(false, otherMediaFormats, NULL);
 
           PTRACE(4, "ModemConnection::RequestMode: other connection formats: \n" <<
                     setfill('\n') << otherMediaFormats << setfill(' '));
@@ -828,7 +833,7 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
 bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
 {
   OpalMediaFormatList mediaFormats = connection.GetMediaFormats();
-  connection.AdjustMediaFormats(mediaFormats, NULL);
+  connection.AdjustMediaFormats(true, mediaFormats, NULL);
 
   PTRACE(3, "ModemConnection::SwitchToFaxPassthrough:\n"
          << setfill('\n') << mediaFormats << setfill(' '));
@@ -869,8 +874,8 @@ bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
     order += '@' + OpalMediaType::Fax();
 
     OpalMediaFormatList sourceMediaFormats = GetMediaFormats();
-    AdjustMediaFormats(sourceMediaFormats, NULL);
-    connection.AdjustMediaFormats(sourceMediaFormats, this);
+    AdjustMediaFormats(true, sourceMediaFormats, NULL);
+    connection.AdjustMediaFormats(true, sourceMediaFormats, this);
     sourceMediaFormats.Reorder(order);
 
     OpalMediaFormat sourceFormat;
@@ -948,8 +953,8 @@ bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
     order += '@' + OpalMediaType::Fax();
 
     OpalMediaFormatList sinkMediaFormats = GetMediaFormats();
-    AdjustMediaFormats(sinkMediaFormats, NULL);
-    connection.AdjustMediaFormats(sinkMediaFormats, this);
+    AdjustMediaFormats(true, sinkMediaFormats, NULL);
+    connection.AdjustMediaFormats(true, sinkMediaFormats, this);
     sinkMediaFormats.Reorder(order);
 
     OpalMediaFormat sinkFormat;

@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.16  2010-01-11 14:26:49  vfrolov
- * Duplicated code moved to ApplyStringOptions()
+ * Revision 1.17  2010-01-13 09:59:19  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ * Fixed incorrect codec selection for the incoming offer
+ *
+ * Revision 1.17  2010/01/13 09:59:19  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ * Fixed incorrect codec selection for the incoming offer
  *
  * Revision 1.16  2010/01/11 14:26:49  vfrolov
  * Duplicated code moved to ApplyStringOptions()
@@ -134,6 +139,7 @@ class MySIPConnection : public SIPConnection
     virtual OpalMediaFormatList GetLocalMediaFormats();
 
     virtual void AdjustMediaFormats(
+      bool local,                               ///<  Media formats a local ones to be presented to remote
       OpalMediaFormatList & mediaFormats,       ///<  Media formats to use
       OpalConnection * otherConnection          ///<  Other connection we are adjusting media for
     ) const;
@@ -410,7 +416,7 @@ void MySIPConnection::ApplyStringOptions(OpalConnection::StringOptions & stringO
 bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
 {
   OpalMediaFormatList mediaFormats = GetMediaFormats();
-  AdjustMediaFormats(mediaFormats, NULL);
+  AdjustMediaFormats(true, mediaFormats, NULL);
 
   PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
@@ -500,19 +506,24 @@ OpalMediaFormatList MySIPConnection::GetLocalMediaFormats()
 }
 
 void MySIPConnection::AdjustMediaFormats(
+    bool local,
     OpalMediaFormatList & mediaFormats,
     OpalConnection * otherConnection) const
 {
   PTRACE(4, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
-  SIPConnection::AdjustMediaFormats(mediaFormats, otherConnection);
+  SIPConnection::AdjustMediaFormats(local, mediaFormats, otherConnection);
 
-  PStringArray order;
+  if (local) {
+    PStringArray order;
 
-  for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++)
-    order += mediaFormatList[j].GetName();
+    for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++)
+      order += mediaFormatList[j].GetName();
 
-  mediaFormats.Reorder(order);
+    mediaFormats.Reorder(order);
+
+    PTRACE(4, "MySIPConnection::AdjustMediaFormats: reordered");
+  }
 
   PTRACE(4, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 }

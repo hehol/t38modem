@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.15  2009-12-23 17:54:24  vfrolov
- * Implemented --h323-bearer-capability option
+ * Revision 1.16  2010-01-13 09:59:19  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ * Fixed incorrect codec selection for the incoming offer
+ *
+ * Revision 1.16  2010/01/13 09:59:19  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ * Fixed incorrect codec selection for the incoming offer
  *
  * Revision 1.15  2009/12/23 17:54:24  vfrolov
  * Implemented --h323-bearer-capability option
@@ -147,6 +152,7 @@ class MyH323Connection : public H323Connection
     virtual OpalMediaFormatList GetLocalMediaFormats();
 
     virtual void AdjustMediaFormats(
+      bool local,                              ///<  Media formats a local ones to be presented to remote
       OpalMediaFormatList & mediaFormats,      ///<  Media formats to use
       OpalConnection * otherConnection         ///<  Other connection we are adjusting media for
     ) const;
@@ -497,7 +503,7 @@ H323Connection::AnswerCallResponse MyH323Connection::OnAnswerCall(
 bool MyH323Connection::SwitchFaxMediaStreams(bool enableFax)
 {
   OpalMediaFormatList mediaFormats = GetMediaFormats();
-  AdjustMediaFormats(mediaFormats, NULL);
+  AdjustMediaFormats(true, mediaFormats, NULL);
 
   PTRACE(3, "MyH323Connection::SwitchFaxMediaStreams:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
@@ -587,19 +593,24 @@ OpalMediaFormatList MyH323Connection::GetLocalMediaFormats()
 }
 
 void MyH323Connection::AdjustMediaFormats(
+    bool local,
     OpalMediaFormatList & mediaFormats,
     OpalConnection * otherConnection) const
 {
   PTRACE(4, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
-  H323Connection::AdjustMediaFormats(mediaFormats, otherConnection);
+  H323Connection::AdjustMediaFormats(local, mediaFormats, otherConnection);
 
-  PStringArray order;
+  if (local) {
+    PStringArray order;
 
-  for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++)
-    order += mediaFormatList[j].GetName();
+    for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++)
+      order += mediaFormatList[j].GetName();
 
-  mediaFormats.Reorder(order);
+    mediaFormats.Reorder(order);
+
+    PTRACE(4, "MyH323Connection::AdjustMediaFormats: reordered");
+  }
 
   PTRACE(4, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 }
