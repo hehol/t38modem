@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.cxx,v $
- * Revision 1.9  2009-12-08 15:06:22  vfrolov
- * Fixed incompatibility with OPAL trunk
+ * Revision 1.10  2010-01-14 18:32:51  vfrolov
+ * Added ignoring packets with mismatched payload type and fake packets
+ *
+ * Revision 1.10  2010/01/14 18:32:51  vfrolov
+ * Added ignoring packets with mismatched payload type and fake packets
  *
  * Revision 1.9  2009/12/08 15:06:22  vfrolov
  * Fixed incompatibility with OPAL trunk
@@ -260,6 +263,11 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
             " size=" << packet.GetPayloadSize() <<
             " " << packet.GetPayloadType());
 
+  if (mediaFormat.GetPayloadType() != packet.GetPayloadType()) {
+    PTRACE(5, "T38ModemMediaStream::WritePacket: ignored packet with mismatched payload type");
+    return TRUE;
+  }
+
   long packedSequenceNumber = (packet.GetSequenceNumber() & 0xFFFF) + (currentSequenceNumber & ~0xFFFFL);
   long lost = packedSequenceNumber - currentSequenceNumber;
 
@@ -280,6 +288,11 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
 
     if (lost > -10)
       return TRUE;
+  }
+
+  if (packet.GetPayloadSize() == 0) {
+    PTRACE(5, "T38ModemMediaStream::WritePacket: ignored fake packet");
+    return TRUE;
   }
 
   PASN_OctetString ifp_packet((const char *)packet.GetPayloadPtr(), packet.GetPayloadSize());
