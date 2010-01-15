@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.17  2010-01-13 09:59:19  vfrolov
- * Fixed incompatibility with OPAL trunk
- * Fixed incorrect codec selection for the incoming offer
+ * Revision 1.18  2010-01-15 11:53:31  vfrolov
+ * Added workaround for switching codecs from non-G.711 to G.711
+ *
+ * Revision 1.18  2010/01/15 11:53:31  vfrolov
+ * Added workaround for switching codecs from non-G.711 to G.711
  *
  * Revision 1.17  2010/01/13 09:59:19  vfrolov
  * Fixed incompatibility with OPAL trunk
@@ -415,6 +417,18 @@ void MySIPConnection::ApplyStringOptions(OpalConnection::StringOptions & stringO
 
 bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
 {
+  PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << (enableFax ? "fax" : "audio"));
+
+  bool res = false;
+  OpalMediaFormatList oldRemoteFormatList = m_remoteFormatList;
+
+  if (!enableFax) {
+    m_remoteFormatList += OpalG711_ULAW_64K;
+    m_remoteFormatList += OpalG711_ALAW_64K;
+  } else {
+    m_remoteFormatList += OpalT38;
+  }
+
   OpalMediaFormatList mediaFormats = GetMediaFormats();
   AdjustMediaFormats(true, mediaFormats, NULL);
 
@@ -424,14 +438,15 @@ bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
 
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     if (mediaFormats[i].GetMediaType() == mediaType) {
-      switchingToFaxMode = enableFax;
-      return SIPConnection::SwitchFaxMediaStreams(enableFax);
+      res = SIPConnection::SwitchFaxMediaStreams(switchingToFaxMode = enableFax);
+      break;
     }
   }
 
-  PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << mediaType << " is not supported");
+  m_remoteFormatList = oldRemoteFormatList;
 
-  return false;
+  PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << (res ? "OK" : "FAIL"));
+  return res;
 }
 
 void MySIPConnection::OnSwitchedFaxMediaStreams(bool enabledFax)
@@ -443,7 +458,7 @@ void MySIPConnection::OnSwitchedFaxMediaStreams(bool enabledFax)
   SIPConnection::OnSwitchedFaxMediaStreams(enabledFax);
 
   if (switchingToFaxMode && !enabledFax) {
-      PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: fallback to audio");
+      PTRACE(3, "MySIPConnection::OnSwitchedFaxMediaStreams: fallback to audio");
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);
   }
