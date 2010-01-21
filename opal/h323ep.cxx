@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.16  2010-01-13 09:59:19  vfrolov
- * Fixed incompatibility with OPAL trunk
- * Fixed incorrect codec selection for the incoming offer
+ * Revision 1.17  2010-01-21 09:22:45  vfrolov
+ * Fixed tracing typo
+ *
+ * Revision 1.17  2010/01/21 09:22:45  vfrolov
+ * Fixed tracing typo
  *
  * Revision 1.16  2010/01/13 09:59:19  vfrolov
  * Fixed incompatibility with OPAL trunk
@@ -136,8 +138,8 @@ class MyH323Connection : public H323Connection
     virtual AnswerCallResponse OnAnswerCall(
       const PString & callerName,              ///< Name of caller
       const H323SignalPDU & setupPDU,          ///< Received setup PDU
-      H323SignalPDU & connectPDU,              ///< Connect PDU to send. 
-      H323SignalPDU & progressPDU              ///< Progress PDU to send. 
+      H323SignalPDU & connectPDU,              ///< Connect PDU to send
+      H323SignalPDU & progressPDU              ///< Progress PDU to send
     );
 
     virtual bool SwitchFaxMediaStreams(
@@ -530,7 +532,7 @@ void MyH323Connection::OnSwitchedFaxMediaStreams(bool enabledFax)
   H323Connection::OnSwitchedFaxMediaStreams(enabledFax);
 
   if (switchingToFaxMode && !enabledFax) {
-      PTRACE(3, "MyH323Connection::SwitchFaxMediaStreams: fallback to audio");
+      PTRACE(3, "MyH323Connection::OnSwitchedFaxMediaStreams: fallback to audio");
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);
   }
