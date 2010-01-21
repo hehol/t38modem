@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,15 @@
  * Contributor(s):
  *
  * $Log: h323ep.h,v $
- * Revision 1.5  2009-12-23 17:54:24  vfrolov
- * Implemented --h323-bearer-capability option
+ * Revision 1.6  2010-01-21 16:05:33  vfrolov
+ * Changed --h323-audio to accept multiple wildcards
+ * Implemented OPAL-Enable-Audio route option
+ * Renamed route option OPAL-H323-Bearer-Capability to OPAL-Bearer-Capability
+ *
+ * Revision 1.6  2010/01/21 16:05:33  vfrolov
+ * Changed --h323-audio to accept multiple wildcards
+ * Implemented OPAL-Enable-Audio route option
+ * Renamed route option OPAL-H323-Bearer-Capability to OPAL-Bearer-Capability
  *
  * Revision 1.5  2009/12/23 17:54:24  vfrolov
  * Implemented --h323-bearer-capability option
@@ -95,8 +102,6 @@ class MyH323EndPoint : public H323EndPoint
       OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
     );
 
-    void AddMediaFormatList(const OpalMediaFormatList & list) { mediaFormatList += list; }
-
     /*
     int InRedundancy() { return in_redundancy; }
     int LsRedundancy() { return ls_redundancy; }
@@ -110,8 +115,7 @@ class MyH323EndPoint : public H323EndPoint
     */
 
   protected:
-    OpalMediaFormatList mediaFormatList;
-    PString bearerCapability;
+    PStringToString defaultStringOptions;
 
     /*
     int in_redundancy;

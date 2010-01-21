@@ -24,8 +24,15 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.17  2010-01-21 09:22:45  vfrolov
- * Fixed tracing typo
+ * Revision 1.18  2010-01-21 16:05:33  vfrolov
+ * Changed --h323-audio to accept multiple wildcards
+ * Implemented OPAL-Enable-Audio route option
+ * Renamed route option OPAL-H323-Bearer-Capability to OPAL-Bearer-Capability
+ *
+ * Revision 1.18  2010/01/21 16:05:33  vfrolov
+ * Changed --h323-audio to accept multiple wildcards
+ * Implemented OPAL-Enable-Audio route option
+ * Renamed route option OPAL-H323-Bearer-Capability to OPAL-Bearer-Capability
  *
  * Revision 1.17  2010/01/21 09:22:45  vfrolov
  * Fixed tracing typo
@@ -159,8 +166,6 @@ class MyH323Connection : public H323Connection
       OpalConnection * otherConnection         ///<  Other connection we are adjusting media for
     ) const;
 
-    void AddMediaFormatList(const OpalMediaFormatList & list) { mediaFormatList += list; }
-
   protected:
     mutable OpalMediaFormatList mediaFormatList;
     PIntArray bearerCapability;
@@ -197,12 +202,15 @@ PStringArray MyH323EndPoint::Descriptions()
   PStringArray descriptions = PString(
       "H.323 options:\n"
       "  --no-h323                 : Disable H.323 protocol.\n"
-      "  --h323-audio [!]wildcard  : Enable the audio format(s) matching the\n"
-      "                              wildcard. The '*' character match any\n"
+      "  --h323-audio [!]wildcard[,[!]...]\n"
+      "                            : Enable the audio format(s) matching the\n"
+      "                              wildcard(s). The '*' character match any\n"
       "                              substring. The leading '!' character indicates\n"
       "                              a negative test.\n"
-      "                              Default: " OPAL_G711_ULAW_64K " and " OPAL_G711_ALAW_64K ".\n"
+      "                              Default: " OPAL_G711_ULAW_64K "," OPAL_G711_ALAW_64K ".\n"
       "                              May be used multiple times.\n"
+      "                              Can be overriden by route option\n"
+      "                                OPAL-Enable-Audio=[!]wildcard[,[!]...]\n"
       "  --h323-audio-list         : Display available audio formats.\n"
       /*
       "  --h323-redundancy I[L[H]] : Set redundancy for error recovery for\n"
@@ -227,7 +235,7 @@ PStringArray MyH323EndPoint::Descriptions()
       "                                R - information transfer rate (1-127)\n"
       "                                P - user information layer 1 protocol (2-5).\n"
       "                              Can be overriden by route option\n"
-      "                                OPAL-H323-Bearer-Capability=S:C:R:P\n"
+      "                                OPAL-Bearer-Capability=S:C:R:P\n"
   ).Lines();
 
   return descriptions;
@@ -267,32 +275,12 @@ PBoolean MyH323EndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
 PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
 {
   if (args.HasOption("h323-audio")) {
-    const PStringArray wildcards = args.GetOptionString("h323-audio").Lines();
-    OpalMediaFormatList list = GetMediaFormats();
+    PStringStream s;
 
-    for (PINDEX w = 0 ; w < wildcards.GetSize() ; w++) {
-      OpalMediaFormatList::const_iterator f;
+    s << setfill(',') << args.GetOptionString("h323-audio").Lines();
 
-      while ((f = list.FindFormat(wildcards[w], f)) != list.end()) {
-        if (f->GetMediaType() == OpalMediaType::Audio() && f->IsValidForProtocol("h.323") && f->IsTransportable())
-          AddMediaFormatList(*f);
-
-        if (++f == list.end())
-          break;
-      }
-    }
-  } else {
-    AddMediaFormatList(OpalG711_ULAW_64K);
-    AddMediaFormatList(OpalG711_ALAW_64K);
+    defaultStringOptions.SetAt("Enable-Audio", s);
   }
-
-  cout << "Enabled audio formats for H.323 (in preference order):" << endl;
-
-  for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++)
-    cout << "  " << mediaFormatList[i] << endl;
-
-  AddMediaFormatList(OpalT38);
-  AddMediaFormatList(OpalRFC2833);
 
   DisableFastStart(!args.HasOption("fastenable"));
   DisableH245Tunneling(args.HasOption("h245tunneldisable"));
@@ -318,7 +306,7 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
   */
 
   if (args.HasOption("h323-bearer-capability"))
-    bearerCapability = args.GetOptionString("h323-bearer-capability");
+    defaultStringOptions.SetAt("Bearer-Capability", args.GetOptionString("h323-bearer-capability"));
 
   if (!args.HasOption("h323-no-listen")) {
     PStringArray listeners;
@@ -377,15 +365,14 @@ H323Connection * MyH323EndPoint::CreateConnection(
   MyH323Connection *connection =
       new MyH323Connection(call, *this, token, alias, address, options, stringOptions);
 
-  connection->AddMediaFormatList(mediaFormatList);
+  OpalConnection::StringOptions newOptions;
 
-  if (!connection->GetStringOptions().Contains("H323-Bearer-Capability") && !bearerCapability.IsEmpty()) {
-    OpalConnection::StringOptions options;
-
-    options.SetAt("H323-Bearer-Capability", bearerCapability);
-
-    connection->SetStringOptions(options, false);
+  for (PINDEX i = 0 ; i < defaultStringOptions.GetSize() ; i++) {
+    if (!connection->GetStringOptions().Contains(defaultStringOptions.GetKeyAt(i)))
+      newOptions.SetAt(defaultStringOptions.GetKeyAt(i), defaultStringOptions.GetDataAt(i));
   }
+
+  connection->SetStringOptions(newOptions, false);
 
   return connection;
 }
@@ -423,13 +410,41 @@ PBoolean MyH323Connection::SetUpConnection()
 void MyH323Connection::ApplyStringOptions(OpalConnection::StringOptions & stringOptions)
 {
   if (LockReadWrite()) {
-    if (GetStringOptions().Contains("Disable-T38-Mode")) {
-      PTRACE(3, "MyH323Connection::ApplyStringOptions: Disable-T38-Mode=true");
-      mediaFormatList -= OpalT38;
+    mediaFormatList = OpalMediaFormatList();
+
+    if (GetStringOptions().Contains("Enable-Audio")) {
+      const PStringArray wildcards = GetStringOptions()("Enable-Audio").Tokenise(",", FALSE);
+      OpalMediaFormatList list = endpoint.GetMediaFormats();
+
+      for (PINDEX w = 0 ; w < wildcards.GetSize() ; w++) {
+        OpalMediaFormatList::const_iterator f;
+
+        while ((f = list.FindFormat(wildcards[w], f)) != list.end()) {
+          if (f->GetMediaType() == OpalMediaType::Audio() && f->IsValidForProtocol("h323") && f->IsTransportable())
+             mediaFormatList += *f;
+
+          if (++f == list.end())
+            break;
+        }
+      }
+    } else {
+      mediaFormatList += OpalG711_ULAW_64K;
+      mediaFormatList += OpalG711_ALAW_64K;
     }
 
-    if (GetStringOptions().Contains("H323-Bearer-Capability")) {
-      PString bc = GetStringOptions()["H323-Bearer-Capability"];
+    if (GetStringOptions().GetBoolean("Disable-T38-Mode")) {
+      PTRACE(3, "MyH323Connection::ApplyStringOptions: Disable-T38-Mode=true");
+    } else {
+      mediaFormatList += OpalT38;
+    }
+
+    mediaFormatList += OpalRFC2833;
+
+    PTRACE(4, "MyH323Connection::ApplyStringOptions Enabled formats (in preference order):\n"
+           << setfill('\n') << mediaFormatList << setfill(' '));
+
+    if (GetStringOptions().Contains("Bearer-Capability")) {
+      PString bc = GetStringOptions()["Bearer-Capability"];
       PStringArray sBC = bc.Tokenise(":", FALSE);
       PIntArray iBC(4);
 
@@ -442,7 +457,7 @@ void MyH323Connection::ApplyStringOptions(OpalConnection::StringOptions & string
             iBC[2] >= 1 && iBC[2] <= 127 &&
             iBC[3] >= 2 && iBC[3] <= 5)
         {
-          PTRACE(3, "MyH323Connection::ApplyStringOptions: H323-Bearer-Capability=" << bc);
+          PTRACE(3, "MyH323Connection::ApplyStringOptions: Bearer-Capability=" << bc);
           bearerCapability = iBC;
         } else {
           iBC[0] = -1;
@@ -452,7 +467,7 @@ void MyH323Connection::ApplyStringOptions(OpalConnection::StringOptions & string
       }
 
       if (iBC[0] < 0) {
-        PTRACE(3, "MyH323Connection::ApplyStringOptions: Wrong H323-Bearer-Capability=" << bc << " (ignored)");
+        PTRACE(3, "MyH323Connection::ApplyStringOptions: Wrong Bearer-Capability=" << bc << " (ignored)");
       }
     }
 
