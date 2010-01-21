@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.18  2010-01-15 11:53:31  vfrolov
- * Added workaround for switching codecs from non-G.711 to G.711
+ * Revision 1.19  2010-01-21 08:28:09  vfrolov
+ * Removed previously added workaround (now switching codecs fixed in OPAL)
+ *
+ * Revision 1.19  2010/01/21 08:28:09  vfrolov
+ * Removed previously added workaround (now switching codecs fixed in OPAL)
  *
  * Revision 1.18  2010/01/15 11:53:31  vfrolov
  * Added workaround for switching codecs from non-G.711 to G.711
@@ -420,14 +423,6 @@ bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
   PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << (enableFax ? "fax" : "audio"));
 
   bool res = false;
-  OpalMediaFormatList oldRemoteFormatList = m_remoteFormatList;
-
-  if (!enableFax) {
-    m_remoteFormatList += OpalG711_ULAW_64K;
-    m_remoteFormatList += OpalG711_ALAW_64K;
-  } else {
-    m_remoteFormatList += OpalT38;
-  }
 
   OpalMediaFormatList mediaFormats = GetMediaFormats();
   AdjustMediaFormats(true, mediaFormats, NULL);
@@ -442,8 +437,6 @@ bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
       break;
     }
   }
-
-  m_remoteFormatList = oldRemoteFormatList;
 
   PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << (res ? "OK" : "FAIL"));
   return res;
