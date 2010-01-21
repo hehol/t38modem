@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: sipep.h,v $
- * Revision 1.4  2009-11-10 11:30:57  vfrolov
- * Implemented G.711 fallback to fax pass-through mode
+ * Revision 1.5  2010-01-21 16:00:55  vfrolov
+ * Changed --sip-audio to accept multiple wildcards
+ * Implemented OPAL-Enable-Audio route option
+ *
+ * Revision 1.5  2010/01/21 16:00:55  vfrolov
+ * Changed --sip-audio to accept multiple wildcards
+ * Implemented OPAL-Enable-Audio route option
  *
  * Revision 1.4  2009/11/10 11:30:57  vfrolov
  * Implemented G.711 fallback to fax pass-through mode
@@ -84,8 +89,6 @@ class MySIPEndPoint : public SIPEndPoint
       OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
     );
 
-    void AddMediaFormatList(const OpalMediaFormatList & list) { mediaFormatList += list; }
-
     /*
     int InRedundancy() { return in_redundancy; }
     int LsRedundancy() { return ls_redundancy; }
@@ -99,7 +102,7 @@ class MySIPEndPoint : public SIPEndPoint
     */
 
   protected:
-    OpalMediaFormatList mediaFormatList;
+    PStringToString defaultStringOptions;
 
     /*
     int in_redundancy;

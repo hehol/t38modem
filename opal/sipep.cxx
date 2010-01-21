@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.19  2010-01-21 08:28:09  vfrolov
- * Removed previously added workaround (now switching codecs fixed in OPAL)
+ * Revision 1.20  2010-01-21 16:00:54  vfrolov
+ * Changed --sip-audio to accept multiple wildcards
+ * Implemented OPAL-Enable-Audio route option
+ *
+ * Revision 1.20  2010/01/21 16:00:54  vfrolov
+ * Changed --sip-audio to accept multiple wildcards
+ * Implemented OPAL-Enable-Audio route option
  *
  * Revision 1.19  2010/01/21 08:28:09  vfrolov
  * Removed previously added workaround (now switching codecs fixed in OPAL)
@@ -149,8 +154,6 @@ class MySIPConnection : public SIPConnection
       OpalConnection * otherConnection          ///<  Other connection we are adjusting media for
     ) const;
 
-    void AddMediaFormatList(const OpalMediaFormatList & list) { mediaFormatList += list; }
-
   protected:
     mutable OpalMediaFormatList mediaFormatList;
     bool switchingToFaxMode;
@@ -182,12 +185,15 @@ PStringArray MySIPEndPoint::Descriptions()
   PStringArray descriptions = PString(
       "SIP options:\n"
       "  --no-sip                  : Disable SIP protocol.\n"
-      "  --sip-audio [!]wildcard   : Enable the audio format(s) matching the\n"
-      "                              wildcard. The '*' character match any\n"
+      "  --sip-audio [!]wildcard[,[!]...]\n"
+      "                            : Enable the audio format(s) matching the\n"
+      "                              wildcard(s). The '*' character match any\n"
       "                              substring. The leading '!' character indicates\n"
       "                              a negative test.\n"
-      "                              Default: " OPAL_G711_ULAW_64K " and " OPAL_G711_ALAW_64K ".\n"
+      "                              Default: " OPAL_G711_ULAW_64K "," OPAL_G711_ALAW_64K ".\n"
       "                              May be used multiple times.\n"
+      "                              Can be overriden by route option\n"
+      "                                OPAL-Enable-Audio=[!]wildcard[,[!]...]\n"
       "  --sip-audio-list          : Display available audio formats.\n"
       /*
       "  --sip-redundancy I[L[H]]  : Set redundancy for error recovery for\n"
@@ -245,32 +251,12 @@ PBoolean MySIPEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
 PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
 {
   if (args.HasOption("sip-audio")) {
-    const PStringArray wildcards = args.GetOptionString("sip-audio").Lines();
-    OpalMediaFormatList list = GetMediaFormats();
+    PStringStream s;
 
-    for (PINDEX w = 0 ; w < wildcards.GetSize() ; w++) {
-      OpalMediaFormatList::const_iterator f;
+    s << setfill(',') << args.GetOptionString("sip-audio").Lines();
 
-      while ((f = list.FindFormat(wildcards[w], f)) != list.end()) {
-        if (f->GetMediaType() == OpalMediaType::Audio() && f->IsValidForProtocol("sip") && f->IsTransportable())
-          AddMediaFormatList(*f);
-
-        if (++f == list.end())
-          break;
-      }
-    }
-  } else {
-    AddMediaFormatList(OpalG711_ULAW_64K);
-    AddMediaFormatList(OpalG711_ALAW_64K);
+    defaultStringOptions.SetAt("Enable-Audio", s);
   }
-
-  cout << "Enabled audio formats for SIP (in preference order):" << endl;
-
-  for (PINDEX i = 0 ; i < mediaFormatList.GetSize() ; i++)
-    cout << "  " << mediaFormatList[i] << endl;
-
-  AddMediaFormatList(OpalT38);
-  AddMediaFormatList(OpalRFC2833);
 
   /*
   if (args.HasOption("sip-redundancy")) {
@@ -369,7 +355,14 @@ SIPConnection * MySIPEndPoint::CreateConnection(
   MySIPConnection * connection =
       new MySIPConnection(call, *this, token, destination, transport, options, stringOptions);
 
-  connection->AddMediaFormatList(mediaFormatList);
+  OpalConnection::StringOptions newOptions;
+
+  for (PINDEX i = 0 ; i < defaultStringOptions.GetSize() ; i++) {
+    if (!connection->GetStringOptions().Contains(defaultStringOptions.GetKeyAt(i)))
+      newOptions.SetAt(defaultStringOptions.GetKeyAt(i), defaultStringOptions.GetDataAt(i));
+  }
+
+  connection->SetStringOptions(newOptions, false);
 
   return connection;
 }
@@ -407,10 +400,38 @@ PBoolean MySIPConnection::SetUpConnection()
 void MySIPConnection::ApplyStringOptions(OpalConnection::StringOptions & stringOptions)
 {
   if (LockReadWrite()) {
-    if (GetStringOptions().Contains("Disable-T38-Mode")) {
-      PTRACE(3, "MySIPConnection::ApplyStringOptions: Disable-T38-Mode=true");
-      mediaFormatList -= OpalT38;
+    mediaFormatList = OpalMediaFormatList();
+
+    if (GetStringOptions().Contains("Enable-Audio")) {
+      const PStringArray wildcards = GetStringOptions()("Enable-Audio").Tokenise(",", FALSE);
+      OpalMediaFormatList list = endpoint.GetMediaFormats();
+
+      for (PINDEX w = 0 ; w < wildcards.GetSize() ; w++) {
+        OpalMediaFormatList::const_iterator f;
+
+        while ((f = list.FindFormat(wildcards[w], f)) != list.end()) {
+          if (f->GetMediaType() == OpalMediaType::Audio() && f->IsValidForProtocol("sip") && f->IsTransportable())
+             mediaFormatList += *f;
+
+          if (++f == list.end())
+            break;
+        }
+      }
+    } else {
+      mediaFormatList += OpalG711_ULAW_64K;
+      mediaFormatList += OpalG711_ALAW_64K;
     }
+
+    if (GetStringOptions().GetBoolean("Disable-T38-Mode")) {
+      PTRACE(3, "MySIPConnection::ApplyStringOptions: Disable-T38-Mode=true");
+    } else {
+      mediaFormatList += OpalT38;
+    }
+
+    mediaFormatList += OpalRFC2833;
+
+    PTRACE(4, "MySIPConnection::ApplyStringOptions Enabled formats (in preference order):\n"
+           << setfill('\n') << mediaFormatList << setfill(' '));
 
     UnlockReadWrite();
   }
