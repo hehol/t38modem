@@ -24,10 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.18  2010-01-21 16:05:33  vfrolov
- * Changed --h323-audio to accept multiple wildcards
- * Implemented OPAL-Enable-Audio route option
- * Renamed route option OPAL-H323-Bearer-Capability to OPAL-Bearer-Capability
+ * Revision 1.19  2010-01-22 11:20:20  vfrolov
+ * Added --h323-disable-t38-mode option
+ *
+ * Revision 1.19  2010/01/22 11:20:20  vfrolov
+ * Added --h323-disable-t38-mode option
  *
  * Revision 1.18  2010/01/21 16:05:33  vfrolov
  * Changed --h323-audio to accept multiple wildcards
@@ -182,6 +183,7 @@ PString MyH323EndPoint::ArgSpec()
     "-no-h323."
     "-h323-audio:"
     "-h323-audio-list."
+    "-h323-disable-t38-mode."
     /*
     "-h323-redundancy:"
     "-h323-repeat:"
@@ -212,6 +214,9 @@ PStringArray MyH323EndPoint::Descriptions()
       "                              Can be overriden by route option\n"
       "                                OPAL-Enable-Audio=[!]wildcard[,[!]...]\n"
       "  --h323-audio-list         : Display available audio formats.\n"
+      "  --h323-disable-t38-mode   : Disable T.38 fax mode.\n"
+      "                              Can be overriden by route option\n"
+      "                                OPAL-Disable-T38-Mode=false\n"
       /*
       "  --h323-redundancy I[L[H]] : Set redundancy for error recovery for\n"
       "                              (I)ndication, (L)ow speed and (H)igh\n"
@@ -281,6 +286,9 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
 
     defaultStringOptions.SetAt("Enable-Audio", s);
   }
+
+  if (args.HasOption("h323-disable-t38-mode"))
+    defaultStringOptions.SetAt("Disable-T38-Mode", "true");
 
   DisableFastStart(!args.HasOption("fastenable"));
   DisableH245Tunneling(args.HasOption("h245tunneldisable"));
