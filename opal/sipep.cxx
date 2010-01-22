@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.21  2010-01-22 09:29:38  vfrolov
- * Added workaround to allow switching codecs to g711alaw if disabled g711ulaw
+ * Revision 1.22  2010-01-22 11:19:38  vfrolov
+ * Added --sip-disable-t38-mode option
+ *
+ * Revision 1.22  2010/01/22 11:19:38  vfrolov
+ * Added --sip-disable-t38-mode option
  *
  * Revision 1.21  2010/01/22 09:29:38  vfrolov
  * Added workaround to allow switching codecs to g711alaw if disabled g711ulaw
@@ -171,6 +174,7 @@ PString MySIPEndPoint::ArgSpec()
     "-no-sip."
     "-sip-audio:"
     "-sip-audio-list."
+    "-sip-disable-t38-mode."
     /*
     "-sip-redundancy:"
     "-sip-repeat:"
@@ -197,6 +201,9 @@ PStringArray MySIPEndPoint::Descriptions()
       "                              Can be overriden by route option\n"
       "                                OPAL-Enable-Audio=[!]wildcard[,[!]...]\n"
       "  --sip-audio-list          : Display available audio formats.\n"
+      "  --sip-disable-t38-mode    : Disable T.38 fax mode.\n"
+      "                              Can be overriden by route option\n"
+      "                                OPAL-Disable-T38-Mode=false\n"
       /*
       "  --sip-redundancy I[L[H]]  : Set redundancy for error recovery for\n"
       "                              (I)ndication, (L)ow speed and (H)igh\n"
@@ -259,6 +266,9 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
 
     defaultStringOptions.SetAt("Enable-Audio", s);
   }
+
+  if (args.HasOption("sip-disable-t38-mode"))
+    defaultStringOptions.SetAt("Disable-T38-Mode", "true");
 
   /*
   if (args.HasOption("sip-redundancy")) {
