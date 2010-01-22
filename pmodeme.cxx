@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.79  2009-12-02 09:06:42  vfrolov
- * Added a short delay after transmitting of signal before call clearing
+ * Revision 1.80  2010-01-22 14:11:40  vfrolov
+ * Added missing characters # and * for extension numbers
+ * Thanks to Dmitry
+ *
+ * Revision 1.80  2010/01/22 14:11:40  vfrolov
+ * Added missing characters # and * for extension numbers
+ * Thanks to Dmitry
  *
  * Revision 1.79  2009/12/02 09:06:42  vfrolov
  * Added a short delay after transmitting of signal before call clearing
@@ -1944,7 +1949,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   case 'A':
                   case 'B':
                   case 'C':
-                  case 'D': {
+                  case 'D':
+                  case '*':
+                  case '#': {
                     unsigned ms = P.DialTimeDTMF();
 
                     pPlayTone->AddTone(ch, ms);
