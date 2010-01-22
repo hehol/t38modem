@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.20  2010-01-21 16:00:54  vfrolov
- * Changed --sip-audio to accept multiple wildcards
- * Implemented OPAL-Enable-Audio route option
+ * Revision 1.21  2010-01-22 09:29:38  vfrolov
+ * Added workaround to allow switching codecs to g711alaw if disabled g711ulaw
+ *
+ * Revision 1.21  2010/01/22 09:29:38  vfrolov
+ * Added workaround to allow switching codecs to g711alaw if disabled g711ulaw
  *
  * Revision 1.20  2010/01/21 16:00:54  vfrolov
  * Changed --sip-audio to accept multiple wildcards
@@ -444,6 +446,17 @@ bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
   PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << (enableFax ? "fax" : "audio"));
 
   bool res = false;
+
+  if (!enableFax) {
+    OpalMediaFormatList::iterator i = mediaFormatList.begin();
+
+    while (i != mediaFormatList.end()) {
+      if (i->GetMediaType() != OpalMediaType::Audio() || *i == OpalG711_ULAW_64K || *i == OpalG711_ALAW_64K)
+        ++i;
+      else
+        mediaFormatList -= *i++;
+    }
+  }
 
   OpalMediaFormatList mediaFormats = GetMediaFormats();
   AdjustMediaFormats(true, mediaFormats, NULL);
