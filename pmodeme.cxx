@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2009 Vyacheslav Frolov
+ * Copyright (c) 2001-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.80  2010-01-22 14:11:40  vfrolov
- * Added missing characters # and * for extension numbers
- * Thanks to Dmitry
+ * Revision 1.81  2010-01-27 14:03:38  vfrolov
+ * Added missing mutexes
+ *
+ * Revision 1.81  2010/01/27 14:03:38  vfrolov
+ * Added missing mutexes
  *
  * Revision 1.80  2010/01/22 14:11:40  vfrolov
  * Added missing characters # and * for extension numbers
@@ -2067,9 +2069,11 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             }
           }
           break;
-        case 'E':	// Turn Echo on/off
+        case 'E': {	// Turn Echo on/off
+          PWaitAndSignal mutexWait(Mutex);
           ToSBit(Echo);
           break;
+        }
         case 'H':	// On/Off-hook
           if( ParseNum(&pCmd, 0, 1, 0) >= 0 ) {	// ATH & ATH0
             PWaitAndSignal mutexWait(Mutex);
@@ -2148,9 +2152,11 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
         case 'O':	// Go online
           err = TRUE;
           break;
-        case 'Q':	// Turn result codes on/off
+        case 'Q': {	// Turn result codes on/off
+          PWaitAndSignal mutexWait(Mutex);
           ToSBit(noResultCodes);
           break;
+        }
         case 'S':	// Set/Get Register
           {
           int r = ParseNum(&pCmd);
@@ -2160,6 +2166,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               case '=':
                 {
                   int val = ParseNum(&pCmd);
+
+                  PWaitAndSignal mutexWait(Mutex);
+
                   if( val < 0 || !P.SetReg(r, (BYTE)val) ) {
                     err = TRUE;
                   }
@@ -2168,6 +2177,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               case '?':
                 {
                   BYTE val;
+
+                  PWaitAndSignal mutexWait(Mutex);
 
                   if (P.GetReg(r, val)) {
                     resp.sprintf("\r\n%3.3u", (unsigned)val);
@@ -2219,9 +2230,11 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           }
           }
           break;
-        case 'V':	// Numeric or ASCII result codes
+        case 'V': {	// Numeric or ASCII result codes
+          PWaitAndSignal mutexWait(Mutex);
           ToSBit(asciiResultCodes);
           break;
+        }
         case 'X':	// Which result codes
           if (ParseNum(&pCmd, 0, 1) >= 3) {
           } else {
@@ -2303,8 +2316,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                             resp += "\r\n1,8";
                             crlf = TRUE;
                             break;
-                          default:
-                            switch( ParseNum(&pCmd) ) {
+                          default: {
+                            PWaitAndSignal mutexWait(Mutex);
+
+                            switch (ParseNum(&pCmd)) {
                               case 0:
                                 P.ModemClass("0");
                                 break;
@@ -2323,6 +2338,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 
                             if (t38engine)
                               t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
+                          }
                         }
                         break;
                       case '?':
@@ -2353,9 +2369,11 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 switch (val) {
                                   case 0:
                                   case 1:
-                                  case 2:
+                                  case 2: {
+                                    PWaitAndSignal mutexWait(Mutex);
                                     P.Flo((BYTE)val);
                                     break;
+                                  }
                                   default:
                                     err = TRUE;
                                 }
@@ -2520,6 +2538,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 valByDCE = P.IfcByDCE();
                               }
 
+                              PWaitAndSignal mutexWait(Mutex);
+
                               P.IfcByDTE((BYTE)valByDTE);
                               P.IfcByDCE((BYTE)valByDCE);
                             }
@@ -2559,9 +2579,11 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                               int val = ParseNum(&pCmd);
                               switch (val) {
                                 case 0:
-                                case 1:
+                                case 1: {
+                                  PWaitAndSignal mutexWait(Mutex);
                                   P.CidMode((BYTE)val);
                                   break;
+                                }
                                 default:
                                   err = TRUE;
                               }
@@ -2623,6 +2645,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 int val = ParseNum(&pCmd);
 
                                 if (val >= 0) {
+                                  PWaitAndSignal mutexWait(Mutex);
                                   P.VgrInterval((BYTE)val);
                                 } else {
                                   err = TRUE;
@@ -2652,6 +2675,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 int val = ParseNum(&pCmd);
 
                                 if (val >= 0) {
+                                  PWaitAndSignal mutexWait(Mutex);
                                   P.VgtInterval((BYTE)val);
                                 } else {
                                   err = TRUE;
@@ -2790,6 +2814,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 int val = ParseNum(&pCmd);
 
                                 if (val >= 0) {
+                                  PWaitAndSignal mutexWait(Mutex);
                                   P.VraInterval((BYTE)val);
                                 } else {
                                   err = TRUE;
@@ -2819,6 +2844,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 int val = ParseNum(&pCmd);
 
                                 if (val >= 0) {
+                                  PWaitAndSignal mutexWait(Mutex);
                                   P.VrnInterval((BYTE)val);
                                 } else {
                                   err = TRUE;
@@ -2870,6 +2896,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                   err = TRUE;
                                   break;
                                 }
+
+                                PWaitAndSignal mutexWait(Mutex);
 
                                 P.Vsds((BYTE)sds);
                                 P.Vsdi((BYTE)sdi);
@@ -2955,6 +2983,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 }
                               }
 
+                              PWaitAndSignal mutexWait(Mutex);
                               P.Vcml((BYTE)cml);
                             }
                           }
@@ -3031,6 +3060,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               {
                 int val = ParseNum(&pCmd, 0, 1, 7);
                 if( val >= 0 ) {
+                  PWaitAndSignal mutexWait(Mutex);
                   P.SetBits(27, 3, 5, (BYTE)val);
                 } else {
                   err = TRUE;
@@ -3055,6 +3085,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   default:
                     {
                       int val = ParseNum(&pCmd);
+
+                      PWaitAndSignal mutexWait(Mutex);
+
                       switch (val) {
                         case 0:
                           P.CidMode(0);
@@ -3117,6 +3150,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                     {
                       int val = ParseNum(&pCmd);
                       if (val >= 0) {
+                        PWaitAndSignal mutexWait(Mutex);
                         P.DelayFrmConnect((BYTE)val);
                       } else {
                         err = TRUE;
@@ -3147,9 +3181,11 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                       int val = ParseNum(&pCmd);
                       switch (val) {
                         case 0:
-                        case 1:
+                        case 1: {
+                          PWaitAndSignal mutexWait(Mutex);
                           P.ClearMode((BYTE)val);
                           break;
+                        }
                         default:
                           err = TRUE;
                       }
