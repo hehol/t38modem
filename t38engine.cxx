@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2009 Vyacheslav Frolov
+ * Copyright (c) 2001-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.63  2009-12-02 09:06:42  vfrolov
- * Added a short delay after transmitting of signal before call clearing
+ * Revision 1.64  2010-01-28 10:27:03  vfrolov
+ * Added handling T.38 CED indication
+ *
+ * Revision 1.64  2010/01/28 10:27:03  vfrolov
+ * Added handling T.38 CED indication
  *
  * Revision 1.63  2009/12/02 09:06:42  vfrolov
  * Added a short delay after transmitting of signal before call clearing
@@ -1444,7 +1447,10 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
 
       switch (type_of_msg) {
         case T38I(e_no_signal):
+          isCarrierIn = 0;
+          break;
         case T38I(e_ced):
+          OnUserInput('a');
           isCarrierIn = 0;
           break;
         case T38I(e_cng):
