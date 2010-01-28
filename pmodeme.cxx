@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.81  2010-01-27 14:03:38  vfrolov
- * Added missing mutexes
+ * Revision 1.82  2010-01-28 10:30:37  vfrolov
+ * Added cleaning user input buffers for non-audio classes
+ *
+ * Revision 1.82  2010/01/28 10:30:37  vfrolov
+ * Added cleaning user input buffers for non-audio classes
  *
  * Revision 1.81  2010/01/27 14:03:38  vfrolov
  * Added missing mutexes
@@ -3461,7 +3464,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     }
   }
 
-  if (connectionEstablished && P.AudioClass()) {
+  if (connectionEstablished) {
     PWaitAndSignal mutexWait(Mutex);
 
     EngineBase *engines[] = {audioEngine, t38engine};
@@ -3477,6 +3480,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
         if (engine->RecvUserInput(&c, 1) <= 0)
           break;
+
+        if (!P.AudioClass())
+          continue;
 
         switch (c) {
           case '0':
