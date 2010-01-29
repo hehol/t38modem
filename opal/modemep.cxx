@@ -24,9 +24,13 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.17  2010-01-13 09:59:19  vfrolov
- * Fixed incompatibility with OPAL trunk
- * Fixed incorrect codec selection for the incoming offer
+ * Revision 1.18  2010-01-29 07:15:52  vfrolov
+ * Fixed a "glare" condition with switcing to the fax passthrough
+ * mode and receiving a T.38 mode request at the same time
+ *
+ * Revision 1.18  2010/01/29 07:15:52  vfrolov
+ * Fixed a "glare" condition with switcing to the fax passthrough
+ * mode and receiving a T.38 mode request at the same time
  *
  * Revision 1.17  2010/01/13 09:59:19  vfrolov
  * Fixed incompatibility with OPAL trunk
@@ -157,7 +161,7 @@ class ModemConnection : public OpalConnection
     );
 
   protected:
-    bool SwitchToFaxPassthrough(OpalConnection &connection);
+    bool UpdateMediaStreams(OpalConnection &other);
     PBoolean Attach(PseudoModem *_pmodem);
 
     PDECLARE_NOTIFIER(PThread, ModemConnection, RequestMode);
@@ -175,7 +179,7 @@ class ModemConnection : public OpalConnection
 //
 /////////////////////////////////////////////////////////////////////////////
 #if PTRACING
-ostream & operator<<(ostream & out, ModemConnection::PseudoModemMode mode)
+static ostream & operator<<(ostream & out, ModemConnection::PseudoModemMode mode)
 {
   switch (mode) {
     case ModemConnection::pmmAny:         return out << "any";
@@ -632,9 +636,7 @@ PBoolean ModemConnection::SetUpConnection()
     return FALSE;
   }
 
-  PString response = request("response");
-
-  if (response != "confirm") {
+  if (request("response") != "confirm") {
     myPTRACE(1, "... denied (no confirm)");
     Release(EndedByLocalUser);
     return FALSE;
@@ -668,7 +670,7 @@ PBoolean ModemConnection::SetConnected()
 
 OpalMediaFormatList ModemConnection::GetMediaFormats() const
 {
-  PTRACE(1, "ModemConnection::GetMediaFormats " << *this);
+  PTRACE(4, "ModemConnection::GetMediaFormats " << *this);
 
   OpalMediaFormatList mediaFormats = endpoint.GetMediaFormats();
 
@@ -755,14 +757,14 @@ void ModemConnection::RequestMode(PThread &, INT faxMode)
         PTRACE(3, "ModemConnection::RequestMode: other connection has not fax type");
 
         faxMode = false;
-        done = SwitchToFaxPassthrough(*other);
+        done = UpdateMediaStreams(*other);
       }
       else
       if (other->GetStringOptions().Contains("No-Force-T38-Mode")) {
         PTRACE(3, "ModemConnection::RequestMode: other connection has option No-Force-T38-Mode");
 
         faxMode = false;
-        done = SwitchToFaxPassthrough(*other);
+        done = UpdateMediaStreams(*other);
       }
     }
 
@@ -819,7 +821,7 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
         break;
       }
       default:
-        myPTRACE(1, "ModemConnection::RequestMode: " << *this << " unknown mode " << requestMode);
+        myPTRACE(1, "ModemConnection::RequestMode: " << *this << " unknown mode " << requestedMode);
         requestedMode = oldMode;
         return false;
     }
@@ -830,182 +832,242 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
   return true;
 }
 
-bool ModemConnection::SwitchToFaxPassthrough(OpalConnection &connection)
+static OpalMediaStreamPtr FindMediaStream(
+    const OpalConnection &connection,
+    const OpalMediaFormatList &allowedFormats,
+    bool source)
 {
-  OpalMediaFormatList mediaFormats = connection.GetMediaFormats();
-  connection.AdjustMediaFormats(true, mediaFormats, NULL);
+  for (OpalMediaStreamPtr stream = connection.GetMediaStream(OpalMediaType(), source) ;
+       stream != NULL ;
+       stream = connection.GetMediaStream(OpalMediaType(), source, stream))
+  {
+    if (!stream->IsOpen())
+      continue;
 
-  PTRACE(3, "ModemConnection::SwitchToFaxPassthrough:\n"
-         << setfill('\n') << mediaFormats << setfill(' '));
+    if (allowedFormats.HasFormat(stream->GetMediaFormat()))
+      return stream;
+  }
 
-  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-    if (mediaFormats[i] != OpalG711uLaw && mediaFormats[i] != OpalG711ALaw) {
-      mediaFormats -= mediaFormats[i];
-      i--;
+  return NULL;
+}
+
+static OpalMediaStreamPtr GetAllowedOtherStream(
+    const OpalMediaStream &stream,
+    const OpalMediaFormatList &allowedFormats)
+{
+  OpalMediaPatch *patch = stream.GetPatch();
+
+  if (patch == NULL)
+    return NULL;
+
+  OpalMediaStreamPtr otherStream = (stream.IsSource()) ? patch->GetSink() : (OpalMediaStreamPtr)&patch->GetSource();
+
+  if (otherStream == NULL)
+    return NULL;
+
+  if (!otherStream->IsOpen())
+    return NULL;
+
+  if (!allowedFormats.HasFormat(otherStream->GetMediaFormat()))
+    return NULL;
+
+  return otherStream;
+}
+
+static OpalMediaFormatList ReorderMediaFormats(
+    const OpalMediaFormatList &mediaFormats,
+    const OpalMediaFormat &mediaFormat)
+{
+  OpalMediaFormatList formats = mediaFormats;
+  PStringArray order;
+
+  order += mediaFormat.GetName();
+  order += '@' + mediaFormat.GetMediaType();
+  formats.Reorder(order);
+
+  return formats;
+}
+
+bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
+{
+  OpalMediaFormatList otherMediaFormats = other.GetMediaFormats();
+  other.AdjustMediaFormats(true, otherMediaFormats, NULL);
+
+  OpalMediaFormatList thisMediaFormats = GetMediaFormats();
+  AdjustMediaFormats(true, thisMediaFormats, NULL);
+  other.AdjustMediaFormats(true, thisMediaFormats, this);
+
+  PTRACE(3, "ModemConnection::UpdateMediaStreams:\n"
+            "patching " << setfill(',') << thisMediaFormats << setfill(' ') << "\n"
+            "<------> " << setfill(',') << otherMediaFormats << setfill(' '));
+
+  if (!thisMediaFormats.HasType(OpalMediaType::Audio())) {
+    for (PINDEX i = 0 ; i < otherMediaFormats.GetSize() ; i++) {
+      if (otherMediaFormats[i] != OpalG711uLaw &&
+          otherMediaFormats[i] != OpalG711ALaw &&
+          otherMediaFormats[i].GetMediaType() != OpalMediaType::Fax())
+      {
+        otherMediaFormats -= otherMediaFormats[i];
+        i--;
+      }
+    }
+  } else {
+    for (PINDEX i = 0 ; i < otherMediaFormats.GetSize() ; i++) {
+      if (otherMediaFormats[i].GetMediaType() != OpalMediaType::Audio() &&
+          otherMediaFormats[i].GetMediaType() != OpalMediaType::Fax())
+      {
+        otherMediaFormats -= otherMediaFormats[i];
+        i--;
+      }
     }
   }
 
-  if (mediaFormats.GetSize() < 1) {
-    PTRACE(2, "ModemConnection::SwitchToFaxPassthrough: G.711 is not supported");
+  PTRACE(4, "ModemConnection::UpdateMediaStreams:\n"
+            "patching " << setfill(',') << thisMediaFormats << setfill(' ') << "\n"
+            "<------> " << setfill(',') << otherMediaFormats << setfill(' '));
+
+  if (otherMediaFormats.GetSize() < 1) {
+    PTRACE(2, "ModemConnection::UpdateMediaStreams: other connection has no capable media formats");
     return false;
   }
 
-  unsigned sessionID = 0;  // both sinks must have the same session ID !
-  bool ok = false;
+  OpalMediaStreamPtr otherSink = FindMediaStream(other, otherMediaFormats, false);
 
-  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-    OpalMediaStreamPtr sink = connection.GetMediaStream(mediaFormats[i].GetMediaType(), false);
+  if (otherSink == NULL) {
+    PTRACE(2, "ModemConnection::UpdateMediaStreams: other connection has no capable sink media streams");
+    return false;
+  }
 
-    if (sink == NULL)
-      continue;
+  unsigned otherSinkSessionID = otherSink->GetSessionID();
 
-    if (!sink->IsOpen())
-      continue;
+  OpalMediaFormat otherSinkFormat = otherSink->GetMediaFormat();
 
-    OpalMediaFormat sinkFormat = sink->GetMediaFormat();
+  PTRACE(3, "ModemConnection::UpdateMediaStreams: "
+            "otherSink=" << *otherSink << " "
+            "otherSinkFormat=" << otherSinkFormat << " "
+            "otherSinkSessionID=" << otherSinkSessionID);
 
-    if (sinkFormat != mediaFormats[i])
-      continue;
+  OpalMediaStreamPtr otherSource = FindMediaStream(other, otherMediaFormats, true);
 
-    PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: sink=" << *sink << " sinkFormat=" << sinkFormat);
+  if (otherSource == NULL) {
+    PTRACE(2, "ModemConnection::UpdateMediaStreams: other connection has no capable source media streams");
+    return false;
+  }
 
-    PStringArray order;
-    order += sinkFormat.GetName();
-    order += '@' + OpalMediaType::Fax();
+  OpalMediaFormat otherSourceFormat = otherSource->GetMediaFormat();
 
-    OpalMediaFormatList sourceMediaFormats = GetMediaFormats();
-    AdjustMediaFormats(true, sourceMediaFormats, NULL);
-    connection.AdjustMediaFormats(true, sourceMediaFormats, this);
-    sourceMediaFormats.Reorder(order);
+  PTRACE(3, "ModemConnection::UpdateMediaStreams: "
+            "otherSource=" << *otherSource << " "
+            "otherSourceFormat=" << otherSourceFormat);
 
-    OpalMediaFormat sourceFormat;
+  OpalMediaStreamPtr thisSource = GetAllowedOtherStream(*otherSink, thisMediaFormats);
+  OpalMediaFormat thisSourceFormat;
 
-    if (GetCall().SelectMediaFormats(
-                                       OpalMediaType::Fax(),
-                                       sourceMediaFormats,
-                                       sinkFormat,
+  if (thisSource != NULL) {
+    PTRACE(4, "ModemConnection::UpdateMediaStreams: no need to replace " << *thisSource << " --> " << *otherSink);
+  } else {
+    if (!GetCall().SelectMediaFormats(
+                                       otherSinkFormat.GetMediaType(),
+                                       ReorderMediaFormats(thisMediaFormats, otherSinkFormat),
+                                       otherSinkFormat,
                                        GetLocalMediaFormats(),
-                                       sourceFormat,
-                                       sinkFormat))
+                                       thisSourceFormat,
+                                       otherSinkFormat))
     {
-      PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: selected source format "
-             << sourceFormat << " --> " << sinkFormat);
-
-      OpalMediaPatch *patch = sink->GetPatch();
-
-      if (patch != NULL) {
-        sink->RemovePatch(patch);
-        patch->GetSource().Close();
-      }
-
-      sessionID = sink->GetSessionID();
-
-      PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: using session " << sessionID);
-
-      OpalMediaStreamPtr source = OpenMediaStream(sourceFormat, sessionID, true);
-
-      if (source != NULL) {
-        patch = GetEndPoint().GetManager().CreateMediaPatch(*source,
-                                       sink->RequiresPatchThread(source) && source->RequiresPatchThread(sink));
-
-        if (patch != NULL) {
-          patch->AddSink(sink);
-          ok = true;
-
-          connection.OnPatchMediaStream(false, *patch);
-          OnPatchMediaStream(true, *patch);
-
-          PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: created patch " << *patch);
-        }
-      }
+      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't select source format for sink " << otherSink);
+      return false;
     }
 
-    break;
+    PTRACE(3, "ModemConnection::UpdateMediaStreams: selected source format "
+           << thisSourceFormat << " for sink " << otherSinkFormat);
   }
 
-  if (!ok) {
-    PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: can't create patch for "
-           << *this << " --> " << connection << "\n"
-           << setfill('\n') << mediaFormats << setfill(' '));
-    return false;
-  }
+  OpalMediaStreamPtr thisSink = GetAllowedOtherStream(*otherSource, thisMediaFormats);
+  OpalMediaFormat thisSinkFormat;
 
-  ok = false;
-
-  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-    OpalMediaStreamPtr source = connection.GetMediaStream(mediaFormats[i].GetMediaType(), true);
-
-    if (source == NULL)
-      continue;
-
-    if (!source->IsOpen())
-      continue;
-
-    OpalMediaFormat sourceFormat = source->GetMediaFormat();
-
-    if (sourceFormat != mediaFormats[i])
-      continue;
-
-    PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: source=" << *source << " sourceFormat=" << sourceFormat);
-
-    PStringArray order;
-    order += sourceFormat.GetName();
-    order += '@' + OpalMediaType::Fax();
-
-    OpalMediaFormatList sinkMediaFormats = GetMediaFormats();
-    AdjustMediaFormats(true, sinkMediaFormats, NULL);
-    connection.AdjustMediaFormats(true, sinkMediaFormats, this);
-    sinkMediaFormats.Reorder(order);
-
-    OpalMediaFormat sinkFormat;
-
-    if (GetCall().SelectMediaFormats(
-                                       OpalMediaType::Fax(),
-                                       sourceFormat,
-                                       sinkMediaFormats,
+  if (thisSink != NULL) {
+    PTRACE(4, "ModemConnection::UpdateMediaStreams: no need to replace " << *thisSink << " <-- " << *otherSource);
+  } else {
+    if (!GetCall().SelectMediaFormats(
+                                       otherSourceFormat.GetMediaType(),
+                                       otherSourceFormat,
+                                       ReorderMediaFormats(thisMediaFormats, otherSourceFormat),
                                        GetLocalMediaFormats(),
-                                       sourceFormat,
-                                       sinkFormat))
+                                       otherSourceFormat,
+                                       thisSinkFormat))
     {
-      PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: selected sink format "
-             << sinkFormat << " <-- " << sourceFormat);
-
-      OpalMediaPatch *patch = source->GetPatch();
-
-      if (patch != NULL)
-        source->RemovePatch(patch);
-
-      OpalMediaStreamPtr sink = OpenMediaStream(sinkFormat, sessionID, false);
-
-      if (sink != NULL) {
-        patch = GetEndPoint().GetManager().CreateMediaPatch(*source,
-                                       sink->RequiresPatchThread(source) && source->RequiresPatchThread(sink));
-
-        if (patch != NULL) {
-          patch->AddSink(sink);
-          ok = true;
-
-          connection.OnPatchMediaStream(true, *patch);
-          OnPatchMediaStream(false, *patch);
-
-          PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: created patch " << *patch);
-        }
-      }
+      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't select sink format for source " << otherSource);
+      return false;
     }
 
-    break;
+    PTRACE(3, "ModemConnection::UpdateMediaStreams: selected sink format "
+           << thisSinkFormat << " for source " << otherSourceFormat);
   }
 
-  if (!ok) {
-    PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: can't create patch for "
-           << *this << " <-- " << connection << "\n"
-           << setfill('\n') << mediaFormats << setfill(' '));
-    return false;
+  if (thisSource == NULL) {
+    OpalMediaPatch *patch = otherSink->GetPatch();
+
+    if (patch != NULL) {
+      otherSink->RemovePatch(patch);
+      patch->GetSource().Close();
+    }
+
+    thisSource = OpenMediaStream(thisSourceFormat, otherSinkSessionID, true);
+
+    if (thisSource == NULL) {
+      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't open source stream");
+      return false;
+    }
+
+    patch = GetEndPoint().GetManager().CreateMediaPatch(*thisSource,
+                otherSink->RequiresPatchThread(thisSource) && thisSource->RequiresPatchThread(otherSink));
+
+    if (patch == NULL) {
+      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't create patch for " << *thisSource);
+      return false;
+    }
+
+    patch->AddSink(otherSink);
+
+    other.OnPatchMediaStream(false, *patch);
+    OnPatchMediaStream(true, *patch);
+
+    PTRACE(3, "ModemConnection::UpdateMediaStreams: created patch " << *patch);
+  }
+
+  if (thisSink == NULL) {
+    OpalMediaPatch *patch = otherSource->GetPatch();
+
+    if (patch != NULL)
+      otherSource->RemovePatch(patch);
+
+    // NOTE: Both sinks must have the same session ID for T.38 <-> PCM transcoding !!!
+    thisSink = OpenMediaStream(thisSinkFormat, otherSinkSessionID, false);
+
+    if (thisSink == NULL) {
+      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't open sink stream");
+      return false;
+    }
+
+    patch = GetEndPoint().GetManager().CreateMediaPatch(*otherSource,
+                thisSink->RequiresPatchThread(otherSource) && otherSource->RequiresPatchThread(thisSink));
+
+    if (patch == NULL) {
+      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't create patch for " << *otherSource);
+      return false;
+    }
+
+    patch->AddSink(thisSink);
+
+    other.OnPatchMediaStream(true, *patch);
+    OnPatchMediaStream(false, *patch);
+
+    PTRACE(3, "ModemConnection::UpdateMediaStreams: created patch " << *patch);
   }
 
   StartMediaStreams();
 
-  PTRACE(3, "ModemConnection::SwitchToFaxPassthrough: fallback - OK");
+  PTRACE(3, "ModemConnection::UpdateMediaStreams: OK");
 
   return true;
 }
