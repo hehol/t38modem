@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.83  2010-02-02 08:41:56  vfrolov
- * Implemented ringing indication for voice class dialing
+ * Revision 1.84  2010-02-02 09:51:11  vfrolov
+ * Added missing timerRing.Stop()
+ *
+ * Revision 1.84  2010/02/02 09:51:11  vfrolov
+ * Added missing timerRing.Stop()
  *
  * Revision 1.83  2010/02/02 08:41:56  vfrolov
  * Implemented ringing indication for voice class dialing
@@ -1003,6 +1006,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     if (CallToken().IsEmpty()) {
       myPTRACE(1, "ModemEngineBody::Request not in use");
     } else if (CallToken() == request("calltoken")) {
+      timerRing.Stop();
       if (state == stConnectWait) {
         param = chConnected;
         state = stConnectHandle;
