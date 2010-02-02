@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.18  2010-01-29 07:15:52  vfrolov
- * Fixed a "glare" condition with switcing to the fax passthrough
- * mode and receiving a T.38 mode request at the same time
+ * Revision 1.19  2010-02-02 08:41:56  vfrolov
+ * Implemented ringing indication for voice class dialing
+ *
+ * Revision 1.19  2010/02/02 08:41:56  vfrolov
+ * Implemented ringing indication for voice class dialing
  *
  * Revision 1.18  2010/01/29 07:15:52  vfrolov
  * Fixed a "glare" condition with switcing to the fax passthrough
@@ -657,6 +659,18 @@ PBoolean ModemConnection::SetAlerting(
   myPTRACE(1, "ModemConnection::SetAlerting " << *this << " " << calleeName << " " << withMedia);
 
   SetPhase(AlertingPhase);
+
+  PAssert(pmodem != NULL, "pmodem is NULL");
+  PAssert(audioEngine != NULL, "audioEngine is NULL");
+
+  pmodem->Attach(audioEngine);
+
+  PStringToString request;
+  request.SetAt("command", "alerting");
+  request.SetAt("calltoken", GetToken());
+  if (!pmodem->Request(request)) {
+    myPTRACE(1, "ModemConnection::SetAlerting error request={\n" << request << "}");
+  }
 
   return TRUE;
 }

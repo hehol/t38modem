@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.82  2010-01-28 10:30:37  vfrolov
- * Added cleaning user input buffers for non-audio classes
+ * Revision 1.83  2010-02-02 08:41:56  vfrolov
+ * Implemented ringing indication for voice class dialing
+ *
+ * Revision 1.83  2010/02/02 08:41:56  vfrolov
+ * Implemented ringing indication for voice class dialing
  *
  * Revision 1.82  2010/01/28 10:30:37  vfrolov
  * Added cleaning user input buffers for non-audio classes
@@ -979,6 +982,21 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       request.SetAt("response", "confirm");
     } else {
       myPTRACE(1, "ModemEngineBody::Request already in use by " << CallToken());
+    }
+  } else if (command == "alerting") {
+    PWaitAndSignal mutexWait(Mutex);
+    if (CallToken().IsEmpty()) {
+      myPTRACE(1, "ModemEngineBody::Request not in use");
+    } else if (CallToken() == request("calltoken")) {
+      if (state == stConnectWait && callDirection == cdOutgoing && !pPlayTone && P.AudioClass()) {
+        param = chConnected;
+        state = stConnectHandle;
+        timerRing.Start(5000);
+        parent.SignalDataReady();
+        request.SetAt("response", "confirm");
+      }
+    } else {
+      myPTRACE(1, "ModemEngineBody::Request in use by " << CallToken());
     }
   } else if (command == "established") {
     PWaitAndSignal mutexWait(Mutex);
@@ -3416,23 +3434,32 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
   {
     PWaitAndSignal mutexWait(Mutex);
     if (cmd.IsEmpty() && timerRing.Get())  {
-      resp = RC_RING();
-      BYTE s0, ringCount;
-      P.GetReg(0, s0);
-      P.GetReg(1, ringCount);
-      if (!ringCount) {
-        if(P.CidMode())
-          resp += "NMBR = " + SrcNum() + "\r\n";
-        if(P.DidMode())
-          resp += "NDID = " + DstNum() + "\r\n";
-        if(P.CidMode() || P.DidMode())
-          resp += RC_RING();
+      if (callDirection == cdOutgoing && !pPlayTone && P.AudioClass()) {
+        BYTE b[2] = {'\x10', 'r'};
+        PBYTEArray _bresp(b, sizeof(b));
+        bresp.Concatenate(_bresp);
+        myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
       }
-      P.SetReg(1, ++ringCount);
-      if (s0 > 0 && (ringCount >= s0)) {
-        Mutex.Signal();
-        Answer();
-        Mutex.Wait();
+      else
+      if (callDirection == cdUndefined) {
+        resp = RC_RING();
+        BYTE s0, ringCount;
+        P.GetReg(0, s0);
+        P.GetReg(1, ringCount);
+        if (!ringCount) {
+          if(P.CidMode())
+            resp += "NMBR = " + SrcNum() + "\r\n";
+          if(P.DidMode())
+            resp += "NDID = " + DstNum() + "\r\n";
+          if(P.CidMode() || P.DidMode())
+            resp += RC_RING();
+        }
+        P.SetReg(1, ++ringCount);
+        if (s0 > 0 && (ringCount >= s0)) {
+          Mutex.Signal();
+          Answer();
+          Mutex.Wait();
+        }
       }
     }
   }
