@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.84  2010-02-02 09:51:11  vfrolov
- * Added missing timerRing.Stop()
+ * Revision 1.85  2010-02-05 14:55:33  vfrolov
+ * Used S7 timeout
+ *
+ * Revision 1.85  2010/02/05 14:55:33  vfrolov
+ * Used S7 timeout
  *
  * Revision 1.84  2010/02/02 09:51:11  vfrolov
  * Added missing timerRing.Stop()
@@ -368,6 +371,7 @@ class Profile
       void name(BYTE val) { SetReg(byte, val); } \
       BYTE name() const { BYTE val; GetReg(byte, val); return val; }
 
+    DeclareRegisterByte(S7,            7);
     DeclareRegisterByte(DialTimeComma, 8);
     DeclareRegisterByte(DialTimeDTMF, 11);
 
@@ -848,6 +852,7 @@ Profile::Profile() {
     S[r] = 0;
   }
 
+  S7(60);
   DialTimeComma(2);
   DialTimeDTMF(70);
   Echo(TRUE);
@@ -2042,7 +2047,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 
               timerRing.Stop();
               state = stConnectWait;
-              timeout.Start(60000);
+              timeout.Start((unsigned(P.S7()) + 1) * 1000);
 
               PStringToString request;
               request.SetAt("modemtoken", parent.modemToken());
