@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.22  2010-01-22 11:19:38  vfrolov
- * Added --sip-disable-t38-mode option
+ * Revision 1.23  2010-02-08 17:30:31  vfrolov
+ * Disabled OPAL version < 3.8.0
+ *
+ * Revision 1.23  2010/02/08 17:30:31  vfrolov
+ * Disabled OPAL version < 3.8.0
  *
  * Revision 1.22  2010/01/22 11:19:38  vfrolov
  * Added --sip-disable-t38-mode option
@@ -104,8 +107,8 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 7, 1))
-  #error *** Uncompatible OPAL version (required >= 3.7.1) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 8, 0))
+  #error *** Uncompatible OPAL version (required >= 3.8.0) ***
 #endif
 
 #undef PACK_VERSION

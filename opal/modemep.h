@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.h,v $
- * Revision 1.5  2009-11-02 18:02:19  vfrolov
- * Removed pre v3.7 compatibility code
+ * Revision 1.6  2010-02-08 17:30:31  vfrolov
+ * Disabled OPAL version < 3.8.0
+ *
+ * Revision 1.6  2010/02/08 17:30:31  vfrolov
+ * Disabled OPAL version < 3.8.0
  *
  * Revision 1.5  2009/11/02 18:02:19  vfrolov
  * Removed pre v3.7 compatibility code
@@ -50,8 +53,8 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 7, 1))
-  #error *** Uncompatible OPAL version (required >= 3.7.1) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 8, 0))
+  #error *** Uncompatible OPAL version (required >= 3.8.0) ***
 #endif
 
 #undef PACK_VERSION
