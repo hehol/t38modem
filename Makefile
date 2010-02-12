@@ -3,9 +3,9 @@
 #
 # T38FAX Pseudo Modem
 #
-# Copyright (c) 2001-2009 Vyacheslav Frolov
+# Copyright (c) 2001-2010 Vyacheslav Frolov
 #
-# Open H323 Project
+# t38modem Project
 #
 # The contents of this file are subject to the Mozilla Public License
 # Version 1.0 (the "License"); you may not use this file except in
@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.25  2009-07-31 17:34:40  vfrolov
-# Removed --h323-old-asn and --sip-old-asn options
+# Revision 1.26  2010-02-12 08:35:51  vfrolov
+# Added fake_codecs.cxx
+#
+# Revision 1.26  2010/02/12 08:35:51  vfrolov
+# Added fake_codecs.cxx
 #
 # Revision 1.25  2009/07/31 17:34:40  vfrolov
 # Removed --h323-old-asn and --sip-old-asn options
@@ -121,7 +124,8 @@ ifdef USE_OPAL
              modemep.cxx modemstrm.cxx \
              h323ep.cxx \
              sipep.cxx \
-             manager.cxx
+             manager.cxx \
+             fake_codecs.cxx \
 
   ifndef OPALDIR
     OPALDIR=$(HOME)/opal
