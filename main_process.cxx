@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: main_process.cxx,v $
- * Revision 1.8  2009-07-29 10:39:04  vfrolov
- * Moved h323lib specific code to h323lib directory
+ * Revision 1.9  2010-02-12 08:33:44  vfrolov
+ * Moved PTrace::Initialise() to beginning
+ *
+ * Revision 1.9  2010/02/12 08:33:44  vfrolov
+ * Moved PTrace::Initialise() to beginning
  *
  * Revision 1.8  2009/07/29 10:39:04  vfrolov
  * Moved h323lib specific code to h323lib directory
@@ -168,6 +171,12 @@ PBoolean T38Modem::Initialise()
     PMemoryHeap::SetAllocationBreakpoint(args.GetOptionString("setallocationbreakpoint").AsInteger());
 #endif
 
+#if PTRACING
+  PTrace::Initialise(args.GetOptionCount('t'),
+                     args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL,
+                     PTrace::DateAndTime | PTrace::Thread | PTrace::Blocks);
+#endif
+
   if (args.HasOption('h')) {
     cout <<
         "Usage:\n"
@@ -219,17 +228,13 @@ PBoolean T38Modem::Initialise()
     return FALSE;
   }
 
-#if PTRACING
-  PTrace::Initialise(args.GetOptionCount('t'),
-                     args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL,
-                     PTrace::DateAndTime | PTrace::Thread | PTrace::Blocks);
-
   PTRACE(1, GetName()
       << " Version " << GetVersion(TRUE)
       << " (" << GetListOfLibs() << ")"
       << " on " << GetOSClass() << " " << GetOSName()
       << " (" << GetOSVersion() << '-' << GetOSHardware() << ")");
 
+#if PTRACING
   if (PTrace::CanTrace(3)) {
     PTRACE(3, "Options: " << args);
 
