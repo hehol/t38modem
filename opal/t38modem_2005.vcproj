@@ -411,6 +411,10 @@
 				Name="opal"
 				>
 				<File
+					RelativePath=".\fake_codecs.cxx"
+					>
+				</File>
+				<File
 					RelativePath=".\h323ep.cxx"
 					>
 				</File>
@@ -503,6 +507,10 @@
 			<Filter
 				Name="opal"
 				>
+				<File
+					RelativePath=".\fake_codecs.h"
+					>
+				</File>
 				<File
 					RelativePath=".\h323ep.h"
 					>
