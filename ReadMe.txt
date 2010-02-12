@@ -257,22 +257,22 @@ Example:
 4.3. ATD command
 ----------------
 
-4.3.1 T.38 mode modifiers
--------------------------
+4.3.1 Fax mode modifiers
+------------------------
 
-F - force T.38 mode after dialing.
-V - do not force T.38 mode after dialing (default).
+F - force fax mode (T.38 or G.711 pass-trough) after dialing.
+V - do not force fax mode after dialing (default).
 
 Examples:
 
 <-- ATDF<user's number>
 
-    force T.38 mode after dialing but user can override it by
+    force fax mode after dialing but user can override it by
     inserting V into <user's number>.
 
 <-- ATD<user's number>V
 
-    do not force T.38 mode after dialing and user can't override it
+    do not force fax mode after dialing and user can't override it
     by inserting F into <user's number>.
 
 4.3.2 calling/called number modifiers
