@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.20  2010-02-08 17:30:31  vfrolov
- * Disabled OPAL version < 3.8.0
+ * Revision 1.21  2010-02-12 08:55:07  vfrolov
+ * Implemented fake codecs
+ *
+ * Revision 1.21  2010/02/12 08:55:07  vfrolov
+ * Implemented fake codecs
  *
  * Revision 1.20  2010/02/08 17:30:31  vfrolov
  * Disabled OPAL version < 3.8.0
@@ -107,7 +110,9 @@
 /////////////////////////////////////////////////////////////////////////////
 
 #include <h323/h323pdu.h>
+
 #include "h323ep.h"
+#include "fake_codecs.h"
 
 #define new PNEW
 
@@ -253,16 +258,8 @@ PStringArray MyH323EndPoint::Descriptions(const PConfigArgs & args)
 {
   PStringArray descriptions;
 
-  if (args.HasOption("h323-audio-list")) {
-    descriptions.Append(new PString("Available audio formats for H.323:"));
-
-    OpalMediaFormatList list = OpalMediaFormat::GetAllRegisteredMediaFormats();
-
-    for (OpalMediaFormatList::iterator f = list.begin(); f != list.end(); ++f) {
-      if (f->GetMediaType() == OpalMediaType::Audio() && f->IsValidForProtocol("h.323") && f->IsTransportable())
-        descriptions.Append(new PString(PString("  ") + f->GetName()));
-    }
-  }
+  if (args.HasOption("h323-audio-list"))
+    descriptions += FakeCodecs::GetAvailableAudioFormatsDescription("H.323", "h323");
 
   return descriptions;
 }

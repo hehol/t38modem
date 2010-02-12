@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.10  2009-12-23 17:53:00  vfrolov
- * Deprecated route comma delimiter
+ * Revision 1.11  2010-02-12 08:55:07  vfrolov
+ * Implemented fake codecs
+ *
+ * Revision 1.11  2010/02/12 08:55:07  vfrolov
+ * Implemented fake codecs
  *
  * Revision 1.10  2009/12/23 17:53:00  vfrolov
  * Deprecated route comma delimiter
@@ -68,6 +71,7 @@
 #include "sipep.h"
 #include "modemep.h"
 #include "manager.h"
+#include "fake_codecs.h"
 
 #define new PNEW
 
@@ -87,6 +91,7 @@ PString MyManager::ArgSpec()
     "-route:"
     "u-username:"
     "-stun:"
+    "-fake-audio:"
   ;
 }
 
@@ -108,6 +113,12 @@ PStringArray MyManager::Descriptions()
       "                              of a pat=dst[;...] route specification.\n"
       "  -u --username str         : Set the default username to str.\n"
       "  --stun server             : Set STUN server.\n"
+      "  --fake-audio [!]wildcard[,[!]...]\n"
+      "                            : Register the fake audio format(s) matching the\n"
+      "                              wildcard(s). The '*' character match any\n"
+      "                              substring. The leading '!' character indicates\n"
+      "                              a negative test.\n"
+      "                              May be used multiple times.\n"
   ).Lines();
 
   PStringArray arr[] = {
@@ -128,6 +139,14 @@ PStringArray MyManager::Descriptions()
 
 PStringArray MyManager::Descriptions(const PConfigArgs & args)
 {
+  if (args.HasOption("fake-audio")) {
+    PStringStream s;
+
+    s << setfill(',') << args.GetOptionString("fake-audio").Lines();
+
+    FakeCodecs::RegisterFakeAudioFormats(s.Tokenise(",", FALSE));
+  }
+
   PStringArray descriptions;
   PBoolean first = TRUE;
 
