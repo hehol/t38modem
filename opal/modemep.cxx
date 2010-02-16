@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.19  2010-02-02 08:41:56  vfrolov
- * Implemented ringing indication for voice class dialing
+ * Revision 1.20  2010-02-16 16:21:25  vfrolov
+ * Added --force-fax-mode and --no-force-t38-mode options
+ *
+ * Revision 1.20  2010/02/16 16:21:25  vfrolov
+ * Added --force-fax-mode and --no-force-t38-mode options
  *
  * Revision 1.19  2010/02/02 08:41:56  vfrolov
  * Implemented ringing indication for voice class dialing
@@ -115,7 +118,8 @@ class ModemConnection : public OpalConnection
       ModemEndPoint & ep,
       const PString & token,
       const PString & remoteParty,
-      void *userData
+      void *userData,
+      StringOptions * stringOptions
     );
     ~ModemConnection();
 
@@ -206,6 +210,8 @@ PString ModemEndPoint::ArgSpec()
     PseudoModemDrivers::ArgSpec() +
     "-no-modem."
     "p-ptty:"
+    "-force-fax-mode."
+    "-no-force-t38-mode."
   ;
 }
 
@@ -220,6 +226,12 @@ PStringArray ModemEndPoint::Descriptions()
       "                              for numbers with prefix num.\n"
       "                              Use none@tty to disable incoming calls.\n"
       "                              See Modem drivers section for tty format.\n"
+      "  --force-fax-mode          : Force fax mode (T.38 or G.711 pass-trough).\n"
+      "                              Can be overriden by route option\n"
+      "                                OPAL-Force-Fax-Mode=false\n"
+      "  --no-force-t38-mode       : No force T.38 mode.\n"
+      "                              Can be overriden by route option\n"
+      "                                OPAL-No-Force-T38-Mode=false\n"
       "Modem drivers:\n"
   ).Lines();
 
@@ -274,6 +286,12 @@ PBoolean ModemEndPoint::Initialise(const PConfigArgs & args)
         cerr << "Can't create modem for " << tty << endl;
     }
   }
+
+  if (args.HasOption("force-fax-mode"))
+    defaultStringOptions.SetAt("Force-Fax-Mode", "true");
+
+  if (args.HasOption("no-force-t38-mode"))
+    defaultStringOptions.SetAt("No-Force-T38-Mode", "true");
 
   return TRUE;
 }
@@ -390,11 +408,16 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
 {
   myPTRACE(1, "ModemEndPoint::MakeConnection " << remoteParty);
 
+  OpalConnection::StringOptions localOptions;
+
+  if (stringOptions == NULL)
+    stringOptions = &localOptions;
+
   PINDEX iParams = remoteParty.Find(';');
 
   PString remotePartyAddress = remoteParty.Left(iParams);
 
-  if (stringOptions != NULL && iParams != P_MAX_INDEX) {
+  if (iParams != P_MAX_INDEX) {
     PStringToString params;
 
     PURL::SplitVars(remoteParty(iParams + 1, P_MAX_INDEX), params, ';', '=');
@@ -413,8 +436,21 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
 
   for (int i = 0 ; i < 10000 ; i++) {
     token = remotePartyAddress + "/" + call.GetToken() + "/" + PString(i);
-    if (!connectionsActive.Contains(token))
-      return AddConnection(new ModemConnection(call, *this, token, remotePartyAddress, userData));
+    if (!connectionsActive.Contains(token)) {
+      ModemConnection * connection =
+          new ModemConnection(call, *this, token, remotePartyAddress, userData, stringOptions);
+
+      OpalConnection::StringOptions newOptions;
+
+      for (PINDEX i = 0 ; i < defaultStringOptions.GetSize() ; i++) {
+        if (!connection->GetStringOptions().Contains(defaultStringOptions.GetKeyAt(i)))
+          newOptions.SetAt(defaultStringOptions.GetKeyAt(i), defaultStringOptions.GetDataAt(i));
+      }
+
+      connection->SetStringOptions(newOptions, false);
+
+      return AddConnection(connection);
+    }
   }
 
   return AddConnection(NULL);
@@ -438,8 +474,9 @@ ModemConnection::ModemConnection(
     ModemEndPoint & ep,
     const PString & token,
     const PString & remoteParty,
-    void *userData)
-  : OpalConnection(call, ep, token)
+    void *userData,
+    StringOptions * stringOptions)
+  : OpalConnection(call, ep, token, 0, stringOptions)
 #ifdef _MSC_VER
 #pragma warning(disable:4355) // warning C4355: 'this' : used in base member initializer list
 #endif
@@ -774,8 +811,8 @@ void ModemConnection::RequestMode(PThread &, INT faxMode)
         done = UpdateMediaStreams(*other);
       }
       else
-      if (other->GetStringOptions().Contains("No-Force-T38-Mode")) {
-        PTRACE(3, "ModemConnection::RequestMode: other connection has option No-Force-T38-Mode");
+      if (GetStringOptions().GetBoolean("No-Force-T38-Mode")) {
+        PTRACE(3, "ModemConnection::RequestMode: No-Force-T38-Mode=true");
 
         faxMode = false;
         done = UpdateMediaStreams(*other);
@@ -794,6 +831,9 @@ void ModemConnection::RequestMode(PThread &, INT faxMode)
 bool ModemConnection::RequestMode(PseudoModemMode mode)
 {
   myPTRACE(1, "ModemConnection::RequestMode: " << *this << " " << mode);
+
+  PTRACE(4, "ModemConnection::RequestMode: options: \n" <<
+            setfill('\n') << GetStringOptions() << setfill(' '));
 
   PseudoModemMode oldMode = requestedMode;
   requestedMode = mode;
@@ -823,11 +863,8 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
             continue;
           }
 
-          PTRACE(4, "ModemConnection::RequestMode: other connection options: \n" <<
-                    setfill('\n') << other->GetStringOptions() << setfill(' '));
-
-          if (other->GetStringOptions().Contains("Force-Fax-Mode")) {
-            PTRACE(3, "ModemConnection::RequestMode: other connection has option Force-Fax-Mode");
+          if (GetStringOptions().GetBoolean("Force-Fax-Mode")) {
+            PTRACE(3, "ModemConnection::RequestMode: Force-Fax-Mode=true");
             requestedMode = pmmFax;
             continue;
           }

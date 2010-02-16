@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.h,v $
- * Revision 1.6  2010-02-08 17:30:31  vfrolov
- * Disabled OPAL version < 3.8.0
+ * Revision 1.7  2010-02-16 16:21:25  vfrolov
+ * Added --force-fax-mode and --no-force-t38-mode options
+ *
+ * Revision 1.7  2010/02/16 16:21:25  vfrolov
+ * Added --force-fax-mode and --no-force-t38-mode options
  *
  * Revision 1.6  2010/02/08 17:30:31  vfrolov
  * Disabled OPAL version < 3.8.0
@@ -106,6 +109,7 @@ class ModemEndPoint : public OpalEndPoint
   //@}
 
   protected:
+    PStringToString defaultStringOptions;
     PStringArray routes;
     PseudoModemQ *pmodem_pool;
 
