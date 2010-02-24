@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.24  2010-02-12 08:55:07  vfrolov
- * Implemented fake codecs
+ * Revision 1.25  2010-02-24 14:20:10  vfrolov
+ * Added variant of patch #2954967 "opal sip/h323 build-time detection"
+ * Thanks Mariusz Mazur
+ *
+ * Revision 1.25  2010/02/24 14:20:10  vfrolov
+ * Added variant of patch #2954967 "opal sip/h323 build-time detection"
+ * Thanks Mariusz Mazur
  *
  * Revision 1.24  2010/02/12 08:55:07  vfrolov
  * Implemented fake codecs
@@ -107,6 +112,7 @@
 
 #include <opal/buildopts.h>
 
+#if OPAL_SIP
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
@@ -578,5 +584,7 @@ void MySIPConnection::AdjustMediaFormats(
 
   PTRACE(4, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 }
+/////////////////////////////////////////////////////////////////////////////
+#endif // OPAL_SIP
 /////////////////////////////////////////////////////////////////////////////
 

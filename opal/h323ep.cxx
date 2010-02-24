@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.21  2010-02-12 08:55:07  vfrolov
- * Implemented fake codecs
+ * Revision 1.22  2010-02-24 14:20:09  vfrolov
+ * Added variant of patch #2954967 "opal sip/h323 build-time detection"
+ * Thanks Mariusz Mazur
+ *
+ * Revision 1.22  2010/02/24 14:20:09  vfrolov
+ * Added variant of patch #2954967 "opal sip/h323 build-time detection"
+ * Thanks Mariusz Mazur
  *
  * Revision 1.21  2010/02/12 08:55:07  vfrolov
  * Implemented fake codecs
@@ -99,6 +104,7 @@
 
 #include <opal/buildopts.h>
 
+#if OPAL_H323
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
@@ -639,5 +645,7 @@ void MyH323Connection::AdjustMediaFormats(
 
   PTRACE(4, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 }
+/////////////////////////////////////////////////////////////////////////////
+#endif // OPAL_H323
 /////////////////////////////////////////////////////////////////////////////
 

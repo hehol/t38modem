@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.11  2010-02-12 08:55:07  vfrolov
- * Implemented fake codecs
+ * Revision 1.12  2010-02-24 14:20:10  vfrolov
+ * Added variant of patch #2954967 "opal sip/h323 build-time detection"
+ * Thanks Mariusz Mazur
+ *
+ * Revision 1.12  2010/02/24 14:20:10  vfrolov
+ * Added variant of patch #2954967 "opal sip/h323 build-time detection"
+ * Thanks Mariusz Mazur
  *
  * Revision 1.11  2010/02/12 08:55:07  vfrolov
  * Implemented fake codecs
@@ -67,8 +72,15 @@
 #include <opal/buildopts.h>
 
 #include "../pmutils.h"
+
+#if OPAL_H323
 #include "h323ep.h"
+#endif
+
+#if OPAL_SIP
 #include "sipep.h"
+#endif
+
 #include "modemep.h"
 #include "manager.h"
 #include "fake_codecs.h"
@@ -84,8 +96,12 @@ MyManager::MyManager()
 PString MyManager::ArgSpec()
 {
   return
+#if OPAL_H323
     MyH323EndPoint::ArgSpec() +
+#endif
+#if OPAL_SIP
     MySIPEndPoint::ArgSpec() +
+#endif
     ModemEndPoint::ArgSpec() +
     "-ports:"
     "-route:"
@@ -122,8 +138,12 @@ PStringArray MyManager::Descriptions()
   ).Lines();
 
   PStringArray arr[] = {
+#if OPAL_H323
     MyH323EndPoint::Descriptions(),
+#endif
+#if OPAL_SIP
     MySIPEndPoint::Descriptions(),
+#endif
     ModemEndPoint::Descriptions(),
   };
 
@@ -151,8 +171,12 @@ PStringArray MyManager::Descriptions(const PConfigArgs & args)
   PBoolean first = TRUE;
 
   PStringArray arr[] = {
+#if OPAL_H323
     MyH323EndPoint::Descriptions(args),
+#endif
+#if OPAL_SIP
     MySIPEndPoint::Descriptions(args),
+#endif
     ModemEndPoint::Descriptions(args),
   };
 
@@ -221,11 +245,15 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
   if (!ModemEndPoint::Create(*this, args))
     return FALSE;
 
+#if OPAL_H323
   if (!MyH323EndPoint::Create(*this, args))
     return FALSE;
+#endif
 
+#if OPAL_SIP
   if (!MySIPEndPoint::Create(*this, args))
     return FALSE;
+#endif
 
   if (args.HasOption("route")) {
     SetRouteTable(args.GetOptionString("route").Tokenise("\r\n", FALSE));
