@@ -1,9 +1,9 @@
 /*
  * h323ep.cxx
  *
- * T38Modem simulator - main program
+ * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2009 Vyacheslav Frolov
+ * Copyright (c) 2001-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.53  2009-07-29 10:39:04  vfrolov
- * Moved h323lib specific code to h323lib directory
+ * Revision 1.54  2010-02-27 16:33:29  vfrolov
+ * Implemented --bearer-capability option
+ *
+ * Revision 1.54  2010/02/27 16:33:29  vfrolov
+ * Implemented --bearer-capability option
  *
  * Revision 1.53  2009/07/29 10:39:04  vfrolov
  * Moved h323lib specific code to h323lib directory
@@ -202,6 +205,7 @@ class MyH323Connection : public H323Connection
 
     // overrides from H323Connection
     AnswerCallResponse OnAnswerCall(const PString &, const H323SignalPDU &, H323SignalPDU &);
+    PBoolean OnSendSignalSetup(H323SignalPDU & setupPDU);
     void OnEstablished();
     PBoolean OnStartLogicalChannel(H323Channel & channel);
     void OnClosedLogicalChannel(const H323Channel & channel);
@@ -229,6 +233,7 @@ PString MyH323EndPoint::ArgSpec()
 
              "F-fastenable."
              "T-h245tunneldisable."
+             "-bearer-capability:"
              "G-g7231code."
              "D-disable:"            "P-prefer:"
 
@@ -275,6 +280,12 @@ PStringArray MyH323EndPoint::Descriptions()
         "  --require-gatekeeper      : Exit if gatekeeper discovery fails.\n"
         "  -F --fastenable           : Enable fast start.\n"
         "  -T --h245tunneldisable    : Disable H245 tunnelling.\n"
+        "  --bearer-capability S:C:R:P\n"
+        "                            : Bearer capability information element (Q.931)\n"
+        "                                S - coding standard (0-3)\n"
+        "                                C - information transfer capability (0-31)\n"
+        "                                R - information transfer rate (1-127)\n"
+        "                                P - user information layer 1 protocol (2-5).\n"
         "  -G --g7231enable          : Enable G.723.1 codec, rather than G.711.\n"
         "  -D --disable codec        : Disable the specified codec.\n"
         "                              Can be used multiple times.\n"
@@ -539,6 +550,34 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs &args)
   DisableDetectInBandDTMF(TRUE);
   SetSilenceDetectionMode(H323AudioCodec::NoSilenceDetection);
 
+  if (args.HasOption("bearer-capability")) {
+    PString bc = args.GetOptionString("bearer-capability");
+    PStringArray sBC = bc.Tokenise(":", FALSE);
+    PIntArray iBC(4);
+
+    if (sBC.GetSize() == iBC.GetSize()) {
+      for (PINDEX i = 0 ; i < iBC.GetSize() ; i++)
+        iBC[i] = sBC[i].AsUnsigned();
+
+      if (iBC[0] >= 0 && iBC[0] <= 3 &&
+          iBC[1] >= 0 && iBC[1] <= 31 &&
+          iBC[2] >= 1 && iBC[2] <= 127 &&
+          iBC[3] >= 2 && iBC[3] <= 5)
+      {
+        PTRACE(3, "MyH323EndPoint::Initialise: Bearer-Capability=" << bc);
+        bearerCapability = iBC;
+      } else {
+        iBC[0] = -1;
+      }
+    } else {
+      iBC[0] = -1;
+    }
+
+    if (iBC[0] < 0) {
+      PTRACE(3, "MyH323EndPoint::Initialise: Wrong Bearer-Capability=" << bc << " (ignored)");
+    }
+  }
+
   if (args.HasOption("ports")) {
     PString p = args.GetOptionString("ports");
     PStringArray ports = p.Tokenise(",\r\n", FALSE);
@@ -797,6 +836,23 @@ H323Connection::AnswerCallResponse
 
   myPTRACE(1, "... denied (no confirm)");
   return AnswerCallDenied;
+}
+
+PBoolean MyH323Connection::OnSendSignalSetup(H323SignalPDU & setupPDU)
+{
+  const PIntArray &bearerCapability = ep.BearerCapability();
+
+  if (!bearerCapability.IsEmpty()) {
+    PTRACE(3, "MyH323Connection::OnSendSignalSetup: Set Bearer capability '" << bearerCapability << "'");
+
+    setupPDU.GetQ931().SetBearerCapabilities(
+        Q931::InformationTransferCapability(bearerCapability[1]),
+        bearerCapability[2],
+        bearerCapability[0],
+        bearerCapability[3]);
+  }
+
+  return H323Connection::OnSendSignalSetup(setupPDU);
 }
 
 PBoolean MyH323Connection::OnStartLogicalChannel(H323Channel & channel)

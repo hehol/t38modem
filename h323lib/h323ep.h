@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2009 Vyacheslav Frolov
+ * Copyright (c) 2001-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: h323ep.h,v $
- * Revision 1.23  2009-07-29 10:39:04  vfrolov
- * Moved h323lib specific code to h323lib directory
+ * Revision 1.24  2010-02-27 16:33:29  vfrolov
+ * Implemented --bearer-capability option
+ *
+ * Revision 1.24  2010/02/27 16:33:29  vfrolov
+ * Implemented --bearer-capability option
  *
  * Revision 1.23  2009/07/29 10:39:04  vfrolov
  * Moved h323lib specific code to h323lib directory
@@ -123,6 +126,7 @@ class MyH323EndPoint : public H323EndPoint
     // new functions
     PBoolean Initialise(const PConfigArgs &args);
 
+    const PIntArray &BearerCapability() const { return bearerCapability; }
     PseudoModem * PMAlloc(const PString &number) const;
     void PMFree(PseudoModem *pmodem) const;
     void SetOptions(MyH323Connection &conn, OpalT38Protocol *t38handler) const;
@@ -131,6 +135,7 @@ class MyH323EndPoint : public H323EndPoint
     PseudoModemQ *pmodem_pool;
     PStringArray routes;
     WORD connectPort;
+    PIntArray bearerCapability;
 
     int in_redundancy;
     int ls_redundancy;
