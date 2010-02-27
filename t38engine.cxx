@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.64  2010-01-28 10:27:03  vfrolov
- * Added handling T.38 CED indication
+ * Revision 1.65  2010-02-27 11:11:54  vfrolov
+ * Added missing redo
+ *
+ * Revision 1.65  2010/02/27 11:11:54  vfrolov
+ * Added missing redo
  *
  * Revision 1.64  2010/01/28 10:27:03  vfrolov
  * Added handling T.38 CED indication
@@ -1224,6 +1227,8 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
 
                 if (countOut)
                   t38data(ifp, ModParsOut.msgType, hdlcOut.isFcsOK() ? T38F(e_hdlc_fcs_OK) : T38F(e_hdlc_fcs_BAD));
+                else
+                  redo = TRUE;
 
                 hdlcOut.GetHdlcStart(FALSE);
                 countOut = 0;
@@ -1241,8 +1246,12 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                       << stateModem << ") != stmOutNoMoreData");
                   return 0;
                 }
+
                 if (countOut)
                   t38data(ifp, ModParsOut.msgType, T38F(e_hdlc_fcs_OK));
+                else
+                  redo = TRUE;
+
                 countOut = 0;
                 bufOut.Clean();		// reset eof
                 hdlcOut.PutHdlcData(&bufOut);
@@ -1435,7 +1444,7 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
           break;
         } else {
           modStreamIn->PutEof(diagOutOfOrder);
-          myPTRACE(1, name << " HandlePacket out of order");
+          myPTRACE(1, name << " HandlePacket out of order " << type_of_msg);
         }
       }
 
