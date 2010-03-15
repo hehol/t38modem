@@ -24,9 +24,15 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.22  2010-02-24 14:20:09  vfrolov
- * Added variant of patch #2954967 "opal sip/h323 build-time detection"
- * Thanks Mariusz Mazur
+ * Revision 1.23  2010-03-15 14:31:30  vfrolov
+ * Added options
+ *   --h323-t38-udptl-redundancy
+ *   --h323-t38-udptl-keep-alive-interval
+ *
+ * Revision 1.23  2010/03/15 14:31:30  vfrolov
+ * Added options
+ *   --h323-t38-udptl-redundancy
+ *   --h323-t38-udptl-keep-alive-interval
  *
  * Revision 1.22  2010/02/24 14:20:09  vfrolov
  * Added variant of patch #2954967 "opal sip/h323 build-time detection"
@@ -108,8 +114,12 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 8, 0))
-  #error *** Uncompatible OPAL version (required >= 3.8.0) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 8, 1))
+  #error *** Uncompatible OPAL version (required >= 3.8.1) ***
+#endif
+
+#if PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 9, 0)
+  #define HAS_T38_UDPTL_IDLE_TIMER 1
 #endif
 
 #undef PACK_VERSION
@@ -172,6 +182,10 @@ class MyH323Connection : public H323Connection
       bool enabledFax                          ///< Enabled FAX or audio mode
     );
 
+    virtual PBoolean OnOpenMediaStream(
+      OpalMediaStream & stream                 ///<  New media stream being opened
+    );
+
     virtual OpalMediaFormatList GetMediaFormats() const;
     virtual OpalMediaFormatList GetLocalMediaFormats();
 
@@ -198,10 +212,8 @@ PString MyH323EndPoint::ArgSpec()
     "-h323-audio:"
     "-h323-audio-list."
     "-h323-disable-t38-mode."
-    /*
-    "-h323-redundancy:"
-    "-h323-repeat:"
-    */
+    "-h323-t38-udptl-redundancy:"
+    "-h323-t38-udptl-keep-alive-interval:"
     "F-fastenable."
     "T-h245tunneldisable."
     "-h323-listen:"
@@ -231,14 +243,21 @@ PStringArray MyH323EndPoint::Descriptions()
       "  --h323-disable-t38-mode   : Disable T.38 fax mode.\n"
       "                              Can be overriden by route option\n"
       "                                OPAL-Disable-T38-Mode=false\n"
-      /*
-      "  --h323-redundancy I[L[H]] : Set redundancy for error recovery for\n"
-      "                              (I)ndication, (L)ow speed and (H)igh\n"
-      "                              speed IFP packets.\n"
-      "                              'I', 'L' and 'H' are digits.\n"
-      "  --h323-repeat ms          : Continuously resend last UDPTL packet each ms\n"
+      "  --h323-t38-udptl-redundancy maxsize:redundancy[,maxsize:redundancy...]\n"
+      "                            : Set error recovery redundancy for IFP packets\n"
+      "                              dependent from their size. For example:\n"
+      "                              '2:I,9:L,32767:H' (where I, L and H are numbers)\n"
+      "                              sets redundancy for (I)ndication, (L)ow speed and\n"
+      "                              (H)igh speed IFP packets.\n"
+      "                              Can be overriden by route option\n"
+      "                                T38-UDPTL-Redundancy=[maxsize:redundancy...]\n"
+#if HAS_T38_UDPTL_IDLE_TIMER
+      "  --h323-t38-udptl-keep-alive-interval ms\n"
+      "                            : Continuously resend last UDPTL packet each ms\n"
       "                              milliseconds.\n"
-      */
+      "                              Can be overriden by route option\n"
+      "                                T38-UDPTL-Keep-Alive-Interval=ms\n"
+#endif
       "  -F --fastenable           : Enable fast start.\n"
       "  -T --h245tunneldisable    : Disable H245 tunnelling.\n"
       "  --h323-listen iface       : Interface/port(s) to listen for H.323 requests\n"
@@ -299,25 +318,18 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
   DisableFastStart(!args.HasOption("fastenable"));
   DisableH245Tunneling(args.HasOption("h245tunneldisable"));
 
-  //cout << "Codecs (in preference order):\n" << setprecision(2) << capabilities << endl;
+  defaultStringOptions.SetAt("T38-UDPTL-Redundancy-Interval", "50");
+  defaultStringOptions.SetAt("T38-UDPTL-Optimise-On-Retransmit", "true");
 
-  /*
-  if (args.HasOption("h323-redundancy")) {
-    const char *r = args.GetOptionString("h323-redundancy");
-    if (isdigit(r[0])) {
-      in_redundancy = r[0] - '0';
-      if (isdigit(r[1])) {
-        ls_redundancy = r[1] - '0';
-        if (isdigit(r[2])) {
-          hs_redundancy = r[2] - '0';
-        }
-      }
-    }
-  }
+  defaultStringOptions.SetAt("T38-UDPTL-Redundancy",
+                             args.HasOption("h323-t38-udptl-redundancy")
+                             ? args.GetOptionString("h323-t38-udptl-redundancy")
+                             : "");
 
-  if (args.HasOption("h323-repeat"))
-    re_interval = (int)args.GetOptionString("h323-repeat").AsInteger();
-  */
+  defaultStringOptions.SetAt("T38-UDPTL-Keep-Alive-Interval",
+                             args.HasOption("h323-t38-udptl-keep-alive-interval")
+                             ? args.GetOptionString("h323-t38-udptl-keep-alive-interval")
+                             : "0");
 
   if (args.HasOption("h323-bearer-capability"))
     defaultStringOptions.SetAt("Bearer-Capability", args.GetOptionString("h323-bearer-capability"));
@@ -390,15 +402,6 @@ H323Connection * MyH323EndPoint::CreateConnection(
 
   return connection;
 }
-
-/*
-void MyH323EndPoint::SetWriteInterval(
-    OpalConnection &connection,
-    const PTimeInterval &interval)
-{
-  ((MyManager &)GetManager()).SetWriteInterval(connection, interval);
-}
-*/
 /////////////////////////////////////////////////////////////////////////////
 PBoolean MyH323Connection::SetUpConnection()
 {
@@ -565,6 +568,18 @@ void MyH323Connection::OnSwitchedFaxMediaStreams(bool enabledFax)
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);
   }
+}
+
+PBoolean MyH323Connection::OnOpenMediaStream(OpalMediaStream & stream)
+{
+  PTRACE(4, "MyH323Connection::OnOpenMediaStream: " << stream);
+
+  RTP_Session *session = GetSession(stream.GetSessionID());
+
+  if (session)
+    RTP_Session::EncodingLock(*session)->ApplyStringOptions(GetStringOptions());
+
+  return H323Connection::OnOpenMediaStream(stream);
 }
 
 OpalMediaFormatList MyH323Connection::GetMediaFormats() const
