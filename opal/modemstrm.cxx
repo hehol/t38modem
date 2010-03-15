@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.cxx,v $
- * Revision 1.10  2010-01-14 18:32:51  vfrolov
- * Added ignoring packets with mismatched payload type and fake packets
+ * Revision 1.11  2010-03-15 13:46:46  vfrolov
+ * Added resetting prepare packet timeout on start media patch for fax sink
+ *
+ * Revision 1.11  2010/03/15 13:46:46  vfrolov
+ * Added resetting prepare packet timeout on start media patch for fax sink
  *
  * Revision 1.10  2010/01/14 18:32:51  vfrolov
  * Added ignoring packets with mismatched payload type and fake packets
@@ -194,6 +197,10 @@ void T38ModemMediaStream::OnStartMediaPatch()
             myPTRACE(3, "T38ModemMediaStream::OnStartMediaPatch: use timeout=0, period=20 for sink " << *sink);
 
             t38engine->SetPreparePacketTimeout(0, 20);
+          } else {
+            myPTRACE(3, "T38ModemMediaStream::OnStartMediaPatch: use timeout=-1 for sink " << *sink);
+
+            t38engine->SetPreparePacketTimeout(-1);
           }
         } else {
           myPTRACE(1, "T38ModemMediaStream::OnStartMediaPatch: format is invalid !!!");
