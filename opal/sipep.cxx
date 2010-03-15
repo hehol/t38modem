@@ -24,9 +24,15 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.25  2010-02-24 14:20:10  vfrolov
- * Added variant of patch #2954967 "opal sip/h323 build-time detection"
- * Thanks Mariusz Mazur
+ * Revision 1.26  2010-03-15 14:32:02  vfrolov
+ * Added options
+ *   --sip-t38-udptl-redundancy
+ *   --sip-t38-udptl-keep-alive-interval
+ *
+ * Revision 1.26  2010/03/15 14:32:02  vfrolov
+ * Added options
+ *   --sip-t38-udptl-redundancy
+ *   --sip-t38-udptl-keep-alive-interval
  *
  * Revision 1.25  2010/02/24 14:20:10  vfrolov
  * Added variant of patch #2954967 "opal sip/h323 build-time detection"
@@ -116,8 +122,12 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 8, 0))
-  #error *** Uncompatible OPAL version (required >= 3.8.0) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 8, 1))
+  #error *** Uncompatible OPAL version (required >= 3.8.1) ***
+#endif
+
+#if PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 9, 0)
+  #define HAS_T38_UDPTL_IDLE_TIMER 1
 #endif
 
 #undef PACK_VERSION
@@ -163,6 +173,10 @@ class MySIPConnection : public SIPConnection
       bool enabledFax                           ///< Enabled FAX or audio mode
     );
 
+    virtual PBoolean OnOpenMediaStream(
+      OpalMediaStream & stream                  ///<  New media stream being opened
+    );
+
     virtual OpalMediaFormatList GetMediaFormats() const;
     virtual OpalMediaFormatList GetLocalMediaFormats();
 
@@ -188,10 +202,8 @@ PString MySIPEndPoint::ArgSpec()
     "-sip-audio:"
     "-sip-audio-list."
     "-sip-disable-t38-mode."
-    /*
-    "-sip-redundancy:"
-    "-sip-repeat:"
-    */
+    "-sip-t38-udptl-redundancy:"
+    "-sip-t38-udptl-keep-alive-interval:"
     "-sip-proxy:"
     "-sip-register:"
     "-sip-listen:"
@@ -217,14 +229,21 @@ PStringArray MySIPEndPoint::Descriptions()
       "  --sip-disable-t38-mode    : Disable T.38 fax mode.\n"
       "                              Can be overriden by route option\n"
       "                                OPAL-Disable-T38-Mode=false\n"
-      /*
-      "  --sip-redundancy I[L[H]]  : Set redundancy for error recovery for\n"
-      "                              (I)ndication, (L)ow speed and (H)igh\n"
-      "                              speed IFP packets.\n"
-      "                              'I', 'L' and 'H' are digits.\n"
-      "  --sip-repeat ms           : Continuously resend last UDPTL packet each ms\n"
+      "  --sip-t38-udptl-redundancy maxsize:redundancy[,maxsize:redundancy...]\n"
+      "                            : Set error recovery redundancy for IFP packets\n"
+      "                              dependent from their size. For example:\n"
+      "                              '2:I,9:L,32767:H' (where I, L and H are numbers)\n"
+      "                              sets redundancy for (I)ndication, (L)ow speed and\n"
+      "                              (H)igh speed IFP packets.\n"
+      "                              Can be overriden by route option\n"
+      "                                T38-UDPTL-Redundancy=[maxsize:redundancy...]\n"
+#if HAS_T38_UDPTL_IDLE_TIMER
+      "  --sip-t38-udptl-keep-alive-interval ms\n"
+      "                            : Continuously resend last UDPTL packet each ms\n"
       "                              milliseconds.\n"
-      */
+      "                              Can be overriden by route option\n"
+      "                                T38-UDPTL-Keep-Alive-Interval=ms\n"
+#endif
       "  --sip-proxy [user:[pwd]@]host\n"
       "                            : Proxy information.\n"
       "  --sip-register [user@]registrar[,pwd[,contact[,realm[,authID]]]]\n"
@@ -275,23 +294,18 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
   if (args.HasOption("sip-disable-t38-mode"))
     defaultStringOptions.SetAt("Disable-T38-Mode", "true");
 
-  /*
-  if (args.HasOption("sip-redundancy")) {
-    const char *r = args.GetOptionString("sip-redundancy");
-    if (isdigit(r[0])) {
-      in_redundancy = r[0] - '0';
-      if (isdigit(r[1])) {
-        ls_redundancy = r[1] - '0';
-        if (isdigit(r[2])) {
-          hs_redundancy = r[2] - '0';
-        }
-      }
-    }
-  }
+  defaultStringOptions.SetAt("T38-UDPTL-Redundancy-Interval", "50");
+  defaultStringOptions.SetAt("T38-UDPTL-Optimise-On-Retransmit", "true");
 
-  if (args.HasOption("sip-repeat"))
-    re_interval = (int)args.GetOptionString("sip-repeat").AsInteger();
-  */
+  defaultStringOptions.SetAt("T38-UDPTL-Redundancy",
+                             args.HasOption("sip-t38-udptl-redundancy")
+                             ? args.GetOptionString("sip-t38-udptl-redundancy")
+                             : "");
+
+  defaultStringOptions.SetAt("T38-UDPTL-Keep-Alive-Interval",
+                             args.HasOption("sip-t38-udptl-keep-alive-interval")
+                             ? args.GetOptionString("sip-t38-udptl-keep-alive-interval")
+                             : "0");
 
   if (!args.HasOption("sip-no-listen")) {
     PStringArray listeners;
@@ -383,15 +397,6 @@ SIPConnection * MySIPEndPoint::CreateConnection(
 
   return connection;
 }
-
-/*
-void MySIPEndPoint::SetWriteInterval(
-    OpalConnection &connection,
-    const PTimeInterval &interval)
-{
-  ((MyManager &)GetManager()).SetWriteInterval(connection, interval);
-}
-*/
 /////////////////////////////////////////////////////////////////////////////
 PBoolean MySIPConnection::SetUpConnection()
 {
@@ -504,6 +509,18 @@ void MySIPConnection::OnSwitchedFaxMediaStreams(bool enabledFax)
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);
   }
+}
+
+PBoolean MySIPConnection::OnOpenMediaStream(OpalMediaStream & stream)
+{
+  PTRACE(4, "MySIPConnection::OnOpenMediaStream: " << stream);
+
+  RTP_Session *session = GetSession(stream.GetSessionID());
+
+  if (session)
+    RTP_Session::EncodingLock(*session)->ApplyStringOptions(GetStringOptions());
+
+  return SIPConnection::OnOpenMediaStream(stream);
 }
 
 OpalMediaFormatList MySIPConnection::GetMediaFormats() const
