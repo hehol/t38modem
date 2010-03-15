@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.h,v $
- * Revision 1.5  2010-01-21 16:00:55  vfrolov
- * Changed --sip-audio to accept multiple wildcards
- * Implemented OPAL-Enable-Audio route option
+ * Revision 1.6  2010-03-15 13:40:28  vfrolov
+ * Removed unused code
+ *
+ * Revision 1.6  2010/03/15 13:40:28  vfrolov
+ * Removed unused code
  *
  * Revision 1.5  2010/01/21 16:00:55  vfrolov
  * Changed --sip-audio to accept multiple wildcards
@@ -63,12 +65,6 @@ class MySIPEndPoint : public SIPEndPoint
       OpalManager & manager
     )
     : SIPEndPoint(manager)
-      /*
-      ,in_redundancy(0)
-      ,ls_redundancy(0)
-      ,hs_redundancy(0)
-      ,re_interval(0)
-      */
       {}
   //@}
 
@@ -89,27 +85,8 @@ class MySIPEndPoint : public SIPEndPoint
       OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
     );
 
-    /*
-    int InRedundancy() { return in_redundancy; }
-    int LsRedundancy() { return ls_redundancy; }
-    int HsRedundancy() { return hs_redundancy; }
-    int ReInterval() { return re_interval; }
-
-    void SetWriteInterval(
-        OpalConnection &connection,
-        const PTimeInterval &interval
-    );
-    */
-
   protected:
     PStringToString defaultStringOptions;
-
-    /*
-    int in_redundancy;
-    int ls_redundancy;
-    int hs_redundancy;
-    int re_interval;
-    */
 };
 /////////////////////////////////////////////////////////////////////////////
 

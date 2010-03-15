@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.20  2010-02-16 16:21:25  vfrolov
- * Added --force-fax-mode and --no-force-t38-mode options
+ * Revision 1.21  2010-03-15 13:40:28  vfrolov
+ * Removed unused code
+ *
+ * Revision 1.21  2010/03/15 13:40:28  vfrolov
+ * Removed unused code
  *
  * Revision 1.20  2010/02/16 16:21:25  vfrolov
  * Added --force-fax-mode and --no-force-t38-mode options
@@ -129,8 +132,6 @@ class ModemConnection : public OpalConnection
       PBoolean isSource                    /// Is a source stream
     );
 
-    void SetReadTimeout(const PTimeInterval &timeout);
-
     virtual bool IsNetworkConnection() const { return true; }
 
     virtual void OnReleased();
@@ -176,7 +177,6 @@ class ModemConnection : public OpalConnection
     PseudoModem *pmodem;
     AudioEngine * audioEngine;
     T38Engine * t38engine;
-    int preparePacketTimeout;
     PseudoModemMode requestedMode;
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -389,15 +389,6 @@ void ModemEndPoint::PMFree(PseudoModem *pmodem) const
     pmodem_pool->Enqueue(pmodem);
 }
 
-void ModemEndPoint::SetReadTimeout(
-    OpalConnection &connection,
-    const PTimeInterval &timeout)
-{
-  PAssert(PIsDescendant(&connection, ModemConnection), PInvalidCast);
-
-  ((ModemConnection &)connection).SetReadTimeout(timeout);
-}
-
 PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
     OpalCall & call,
     const PString & remoteParty,
@@ -487,7 +478,6 @@ ModemConnection::ModemConnection(
   , pmodem(NULL)
   , audioEngine(NULL)
   , t38engine(NULL)
-  , preparePacketTimeout(-1)
   , requestedMode(pmmAny)
 {
   remotePartyNumber = GetPartyName(remoteParty);
@@ -564,17 +554,6 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
   return OpalConnection::CreateMediaStream(mediaFormat, sessionID, isSource);
 }
 
-void ModemConnection::SetReadTimeout(const PTimeInterval &timeout)
-{
-  if (timeout > INT_MAX)
-    preparePacketTimeout = -1;
-  else
-    preparePacketTimeout = (int)timeout.GetMilliSeconds();
-
-  if (t38engine)
-    t38engine->SetPreparePacketTimeout(preparePacketTimeout);
-}
-
 void ModemConnection::OnReleased()
 {
   myPTRACE(1, "ModemConnection::OnReleased " << *this);
@@ -594,10 +573,8 @@ PBoolean ModemConnection::Attach(PseudoModem *_pmodem)
   if (audioEngine == NULL)
     audioEngine = new AudioEngine(pmodem->ptyName());
 
-  if (t38engine == NULL) {
+  if (t38engine == NULL)
     t38engine = new T38Engine(pmodem->ptyName());
-    t38engine->SetPreparePacketTimeout(preparePacketTimeout);
-  }
 
   return TRUE;
 }

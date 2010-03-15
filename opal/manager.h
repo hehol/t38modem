@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.h,v $
- * Revision 1.5  2009-11-10 11:30:57  vfrolov
- * Implemented G.711 fallback to fax pass-through mode
+ * Revision 1.6  2010-03-15 13:40:27  vfrolov
+ * Removed unused code
+ *
+ * Revision 1.6  2010/03/15 13:40:27  vfrolov
+ * Removed unused code
  *
  * Revision 1.5  2009/11/10 11:30:57  vfrolov
  * Implemented G.711 fallback to fax pass-through mode
@@ -61,11 +64,6 @@ class MyManager : public OpalManager
     static PStringArray Descriptions();
     static PStringArray Descriptions(const PConfigArgs & args);
     PBoolean Initialise(const PConfigArgs & args);
-
-    void SetWriteInterval(
-        OpalConnection &connection,
-        const PTimeInterval &interval
-    );
 
     virtual bool OnRouteConnection(
       PStringSet & routesTried,     ///< Set of routes already tried

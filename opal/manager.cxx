@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.12  2010-02-24 14:20:10  vfrolov
- * Added variant of patch #2954967 "opal sip/h323 build-time detection"
- * Thanks Mariusz Mazur
+ * Revision 1.13  2010-03-15 13:40:27  vfrolov
+ * Removed unused code
+ *
+ * Revision 1.13  2010/03/15 13:40:27  vfrolov
+ * Removed unused code
  *
  * Revision 1.12  2010/02/24 14:20:10  vfrolov
  * Added variant of patch #2954967 "opal sip/h323 build-time detection"
@@ -269,20 +271,6 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
 
   return TRUE;
 }
-
-/*
-void MyManager::SetWriteInterval(
-    OpalConnection &connection,
-    const PTimeInterval &interval)
-{
-  PSafePtr<OpalConnection> pOtherConn = connection.GetCall().GetOtherPartyConnection(connection);
-
-  if (pOtherConn != NULL) {
-    if (PIsDescendant(&pOtherConn->GetEndPoint(), ModemEndPoint))
-      ((ModemEndPoint &)pOtherConn->GetEndPoint()).SetReadTimeout(*pOtherConn, interval);
-  }
-}
-*/
 
 bool MyManager::OnRouteConnection(PStringSet & routesTried,
                                   const PString & a_party,

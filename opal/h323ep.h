@@ -24,10 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.h,v $
- * Revision 1.6  2010-01-21 16:05:33  vfrolov
- * Changed --h323-audio to accept multiple wildcards
- * Implemented OPAL-Enable-Audio route option
- * Renamed route option OPAL-H323-Bearer-Capability to OPAL-Bearer-Capability
+ * Revision 1.7  2010-03-15 13:40:27  vfrolov
+ * Removed unused code
+ *
+ * Revision 1.7  2010/03/15 13:40:27  vfrolov
+ * Removed unused code
  *
  * Revision 1.6  2010/01/21 16:05:33  vfrolov
  * Changed --h323-audio to accept multiple wildcards
@@ -75,12 +76,6 @@ class MyH323EndPoint : public H323EndPoint
     MyH323EndPoint(
       OpalManager & manager)
     : H323EndPoint(manager)
-      /*
-      ,in_redundancy(0)
-      ,ls_redundancy(0)
-      ,hs_redundancy(0)
-      ,re_interval(0)
-      */
       {}
   //@}
 
@@ -102,27 +97,8 @@ class MyH323EndPoint : public H323EndPoint
       OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
     );
 
-    /*
-    int InRedundancy() { return in_redundancy; }
-    int LsRedundancy() { return ls_redundancy; }
-    int HsRedundancy() { return hs_redundancy; }
-    int ReInterval() { return re_interval; }
-
-    void SetWriteInterval(
-        OpalConnection &connection,
-        const PTimeInterval &interval
-    );
-    */
-
   protected:
     PStringToString defaultStringOptions;
-
-    /*
-    int in_redundancy;
-    int ls_redundancy;
-    int hs_redundancy;
-    int re_interval;
-    */
 };
 /////////////////////////////////////////////////////////////////////////////
 

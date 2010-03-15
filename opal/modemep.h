@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.h,v $
- * Revision 1.7  2010-02-16 16:21:25  vfrolov
- * Added --force-fax-mode and --no-force-t38-mode options
+ * Revision 1.8  2010-03-15 13:40:28  vfrolov
+ * Removed unused code
+ *
+ * Revision 1.8  2010/03/15 13:40:28  vfrolov
+ * Removed unused code
  *
  * Revision 1.7  2010/02/16 16:21:25  vfrolov
  * Added --force-fax-mode and --no-force-t38-mode options
@@ -90,11 +93,6 @@ class ModemEndPoint : public OpalEndPoint
     PseudoModem * PMAlloc(const PString &number) const;
     void PMFree(PseudoModem *pmodem) const;
 
-    void SetReadTimeout(
-        OpalConnection &connection,
-        const PTimeInterval &timeout
-    );
-
   /**@name Overrides from OpalEndPoint */
   //@{
     virtual PSafePtr<OpalConnection> MakeConnection(
@@ -110,7 +108,6 @@ class ModemEndPoint : public OpalEndPoint
 
   protected:
     PStringToString defaultStringOptions;
-    PStringArray routes;
     PseudoModemQ *pmodem_pool;
 
     PDECLARE_NOTIFIER(PObject, ModemEndPoint, OnMyCallback);
