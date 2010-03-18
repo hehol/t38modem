@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.85  2010-02-05 14:55:33  vfrolov
- * Used S7 timeout
+ * Revision 1.86  2010-03-18 08:42:17  vfrolov
+ * Added named tracing of data types
+ *
+ * Revision 1.86  2010/03/18 08:42:17  vfrolov
+ * Added named tracing of data types
  *
  * Revision 1.85  2010/02/05 14:55:33  vfrolov
  * Used S7 timeout
@@ -620,7 +623,7 @@ class ModemEngineBody : public PObject
       }
     }
 
-    PBoolean SendStart(int dt, int br, PString &resp) {
+    PBoolean SendStart(EngineBase::DataType dt, int br, PString &resp) {
       PWaitAndSignal mutexWait(Mutex);
       dataType = dt;
       ResetDleData();
@@ -638,7 +641,7 @@ class ModemEngineBody : public PObject
       return TRUE;
     }
 
-    PBoolean RecvStart(int dt, int br) {
+    PBoolean RecvStart(EngineBase::DataType dt, int br) {
       PBoolean done = FALSE;
 
       PWaitAndSignal mutexWait(Mutex);
@@ -691,7 +694,7 @@ class ModemEngineBody : public PObject
     State state;
     int param;
     PString cmd;
-    int dataType;
+    EngineBase::DataType dataType;
 
     PDTMFEncoder *pPlayTone;
 
@@ -900,6 +903,7 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
     forceFaxMode(FALSE),
     connectionEstablished(FALSE),
     state(stCommand),
+    dataType(EngineBase::dtNone),
     pPlayTone(NULL)
 {
 }
@@ -1331,7 +1335,7 @@ PBoolean ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, PBo
       return FALSE;
   }
 
-  int dt;
+  EngineBase::DataType dt;
 
   switch (*(*ppCmd - 1)) {
     case 'S':
@@ -1395,18 +1399,17 @@ PBoolean ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, PBo
             if (dt == EngineBase::dtRaw)
               resp += "\r\n24,48,72,73,74,96,97,98,121,122,145,146";
             else
-              resp += "\r\n3";
+              resp += "\r\n3" /*",24,48,72,73,74,96,97,98,121,122,145,146"*/;
             crlf = TRUE;
             break;
           default:
             if (P.FaxClass()) {
               int br = ParseNum(ppCmd);
 
-              if ((dt == EngineBase::dtRaw && br == 3) || (dt == EngineBase::dtHdlc && br != 3))
-                return FALSE;
-
               switch( br ) {
                 case 3:
+                  if (dt == EngineBase::dtRaw)
+                    return FALSE;
                 case 24:
                 case 48:
                 case 72:
@@ -3762,6 +3765,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             ResetDleData();
           }
           break;
+        default:
+          myPTRACE(1, "Unexpected dataType=" << dataType);
       }
       break;
     case stRecvBegHandle:
@@ -3870,6 +3875,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                     myPTRACE(1, "<-- " << PRTHEX(_bresp));
                     bresp.Concatenate(_bresp);
                   }
+                  break;
+                default:
+                  myPTRACE(1, "Unexpected dataType=" << dataType);
                 }
               } else {
                 const PInt16 *ps = (const PInt16 *)Buf;

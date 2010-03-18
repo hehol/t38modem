@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.65  2010-02-27 11:11:54  vfrolov
- * Added missing redo
+ * Revision 1.66  2010-03-18 08:42:17  vfrolov
+ * Added named tracing of data types
+ *
+ * Revision 1.66  2010/03/18 08:42:17  vfrolov
+ * Added named tracing of data types
  *
  * Revision 1.65  2010/02/27 11:11:54  vfrolov
  * Added missing redo
@@ -353,7 +356,7 @@ PBoolean ModStream::PopBuf()
   if (!firstBuf)
     return FALSE;
 
-  if (ModPars.dataType == T38Engine::dtRaw && ModPars.dataTypeT38 == T38Engine::dtHdlc) {
+  if (ModPars.dataType == EngineBase::dtRaw && ModPars.dataTypeT38 == EngineBase::dtHdlc) {
     hdlc = HDLC();
     hdlc.PutHdlcData(firstBuf);
     hdlc.GetRawStart(10);
@@ -368,7 +371,7 @@ int ModStream::GetData(void *pBuf, PINDEX count)
     return -1;
   }
 
-  if (ModPars.dataType == T38Engine::dtRaw && ModPars.dataTypeT38 == T38Engine::dtHdlc) {
+  if (ModPars.dataType == EngineBase::dtRaw && ModPars.dataTypeT38 == EngineBase::dtHdlc) {
     int len;
 
     while ((len = hdlc.GetData(pBuf, count)) < 0) {
@@ -379,7 +382,7 @@ int ModStream::GetData(void *pBuf, PINDEX count)
         hdlc.PutHdlcData(firstBuf);
         hdlc.GetRawStart();
       } else {
-        if ((firstBuf->GetDiag() & T38Engine::diagNoCarrier) == 0) {
+        if ((firstBuf->GetDiag() & EngineBase::diagNoCarrier) == 0) {
           DeleteFirstBuf();
           return 0;
         }
@@ -443,7 +446,7 @@ void ModStream::Move(ModStream &from)
 }
 ///////////////////////////////////////////////////////////////
 MODPARS::MODPARS(int _val, unsigned _ind, int _lenInd, unsigned _msgType, int _br)
-      : dataType(T38Engine::dtNone), dataTypeT38(T38Engine::dtNone),
+      : dataType(EngineBase::dtNone), dataTypeT38(EngineBase::dtNone),
         val(_val), ind(_ind), lenInd(_lenInd),
         msgType(_msgType), br(_br)
 {
@@ -652,7 +655,7 @@ PBoolean T38Engine::isOutBufFull() const
   return bufOut.isFull();
 }
 ///////////////////////////////////////////////////////////////
-void T38Engine::SendOnIdle(int _dataType)
+void T38Engine::SendOnIdle(DataType _dataType)
 {
   PTRACE(2, name << " SendOnIdle " << _dataType);
 
@@ -663,7 +666,7 @@ void T38Engine::SendOnIdle(int _dataType)
   SignalOutDataReady();
 }
 
-PBoolean T38Engine::SendStart(int _dataType, int param)
+PBoolean T38Engine::SendStart(DataType _dataType, int param)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
 
@@ -766,7 +769,7 @@ PBoolean T38Engine::SendStop(PBoolean moreFrames, int _callbackParam)
   return TRUE;
 }
 ///////////////////////////////////////////////////////////////
-PBoolean T38Engine::RecvWait(int _dataType, int param, int _callbackParam, PBoolean &done)
+PBoolean T38Engine::RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
 

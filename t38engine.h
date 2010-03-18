@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2009 Vyacheslav Frolov
+ * Copyright (c) 2001-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.36  2009-12-02 09:06:42  vfrolov
- * Added a short delay after transmitting of signal before call clearing
+ * Revision 1.37  2010-03-18 08:42:17  vfrolov
+ * Added named tracing of data types
+ *
+ * Revision 1.37  2010/03/18 08:42:17  vfrolov
+ * Added named tracing of data types
  *
  * Revision 1.36  2009/12/02 09:06:42  vfrolov
  * Added a short delay after transmitting of signal before call clearing
@@ -168,8 +171,8 @@ class MODPARS
     PBoolean IsModValid() const { return val >= 0; }
     PBoolean IsEqual(const MODPARS &mp) const { return msgType == mp.msgType; }
 
-    int dataType;
-    int dataTypeT38;
+    EngineBase::DataType dataType;
+    EngineBase::DataType dataTypeT38;
     int val;
     unsigned ind;
     int lenInd;
@@ -205,12 +208,12 @@ class T38Engine : public EngineBase
     void ResetModemState();
     PBoolean isOutBufFull() const;
 
-    void SendOnIdle(int _dataType);
-    PBoolean SendStart(int _dataType, int param);
+    void SendOnIdle(DataType _dataType);
+    PBoolean SendStart(DataType _dataType, int param);
     int Send(const void *pBuf, PINDEX count);
     PBoolean SendStop(PBoolean moreFrames, int _callbackParam);
 
-    PBoolean RecvWait(int _dataType, int param, int _callbackParam, PBoolean &done);
+    PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done);
     PBoolean RecvStart(int _callbackParam);
     int Recv(void *pBuf, PINDEX count);
     int RecvDiag();
@@ -286,7 +289,7 @@ class T38Engine : public EngineBase
     PAdaptiveDelay preparePacketDelay;
 
     int stateOut;
-    int onIdleOut;
+    DataType onIdleOut;
     int callbackParamOut;
     MODPARS ModParsOut;
     PBoolean delaySignalOut;

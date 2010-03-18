@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.11  2009-11-20 16:37:27  vfrolov
- * Fixed audio class application blocking by forced T.38 mode
+ * Revision 1.12  2010-03-18 08:42:17  vfrolov
+ * Added named tracing of data types
+ *
+ * Revision 1.12  2010/03/18 08:42:17  vfrolov
+ * Added named tracing of data types
  *
  * Revision 1.11  2009/11/20 16:37:27  vfrolov
  * Fixed audio class application blocking by forced T.38 mode
@@ -235,7 +238,7 @@ PBoolean AudioEngine::Read(void * buffer, PINDEX amount)
   return TRUE;
 }
 
-void AudioEngine::SendOnIdle(int _dataType)
+void AudioEngine::SendOnIdle(DataType _dataType)
 {
   PTRACE(2, name << " SendOnIdle " << _dataType);
 
@@ -258,7 +261,7 @@ void AudioEngine::SendOnIdle(int _dataType)
   }
 }
 
-PBoolean AudioEngine::SendStart(int PTRACE_PARAM(_dataType), int PTRACE_PARAM(param))
+PBoolean AudioEngine::SendStart(DataType PTRACE_PARAM(_dataType), int PTRACE_PARAM(param))
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
@@ -386,7 +389,7 @@ PBoolean AudioEngine::Write(const void * buffer, PINDEX len)
   return TRUE;
 }
 
-PBoolean AudioEngine::RecvWait(int /*_dataType*/, int /*param*/, int /*_callbackParam*/, PBoolean &done)
+PBoolean AudioEngine::RecvWait(DataType /*_dataType*/, int /*param*/, int /*_callbackParam*/, PBoolean &done)
 {
   done = TRUE;
   return TRUE;

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.h,v $
- * Revision 1.4  2009-11-20 16:37:27  vfrolov
- * Fixed audio class application blocking by forced T.38 mode
+ * Revision 1.5  2010-03-18 08:42:17  vfrolov
+ * Added named tracing of data types
+ *
+ * Revision 1.5  2010/03/18 08:42:17  vfrolov
+ * Added named tracing of data types
  *
  * Revision 1.4  2009/11/20 16:37:27  vfrolov
  * Fixed audio class application blocking by forced T.38 mode
@@ -62,14 +65,14 @@ class AudioEngine : public PChannel, public EngineBase
     ~AudioEngine();
 
     PBoolean Read(void * buffer, PINDEX amount);
-    void SendOnIdle(int _dataType);
-    PBoolean SendStart(int _dataType, int param);
+    void SendOnIdle(DataType _dataType);
+    PBoolean SendStart(DataType _dataType, int param);
     int Send(const void *pBuf, PINDEX count);
     PBoolean SendStop(PBoolean moreFrames, int _callbackParam);
     PBoolean isOutBufFull() const;
 
     PBoolean Write(const void * buffer, PINDEX len);
-    PBoolean RecvWait(int _dataType, int param, int _callbackParam, PBoolean &done);
+    PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done);
     PBoolean RecvStart(int _callbackParam);
     int Recv(void *pBuf, PINDEX count);
     void RecvStop();

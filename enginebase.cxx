@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.cxx,v $
- * Revision 1.6  2009-11-19 14:48:28  vfrolov
- * Moved common code to class EngineBase
+ * Revision 1.7  2010-03-18 08:42:17  vfrolov
+ * Added named tracing of data types
+ *
+ * Revision 1.7  2010/03/18 08:42:17  vfrolov
+ * Added named tracing of data types
  *
  * Revision 1.6  2009/11/19 14:48:28  vfrolov
  * Moved common code to class EngineBase
@@ -55,6 +58,20 @@
 
 ///////////////////////////////////////////////////////////////
 #if PTRACING
+ostream & operator<<(ostream & out, EngineBase::DataType dataType)
+{
+  switch (dataType) {
+    case EngineBase::dtNone:      return out << "dtNone";
+    case EngineBase::dtCed:       return out << "dtCed";
+    case EngineBase::dtCng:       return out << "dtCng";
+    case EngineBase::dtSilence:   return out << "dtSilence";
+    case EngineBase::dtHdlc:      return out << "dtHdlc";
+    case EngineBase::dtRaw:       return out << "dtRaw";
+  }
+
+  return out << INT(dataType);
+}
+
 ostream & operator<<(ostream & out, EngineBase::ModemCallbackParam param)
 {
   switch (param) {

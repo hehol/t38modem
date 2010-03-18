@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.6  2009-11-19 14:48:28  vfrolov
- * Moved common code to class EngineBase
+ * Revision 1.7  2010-03-18 08:42:17  vfrolov
+ * Added named tracing of data types
+ *
+ * Revision 1.7  2010/03/18 08:42:17  vfrolov
+ * Added named tracing of data types
  *
  * Revision 1.6  2009/11/19 14:48:28  vfrolov
  * Moved common code to class EngineBase
@@ -70,7 +73,7 @@ class EngineBase : public PObject
       diagError		= 0x80,	// bad usage
     };
 
-    enum {
+    enum DataType {
       dtNone,
       dtCed,
       dtCng,
@@ -143,7 +146,9 @@ class EngineBase : public PObject
 };
 
 #if PTRACING
+ostream & operator<<(ostream & out, EngineBase::DataType dataType);
 ostream & operator<<(ostream & out, EngineBase::ModemCallbackParam param);
+ostream & operator<<(ostream & out, EngineBase::ModemClass modemClass);
 #endif
 ///////////////////////////////////////////////////////////////
 
