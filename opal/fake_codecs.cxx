@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: fake_codecs.cxx,v $
- * Revision 1.1  2010-02-12 08:20:10  vfrolov
- * Initial revision
+ * Revision 1.2  2010-03-19 08:27:52  vfrolov
+ * Added "search_for_fake_transcoder" command
+ *
+ * Revision 1.2  2010/03/19 08:27:52  vfrolov
+ * Added "search_for_fake_transcoder" command
  *
  * Revision 1.1  2010/02/12 08:20:10  vfrolov
  * Initial revision
@@ -73,8 +76,17 @@ class FakeFramedAudioTranscoder : public OpalFramedTranscoder
       : OpalFramedTranscoder(inFormat, outFormat, 100, 100)
     {}
 
+    PBoolean ExecuteCommand(const OpalMediaCommand & command) {
+      if (command.GetName() == "search_for_fake_transcoder") {
+        PTRACE(4, "FakeFramedAudioTranscoder::ExecuteCommand: found fake transcoder " << *this);
+        return true;
+      }
+
+      return OpalFramedTranscoder::ExecuteCommand(command);
+    }
+
     PBoolean ConvertFrame(const BYTE *, PINDEX &, BYTE *, PINDEX &outLen) {
-      outLen = 0;    
+      outLen = 0;
       return PTrue;
     }
 };
