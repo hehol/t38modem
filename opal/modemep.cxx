@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.21  2010-03-15 13:40:28  vfrolov
- * Removed unused code
+ * Revision 1.22  2010-03-19 08:36:05  vfrolov
+ * Added forcing fax mode (to send CNG) if used fake audio encoder
+ *
+ * Revision 1.22  2010/03/19 08:36:05  vfrolov
+ * Added forcing fax mode (to send CNG) if used fake audio encoder
  *
  * Revision 1.21  2010/03/15 13:40:28  vfrolov
  * Removed unused code
@@ -842,6 +845,47 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
 
           if (GetStringOptions().GetBoolean("Force-Fax-Mode")) {
             PTRACE(3, "ModemConnection::RequestMode: Force-Fax-Mode=true");
+            requestedMode = pmmFax;
+            continue;
+          }
+
+          bool force = false;
+
+          OPAL_DEFINE_MEDIA_COMMAND(SearchForFakeTranscoder, "search_for_fake_transcoder");
+          static const SearchForFakeTranscoder cmdSearchForFakeTranscoder;
+
+          for (OpalMediaStreamPtr stream = GetMediaStream(OpalMediaType::Audio(), true) ;
+               stream != NULL ;
+               stream = GetMediaStream(OpalMediaType::Audio(), true, stream))
+          {
+            if (!stream->IsOpen())
+              continue;
+
+            OpalMediaPatch *patch = stream->GetPatch();
+
+            if (patch == NULL)
+              continue;
+
+            OpalMediaStreamPtr otherStream = patch->GetSink();
+
+            if (otherStream == NULL)
+              continue;
+
+            if (!otherStream->IsOpen())
+              continue;
+
+            if (!stream->ExecuteCommand(cmdSearchForFakeTranscoder)) {
+              myPTRACE(4, "ModemConnection::RequestMode: found non-fake patch " << *patch);
+              force = false;
+              break;
+            }
+
+            myPTRACE(4, "ModemConnection::RequestMode: found fake patch " << *patch);
+            force = true;
+          }
+
+          if (force) {
+            myPTRACE(3, "ModemConnection::RequestMode: non-fake audio source not found");
             requestedMode = pmmFax;
             continue;
           }
