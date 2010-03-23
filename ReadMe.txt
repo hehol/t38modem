@@ -260,8 +260,10 @@ Example:
 4.3.1 Fax mode modifiers
 ------------------------
 
-F - force fax mode (T.38 or G.711 pass-trough) after dialing.
-V - do not force fax mode after dialing (default).
+F - force fax mode (T.38 or G.711 pass-trough) after dialing
+    (with OPAL can be overriden by route option OPAL-Force-Fax-Mode=false).
+V - do not force fax mode after dialing (default)
+    (with OPAL can be overriden by route option OPAL-Force-Fax-Mode=true).
 
 Examples:
 

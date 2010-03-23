@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.22  2010-03-19 08:36:05  vfrolov
- * Added forcing fax mode (to send CNG) if used fake audio encoder
+ * Revision 1.23  2010-03-23 07:51:28  vfrolov
+ * Added ability to disable auto fax mode forcing with OPAL-Force-Fax-Mode=false
+ *
+ * Revision 1.23  2010/03/23 07:51:28  vfrolov
+ * Added ability to disable auto fax mode forcing with OPAL-Force-Fax-Mode=false
  *
  * Revision 1.22  2010/03/19 08:36:05  vfrolov
  * Added forcing fax mode (to send CNG) if used fake audio encoder
@@ -823,6 +826,12 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
       case pmmAny:
         break;
       case pmmFax:
+        if (!GetStringOptions().GetBoolean("Force-Fax-Mode", true)) {
+          PTRACE(3, "ModemConnection::RequestMode: Force-Fax-Mode=false");
+          requestedMode = mode;
+          break;
+        }
+
         PTRACE(3, "ModemConnection::RequestMode: force fax mode for other connection");
 
         PThread::Create(requestMode, (INT)true);
