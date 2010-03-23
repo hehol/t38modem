@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.86  2010-03-18 08:42:17  vfrolov
- * Added named tracing of data types
+ * Revision 1.87  2010-03-23 08:58:14  vfrolov
+ * Fixed issues with +FTS and +FRS
+ *
+ * Revision 1.87  2010/03/23 08:58:14  vfrolov
+ * Fixed issues with +FTS and +FRS
  *
  * Revision 1.86  2010/03/18 08:42:17  vfrolov
  * Added named tracing of data types
@@ -621,6 +624,22 @@ class ModemEngineBody : public PObject
       } else {
         dleData.BitRev(TRUE);
       }
+    }
+
+    PBoolean SendSilence(int ms) {
+      if (P.FaxClass() && t38engine) {
+        dataType = EngineBase::dtSilence;
+        state = stSend;
+
+        if (t38engine->SendStart(dataType, ms)) {
+          state = stSendAckWait;
+          if (t38engine->SendStop(FALSE, NextSeq()))
+            return TRUE;
+        }
+      }
+
+      state = stCommand;
+      return FALSE;
     }
 
     PBoolean SendStart(EngineBase::DataType dt, int br, PString &resp) {
@@ -1367,17 +1386,30 @@ PBoolean ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, PBo
                 ok = FALSE;
 
                 PWaitAndSignal mutexWait(Mutex);
-                dataType = dt;
-                state = stSend;
-                if (t38engine && t38engine->SendStart(dataType, dms*10)) {
-                  state = stSendAckWait;
-                  if (!t38engine->SendStop(FALSE, NextSeq())) {
+
+                if (T) {
+                  if (!SendSilence(dms*10))
+                    return FALSE;
+                } else {
+                  PBoolean done = FALSE;
+
+                  timeout.Start(60000);
+                  dataType = dt;
+                  param = dms*10;
+                  state = stRecvBegWait;
+                  if (t38engine && t38engine->RecvWait(dataType, 0, NextSeq(), done)) {
+                    if (!done)
+                      break;
+
+                    timeout.Stop();
+
+                    if (!SendSilence(param))
+                      return FALSE;
+                  } else {
+                    timeout.Stop();
                     state = stCommand;
                     return FALSE;
                   }
-                } else {
-                  state = stCommand;
-                  return FALSE;
                 }
               } else {
                 return FALSE;
@@ -3773,6 +3805,11 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       {
         PWaitAndSignal mutexWait(Mutex);
 
+        if (dataType == EngineBase::dtSilence) {
+          if (!SendSilence(param))
+            resp = RC_ERROR();
+        }
+        else
         if (P.AudioClass() && audioEngine && audioEngine->RecvStart(NextSeq())) {
           resp = RC_CONNECT();
           state = stRecv;

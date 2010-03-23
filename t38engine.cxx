@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.66  2010-03-18 08:42:17  vfrolov
- * Added named tracing of data types
+ * Revision 1.67  2010-03-23 08:58:14  vfrolov
+ * Fixed issues with +FTS and +FRS
+ *
+ * Revision 1.67  2010/03/23 08:58:14  vfrolov
+ * Fixed issues with +FTS and +FRS
  *
  * Revision 1.66  2010/03/18 08:42:17  vfrolov
  * Added named tracing of data types
@@ -283,6 +286,8 @@ enum StateModem {
 
   stmOutMoreData,
   stmOutNoMoreData,
+
+  stmInWaitSilence,
 
   stmInWaitData,
   stmInReadyData,
@@ -685,7 +690,7 @@ PBoolean T38Engine::SendStart(DataType _dataType, int param)
     modStreamIn = NULL;
   }
 
-  if (modStreamInSaved != NULL)  {
+  if (modStreamInSaved != NULL && _dataType != dtSilence) {
     delete modStreamInSaved;
     modStreamInSaved = NULL;
   }
@@ -786,6 +791,20 @@ PBoolean T38Engine::RecvWait(DataType _dataType, int param, int _callbackParam, 
     case dtHdlc:
     case dtRaw:
       break;
+    case dtSilence:
+      if (modStreamIn != NULL) {
+        delete modStreamIn;
+        modStreamIn = NULL;
+
+        if (isCarrierIn && !modStreamInSaved) {
+          callbackParamIn = _callbackParam;
+          stateModem = stmInWaitSilence;
+          return TRUE;
+        }
+      }
+
+      done = TRUE;
+      return TRUE;
     default:
       return FALSE;
   }
@@ -935,14 +954,16 @@ void T38Engine::RecvStop()
     return;
 
   if(!isStateModemIn()) {
-    myPTRACE(1, name << " RecvStop stateModem(" << stateModem << ") != stmIn");
+    myPTRACE(1, name << " RecvStop stateModem(" << stateModem << ") in not receiving data state");
     return;
   }
+
   PWaitAndSignal mutexWait(Mutex);
 
-  if( modStreamIn )
+  if (modStreamIn)
     modStreamIn->DeleteFirstBuf();
-  if( isStateModemIn() )
+
+  if (isStateModemIn())
     stateModem = stmIdle;
 }
 ///////////////////////////////////////////////////////////////
@@ -1055,7 +1076,6 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                 switch (ModParsOut.dataType) {
                   case dtHdlc:      waitms = 500;     break; // it's can't be too long
                   case dtRaw:       waitms = 2000;    break; // it's can't be too short
-                  case dtSilence:   waitms = 5000;    break;
                   default:          waitms = 0;       break;
                 }
 
@@ -1460,14 +1480,29 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
       switch (type_of_msg) {
         case T38I(e_no_signal):
           isCarrierIn = 0;
+
+          if (stateModem == stmInWaitSilence) {
+            stateModem = stmIdle;
+            ModemCallbackWithUnlock(callbackParamIn);
+          }
           break;
         case T38I(e_ced):
           OnUserInput('a');
           isCarrierIn = 0;
+
+          if (stateModem == stmInWaitSilence) {
+            stateModem = stmIdle;
+            ModemCallbackWithUnlock(callbackParamIn);
+          }
           break;
         case T38I(e_cng):
           OnUserInput('c');
           isCarrierIn = 0;
+
+          if (stateModem == stmInWaitSilence) {
+            stateModem = stmIdle;
+            ModemCallbackWithUnlock(callbackParamIn);
+          }
           break;
         case T38I(e_v21_preamble):
         case T38I(e_v27_2400_training):
@@ -1487,8 +1522,13 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
           modStreamInSaved->PushBuf();
           countIn = 0;
 
-          if( stateModem == stmInWaitData ) {
-            if( modStreamIn != NULL ) {
+          if (stateModem == stmInWaitSilence) {
+            stateModem = stmIdle;
+            ModemCallbackWithUnlock(callbackParamIn);
+          }
+          else
+          if (stateModem == stmInWaitData) {
+            if (modStreamIn != NULL) {
               if (modStreamIn->ModPars.IsEqual(modStreamInSaved->ModPars)) {
                 modStreamIn->Move(*modStreamInSaved);
                 delete modStreamInSaved;
@@ -1601,6 +1641,11 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
                     modStream->PutEof(diagNoCarrier);
                     modStream = NULL;
                     isCarrierIn = 0;
+
+                    if (stateModem == stmInWaitSilence) {
+                      stateModem = stmIdle;
+                      ModemCallbackWithUnlock(callbackParamIn);
+                    }
                     break;
                 }
               }
