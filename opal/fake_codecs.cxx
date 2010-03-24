@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: fake_codecs.cxx,v $
- * Revision 1.2  2010-03-19 08:27:52  vfrolov
- * Added "search_for_fake_transcoder" command
+ * Revision 1.3  2010-03-24 10:48:29  vfrolov
+ * Fixed incompatibility with OPAL trunk
+ *
+ * Revision 1.3  2010/03/24 10:48:29  vfrolov
+ * Fixed incompatibility with OPAL trunk
  *
  * Revision 1.2  2010/03/19 08:27:52  vfrolov
  * Added "search_for_fake_transcoder" command
@@ -38,6 +41,17 @@
 #include <ptlib.h>
 
 #include <opal/buildopts.h>
+
+/////////////////////////////////////////////////////////////////////////////
+#define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
+
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 8, 1))
+  #error *** Uncompatible OPAL version (required >= 3.8.1) ***
+#endif
+
+#undef PACK_VERSION
+/////////////////////////////////////////////////////////////////////////////
+
 #include <opal/transcoders.h>
 
 #include "fake_codecs.h"
@@ -73,7 +87,7 @@ class FakeFramedAudioTranscoder : public OpalFramedTranscoder
   PCLASSINFO(FakeFramedAudioTranscoder, OpalFramedTranscoder);
   public:
     FakeFramedAudioTranscoder(const char * inFormat, const char * outFormat)
-      : OpalFramedTranscoder(inFormat, outFormat, 100, 100)
+      : OpalFramedTranscoder(inFormat, outFormat)
     {}
 
     PBoolean ExecuteCommand(const OpalMediaCommand & command) {
