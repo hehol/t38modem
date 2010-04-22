@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.67  2010-03-23 08:58:14  vfrolov
- * Fixed issues with +FTS and +FRS
+ * Revision 1.68  2010-04-22 15:41:30  vfrolov
+ * Fixed +FRS delay if remote does not send no-signal indicator
+ *
+ * Revision 1.68  2010/04/22 15:41:30  vfrolov
+ * Fixed +FRS delay if remote does not send no-signal indicator
  *
  * Revision 1.67  2010/03/23 08:58:14  vfrolov
  * Fixed issues with +FTS and +FRS
@@ -1558,42 +1561,29 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
         unsigned type_of_msg = (T38_Type_of_msg_data)ifp.m_type_of_msg;
         ModStream *modStream = modStreamIn;
 
-        if( modStream == NULL || modStream->lastBuf == NULL ) {
+        if (modStream == NULL || modStream->lastBuf == NULL)
           modStream = modStreamInSaved;
-        }
-        if( modStream == NULL || modStream->lastBuf == NULL ) {
+
+        if (modStream == NULL || modStream->lastBuf == NULL) {
           PTRACE(1, name << " HandlePacket lastBuf == NULL");
-          break;
+          modStream = NULL;
         }
-        if( modStream->ModPars.msgType != type_of_msg ) {
+        else
+        if (modStream->ModPars.msgType != type_of_msg) {
           myPTRACE(1, name << " HandlePacket modStream->ModPars.msgType("
               << modStream->ModPars.msgType << ") != type_of_msg(" << type_of_msg << ")");
           modStream->PutEof(diagOutOfOrder);
-          if( stateModem == stmInRecvData )
-            ModemCallbackWithUnlock(callbackParamIn);
-          break;
+          modStream = NULL;
         }
 
-        switch( type_of_msg ) {
-          case T38D(e_v21):
-          case T38D(e_v27_2400):
-          case T38D(e_v27_4800):
-          case T38D(e_v29_7200):
-          case T38D(e_v29_9600):
-          case T38D(e_v17_7200):
-          case T38D(e_v17_9600):
-          case T38D(e_v17_12000):
-          case T38D(e_v17_14400):
-            if( ifp.HasOptionalField(T38_IFPPacket::e_data_field) ) {
-              PINDEX count = ifp.m_data_field.GetSize();
-              for( PINDEX i = 0 ; i < count ; i++ ) {
-                if( modStream == NULL ) {
-                  PTRACE(1, name << " HandlePacket modStream == NULL");
-                  break;
-                }
+        if (ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
+          PINDEX count = ifp.m_data_field.GetSize();
+          for (PINDEX i = 0 ; i < count ; i++) {
+                PTRACE_IF(4, modStream == NULL, name << " HandlePacket modStream == NULL");
+
                 const T38_DATA_FIELD &Data_Field = ifp.m_data_field[i];
 
-                switch( Data_Field.m_field_type ) {	// Handle data
+                switch (Data_Field.m_field_type) {  // Handle data
                   case T38F(e_hdlc_data):
                   case T38F(e_t4_non_ecm_data):
                   case T38F(e_hdlc_sig_end):
@@ -1604,7 +1594,8 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
                   case T38F(e_t4_non_ecm_sig_end):
                     if (Data_Field.HasOptionalField(T38_Data_Field_subtype::e_field_data)) {
                       int size = Data_Field.m_field_data.GetSize();
-                      modStream->PutData(Data_Field.m_field_data, size);
+                      if(modStream != NULL)
+                        modStream->PutData(Data_Field.m_field_data, size);
 #if PTRACING
                       if (!countIn)
                         timeBeginIn = PTime();
@@ -1615,15 +1606,19 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
                   default:
                     myPTRACE(1, name << " HandlePacket field_type bad !!! " << setprecision(2) << ifp);
                 }
-                switch( Data_Field.m_field_type ) {	// Handle fcs
+
+                switch (Data_Field.m_field_type) {  // Handle fcs
                   case T38F(e_hdlc_fcs_BAD):
                   case T38F(e_hdlc_fcs_BAD_sig_end):
-                    modStream->SetDiag(diagBadFcs);
+                    if(modStream != NULL)
+                      modStream->SetDiag(diagBadFcs);
                     myPTRACE(1, name << " HandlePacket bad FCS");
                   case T38F(e_hdlc_fcs_OK):
                   case T38F(e_hdlc_fcs_OK_sig_end):
-                    modStream->PutEof();
-                    modStream->PushBuf();
+                    if(modStream != NULL) {
+                      modStream->PutEof();
+                      modStream->PushBuf();
+                    }
                     break;
                 }
                 switch( Data_Field.m_field_type ) {	// Handle sig_end
@@ -1638,8 +1633,11 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
                   case T38F(e_hdlc_fcs_OK_sig_end):
                   case T38F(e_hdlc_fcs_BAD_sig_end):
                   case T38F(e_hdlc_sig_end):
-                    modStream->PutEof(diagNoCarrier);
-                    modStream = NULL;
+                    if(modStream != NULL) {
+                      modStream->PutEof(diagNoCarrier);
+                      modStream = NULL;
+                    }
+
                     isCarrierIn = 0;
 
                     if (stateModem == stmInWaitSilence) {
@@ -1648,13 +1646,10 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
                     }
                     break;
                 }
-              }
-            }
-            break;
-          default:
-            myPTRACE(1, name << " HandlePacket type_of_msg is bad !!! " << setprecision(2) << ifp);
+          }
         }
-        if( stateModem == stmInRecvData )
+
+        if (stateModem == stmInRecvData)
           ModemCallbackWithUnlock(callbackParamIn);
         break;
     }
