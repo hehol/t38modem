@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.87  2010-03-23 08:58:14  vfrolov
- * Fixed issues with +FTS and +FRS
+ * Revision 1.88  2010-07-07 08:22:47  vfrolov
+ * Redesigned modem engine
+ *
+ * Revision 1.88  2010/07/07 08:22:47  vfrolov
+ * Redesigned modem engine
  *
  * Revision 1.87  2010/03/23 08:58:14  vfrolov
  * Fixed issues with +FTS and +FRS
@@ -534,6 +537,87 @@ class Timeout : public PTimer
     PMutex Mutex;
 };
 ///////////////////////////////////////////////////////////////
+enum CallState {  // ---------+---------------------------+--------+-------------------------------------------+
+                  //          |     on sending command    |   on   |            on received command            |
+                  //          +---------------------------+clearing+-------------------------------------------+
+                  //          |"dial"|"answer"|"clearcall"|off_hook|"call"|"alerting"|"established"|"clearcall"|
+                  // ---------+------+--------+-----+-----+--------+------+----------+-------------+-----+-----+
+                  // off_hook | true |  true  |true |false|  true  |false |   true   |     true    |true |false|
+                  // ---------+------+--------+-----+-----+--------+------+----------+-------------+-----+-----+
+  cstCleared,     //            )--+                 <--+    <--+    )--+                                 <--+ |
+                  //               |                    |       |       |                                    | |
+                  //               |                    |       |       |                                    | |
+  cstDialing,     //            <--+           )--+  )--+    )--+       |     )--+         )--+     )--+  )--+ |
+                  //                              |     |       |       |        |            |        |     | |
+  cstAlerted,     //                           )--+  )--+    )--+       |     <--+         )--+     )--+  )--+ |
+                  //                              |     |       |       |                     |        |     | |
+                  //                              |     |       |       |                     |        |     | |
+  cstCalled,      //                    )--+   )--+  )--+       |    <--+                     |        |  )--+ |
+                  //                       |      |     |       |                             |        |     | |
+  cstAnswering,   //                    <--+   )--+  )--+    )--+                          )--+     )--+  )--+ |
+                  //                              |     |       |                             |        |     | |
+                  //                              |     |       |                             |        |     | |
+  cstEstablished, //                           )--+  )--+    )--+                          <--+     )--+  )--+ |
+                  //                              |     |       |                                      |     | |
+  cstReleasing,   //                           <--+  )--+    )--+                                   <--+  )--+ |
+};                // ---------+------+--------+-----+-----+--------+------+----------+-------------+-----+-----+
+
+#if PTRACING
+static ostream & operator<<(ostream & out, CallState state)
+{
+  switch (state) {
+    case cstCleared:            return out << "cstCleared";
+    case cstDialing:            return out << "cstDialing";
+    case cstAlerted:            return out << "cstAlerted";
+    case cstCalled:             return out << "cstCalled";
+    case cstAnswering:          return out << "cstAnswering";
+    case cstEstablished:        return out << "cstEstablished";
+    case cstReleasing:          return out << "cstReleasing";
+  }
+
+  return out << "cst" << INT(state);
+}
+#endif
+///////////////////////////////////////////////////////////////
+enum State {
+  stResetHandle,
+  stCommand,
+  stConnectWait,
+  stConnectHandle,
+  stReqModeAckWait,
+  stReqModeAckHandle,
+  stSend,
+  stSendBufEmptyHandle,
+  stSendAckWait,
+  stSendAckHandle,
+  stRecvBegWait,
+  stRecvBegHandle,
+  stRecv,
+};
+
+#if PTRACING
+static ostream & operator<<(ostream & out, State state)
+{
+  switch (state) {
+    case stResetHandle:         return out << "stResetHandle";
+    case stCommand:             return out << "stCommand";
+    case stConnectWait:         return out << "stConnectWait";
+    case stConnectHandle:       return out << "stConnectHandle";
+    case stReqModeAckWait:      return out << "stReqModeAckWait";
+    case stReqModeAckHandle:    return out << "stReqModeAckHandle";
+    case stSend:                return out << "stSend";
+    case stSendBufEmptyHandle:  return out << "stSendBufEmptyHandle";
+    case stSendAckWait:         return out << "stSendAckWait";
+    case stSendAckHandle:       return out << "stSendAckHandle";
+    case stRecvBegWait:         return out << "stRecvBegWait";
+    case stRecvBegHandle:       return out << "stRecvBegHandle";
+    case stRecv:                return out << "stRecv";
+  }
+
+  return out << "st" << INT(state);
+}
+#endif
+///////////////////////////////////////////////////////////////
 #define DeclareResultCode(name, v0, v1)	\
   PString name() const { return P.asciiResultCodes() ? (v1) : (v0); }
 ///////////////////////////////////////////////////////////////
@@ -541,28 +625,6 @@ class ModemEngineBody : public PObject
 {
     PCLASSINFO(ModemEngineBody, PObject);
   public:
-    enum State {
-      stResetHandle,
-      stCommand,
-      stConnectWait,
-      stConnectHandle,
-      stReqModeAckWait,
-      stReqModeAckHandle,
-      stSend,
-      stSendBufEmptyHandle,
-      stSendAckWait,
-      stSendAckHandle,
-      stRecvBegWait,
-      stRecvBegHandle,
-      stRecv,
-    };
-
-    enum {
-      cdUndefined,
-      cdOutgoing,
-      cdIncoming,
-    };
-
     enum {
       chConnected,
       chWaitAudioEngine,
@@ -591,7 +653,7 @@ class ModemEngineBody : public PObject
     void CheckState(PBYTEArray &bresp);
     PBoolean IsReady() const {
       PWaitAndSignal mutexWait(Mutex);
-      return state == stCommand && (PTime() - lastPtyActivity) > 5*1000;
+      return state == stCommand && !off_hook && callState == cstCleared && (PTime() - lastOnHookActivity) > 5*1000;
     }
     PBoolean isOutBufFull() const {
       PWaitAndSignal mutexWait(Mutex);
@@ -629,16 +691,16 @@ class ModemEngineBody : public PObject
     PBoolean SendSilence(int ms) {
       if (P.FaxClass() && t38engine) {
         dataType = EngineBase::dtSilence;
-        state = stSend;
+        SetState(stSend);
 
         if (t38engine->SendStart(dataType, ms)) {
-          state = stSendAckWait;
+          SetState(stSendAckWait);
           if (t38engine->SendStop(FALSE, NextSeq()))
             return TRUE;
         }
       }
 
-      state = stCommand;
+      SetState(stCommand);
       return FALSE;
     }
 
@@ -647,12 +709,12 @@ class ModemEngineBody : public PObject
       dataType = dt;
       ResetDleData();
       SetBitRevDleData();
-      state = stSend;
+      SetState(stSend);
 
       if ((P.AudioClass() && (!audioEngine || !audioEngine->SendStart(dataType, br))) ||
           (P.FaxClass() && (!t38engine || !t38engine->SendStart(dataType, br))))
       {
-        state = stCommand;
+        SetState(stCommand);
         return FALSE;
       }
 
@@ -666,19 +728,19 @@ class ModemEngineBody : public PObject
       PWaitAndSignal mutexWait(Mutex);
       dataType = dt;
       SetBitRevDleData();
-      state = stRecvBegWait;
+      SetState(stRecvBegWait);
       timeout.Start(60000);
 
       if ((P.AudioClass() && (!audioEngine || !audioEngine->RecvWait(dataType, br, NextSeq(), done))) ||
           (P.FaxClass() && (!t38engine || !t38engine->RecvWait(dataType, br, NextSeq(), done))))
       {
-        state = stCommand;
+        SetState(stCommand);
         timeout.Stop();
         return FALSE;
       }
 
       if (done) {
-        state = stRecvBegHandle;
+        SetState(stRecvBegHandle);
         timeout.Stop();
         parent.SignalDataReady();
       }
@@ -703,14 +765,66 @@ class ModemEngineBody : public PObject
     const PNotifier timerCallback;
     Timeout timerRing;
     Timeout timeout;
-    PTime lastPtyActivity;
+    PTime lastOnHookActivity;
 
     int seq;
 
-    int callDirection;
     PBoolean forceFaxMode;
     PBoolean connectionEstablished;
+
+    PBoolean off_hook;
+
+    int callSubState;
+    int lockReleasingState;
+
+    enum CallDirection {
+      cdUndefined,
+      cdOutgoing,
+      cdIncoming,
+    };
+
+    CallDirection callDirection;
+    CallState callState;
+    CallState preReleasingCallState;
     State state;
+
+    #define TRACE_STATE(level, header) \
+        PTRACE(level, header \
+                  " " << (off_hook ? "off" : "on") << "-hook" \
+                  " " << callState << \
+                  " " << state)
+
+    PBoolean OffHook() {
+      if (!off_hook) {
+        off_hook = TRUE;
+        TRACE_STATE(4, "ModemEngineBody::OffHook:");
+        return TRUE;
+      }
+      return FALSE;
+    }
+
+    void OnHook() {
+      lastOnHookActivity = PTime();
+
+      if (off_hook) {
+        off_hook = FALSE;
+        TRACE_STATE(4, "ModemEngineBody::OnHook:");
+      }
+
+      _ClearCall();
+    }
+
+    void SetCallState(CallState newState) {
+      callState = newState;
+      callSubState = 0;
+      TRACE_STATE(4, "ModemEngineBody::SetCallState:");
+    }
+
+    void SetState(State newState) {
+      state = newState;
+      TRACE_STATE(4, "ModemEngineBody::SetState:");
+    }
+
     int param;
     PString cmd;
     EngineBase::DataType dataType;
@@ -744,29 +858,6 @@ class ModemEngineBody : public PObject
     DeclareResultCode(RC_RINGING,      "9\r", "RINGING\r\n")
     DeclareResultCode(RC_FCERROR,    "+F4\r", "+FCERROR\r\n")
 };
-///////////////////////////////////////////////////////////////
-#if PTRACING
-ostream & operator<<(ostream & out, ModemEngineBody::State state)
-{
-  switch (state) {
-    case ModemEngineBody::stResetHandle:         return out << "stResetHandle";
-    case ModemEngineBody::stCommand:             return out << "stCommand";
-    case ModemEngineBody::stConnectWait:         return out << "stConnectWait";
-    case ModemEngineBody::stConnectHandle:       return out << "stConnectHandle";
-    case ModemEngineBody::stReqModeAckWait:      return out << "stReqModeAckWait";
-    case ModemEngineBody::stReqModeAckHandle:    return out << "stReqModeAckHandle";
-    case ModemEngineBody::stSend:                return out << "stSend";
-    case ModemEngineBody::stSendBufEmptyHandle:  return out << "stSendBufEmptyHandle";
-    case ModemEngineBody::stSendAckWait:         return out << "stSendAckWait";
-    case ModemEngineBody::stSendAckHandle:       return out << "stSendAckHandle";
-    case ModemEngineBody::stRecvBegWait:         return out << "stRecvBegWait";
-    case ModemEngineBody::stRecvBegHandle:       return out << "stRecvBegHandle";
-    case ModemEngineBody::stRecv:                return out << "stRecv";
-  }
-
-  return out << INT(state);
-}
-#endif
 ///////////////////////////////////////////////////////////////
 
 #define new PNEW
@@ -918,9 +1009,12 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
     timerRing(timerCallback, TRUE),
     timeout(timerCallback),
     seq(0),
-    callDirection(cdUndefined),
     forceFaxMode(FALSE),
     connectionEstablished(FALSE),
+    off_hook(FALSE),
+    lockReleasingState(0),
+    callDirection(cdUndefined),
+    callState(cstCleared),
     state(stCommand),
     dataType(EngineBase::dtNone),
     pPlayTone(NULL)
@@ -931,28 +1025,10 @@ ModemEngineBody::~ModemEngineBody()
 {
   PWaitAndSignal mutexWait(Mutex);
 
+  _ClearCall();
+
   timeout.Stop();
   timerRing.Stop();
-
-  if (!CallToken().IsEmpty()) {
-    myPTRACE(1, "ModemEngineBody::~ModemEngineBody Call " << CallToken() << " was not cleared");
-    _ClearCall();
-  }
-
-  if (t38engine) {
-    myPTRACE(1, "ModemEngineBody::~ModemEngineBody t38engine was not Detached");
-    _Detach(t38engine);
-  }
-
-  if (audioEngine) {
-    myPTRACE(1, "ModemEngineBody::~ModemEngineBody audioEngine was not Detached");
-    _Detach(audioEngine);
-  }
-
-  if (pPlayTone) {
-    myPTRACE(1, "ModemEngineBody::~ModemEngineBody pPlayTone is not NULL");
-    delete pPlayTone;
-  }
 }
 
 void ModemEngineBody::OnParentStop()
@@ -960,43 +1036,64 @@ void ModemEngineBody::OnParentStop()
   PWaitAndSignal mutexWait(Mutex);
 
   _ClearCall();
+}
+
+void ModemEngineBody::_ClearCall()
+{
+  if (callState == cstCleared)
+    return;
+
+  lockReleasingState++;
+
+  if (callState != cstReleasing) {
+    preReleasingCallState = callState;
+    SetCallState(cstReleasing);
+
+    timerRing.Stop();
+    callDirection = cdUndefined;
+    forceFaxMode = FALSE;
+    connectionEstablished = FALSE;
+
+    if (pPlayTone) {
+      delete pPlayTone;
+      pPlayTone = NULL;
+    }
+
+    if (!CallToken().IsEmpty() && t38engine && t38engine->SendingNotCompleted()) {
+      Mutex.Signal();
+      myPTRACE(2, "ModemEngineBody::_ClearCall: T.38 sending is not completed");
+      PThread::Sleep(100);
+      Mutex.Wait();
+    }
+  }
 
   if (t38engine)
     _Detach(t38engine);
 
   if (audioEngine)
     _Detach(audioEngine);
-}
 
-void ModemEngineBody::_ClearCall()
-{
-  connectionEstablished = FALSE;
-  if (CallToken().IsEmpty())
-    return;
+  if (!CallToken().IsEmpty()) {
+    PStringToString request;
+    request.SetAt("modemtoken", parent.modemToken());
+    request.SetAt("command", "clearcall");
+    request.SetAt("calltoken", CallToken());
+    CallToken("");
 
-  timerRing.Stop();
-
-  PStringToString request;
-  request.SetAt("modemtoken", parent.modemToken());
-  request.SetAt("command", "clearcall");
-  request.SetAt("calltoken", CallToken());
-
-  Mutex.Signal();
-  callbackEndPoint(request, 1);
-  Mutex.Wait();
-  CallToken("");
-  callDirection = cdUndefined;
-  forceFaxMode = FALSE;
-
-  if (pPlayTone) {
-    delete pPlayTone;
-    pPlayTone = NULL;
+    Mutex.Signal();
+    callbackEndPoint(request, 1);
+    Mutex.Wait();
   }
+
+  if (--lockReleasingState == 0 && !off_hook)
+      SetCallState(cstCleared);
+
+  parent.SignalDataReady();
 }
 
 PBoolean ModemEngineBody::Request(PStringToString &request)
 {
-  myPTRACE(1, "ModemEngineBody::Request " << state << " request={\n" << request << "}");
+  myPTRACE(3, "ModemEngineBody::Request: " << state << " request={\n" << request << "}");
 
   PString command = request("command");
 
@@ -1004,64 +1101,97 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
 
   if( command == "call" ) {
     PWaitAndSignal mutexWait(Mutex);
-    if (callDirection == cdUndefined && CallToken().IsEmpty()) {
+
+    if (callState != cstCleared) {
+      myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
+    }
+    else
+    if (off_hook) {
+      myPTRACE(1, "ModemEngineBody::Request: line already in off-hook state");
+    }
+    else {
+      SetCallState(cstCalled);
+
       CallToken(request("calltoken"));
       SrcNum(request("srcnum"));
       DstNum(request("dstnum"));
       timerRing.Start(5000);
       P.SetReg(1, 0);
       request.SetAt("response", "confirm");
-    } else {
-      myPTRACE(1, "ModemEngineBody::Request already in use by " << CallToken());
     }
-  } else if (command == "alerting") {
+  }
+  else
+  if (command == "alerting") {
     PWaitAndSignal mutexWait(Mutex);
-    if (CallToken().IsEmpty()) {
-      myPTRACE(1, "ModemEngineBody::Request not in use");
-    } else if (CallToken() == request("calltoken")) {
+
+    if (callState != cstDialing) {
+      myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
+    }
+    else
+    if (!off_hook) {
+      myPTRACE(1, "ModemEngineBody::Request: line already in on-hook state");
+    }
+    else
+    if (CallToken() == request("calltoken")) {
+      SetCallState(cstAlerted);
+
       if (state == stConnectWait && callDirection == cdOutgoing && !pPlayTone && P.AudioClass()) {
         param = chConnected;
-        state = stConnectHandle;
+        SetState(stConnectHandle);
         timerRing.Start(5000);
         parent.SignalDataReady();
         request.SetAt("response", "confirm");
       }
-    } else {
-      myPTRACE(1, "ModemEngineBody::Request in use by " << CallToken());
     }
-  } else if (command == "established") {
+    else {
+      myPTRACE(1, "ModemEngineBody::Request: line already in use by " << CallToken());
+    }
+  }
+  else
+  if (command == "established") {
     PWaitAndSignal mutexWait(Mutex);
-    if (CallToken().IsEmpty()) {
-      myPTRACE(1, "ModemEngineBody::Request not in use");
-    } else if (CallToken() == request("calltoken")) {
-      timerRing.Stop();
+
+    if (callState != cstDialing && callState != cstAlerted && callState != cstAnswering) {
+      myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
+    }
+    else
+    if (!off_hook) {
+      myPTRACE(1, "ModemEngineBody::Request: line already in on-hook state");
+    }
+    else
+    if (CallToken() == request("calltoken")) {
+      SetCallState(cstEstablished);
+
       if (state == stConnectWait) {
         param = chConnected;
-        state = stConnectHandle;
+        SetState(stConnectHandle);
         parent.SignalDataReady();
         request.SetAt("response", "confirm");
       }
-    } else {
-      myPTRACE(1, "ModemEngineBody::Request in use by " << CallToken());
     }
-  } else if (command == "clearcall") {
+    else {
+      myPTRACE(1, "ModemEngineBody::Request: line already in use by " << CallToken());
+    }
+  }
+  else
+  if (command == "clearcall") {
     PWaitAndSignal mutexWait(Mutex);
-    if (CallToken().IsEmpty()) {
-      PTRACE(3, "ModemEngineBody::Request not in use");
-    } else if (CallToken() == request("calltoken")) {
-      connectionEstablished = FALSE;
-      timerRing.Stop();
-      if (state != stResetHandle) {
-        param = state;
-        state = stResetHandle;
-        parent.SignalDataReady();
-        request.SetAt("response", "confirm");
-      }
-    } else {
-      myPTRACE(1, "ModemEngineBody::Request in use by " << CallToken());
+
+    if (callState == cstCleared) {
+      myPTRACE(1, "ModemEngineBody::Request: call already in cstCleared state");
     }
-  } else {
-    myPTRACE(1, "ModemEngineBody::Request unknown request");
+    else
+    if (CallToken() == request("calltoken")) {
+      CallToken("");
+      _ClearCall();
+      request.SetAt("response", "confirm");
+    }
+    else {
+      myPTRACE(1, "ModemEngineBody::Request: line already in use by " << CallToken());
+    }
+  }
+  else {
+    myPTRACE(1, "ModemEngineBody::Request: unknown request " << command);
   }
   return TRUE;
 }
@@ -1076,6 +1206,11 @@ PBoolean ModemEngineBody::Attach(T38Engine *_t38engine)
   PTRACE(1, "ModemEngineBody::Attach t38engine " << state);
 
   PWaitAndSignal mutexWait(Mutex);
+
+  if (callState == cstCleared || callState == cstReleasing) {
+    myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
+    return FALSE;
+  }
 
   for (;;) {
     if (t38engine != NULL) {
@@ -1107,7 +1242,7 @@ PBoolean ModemEngineBody::Attach(T38Engine *_t38engine)
   t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
 
   if (state == stReqModeAckWait) {
-    state = stReqModeAckHandle;
+    SetState(stReqModeAckHandle);
     timeout.Stop();
     parent.SignalDataReady();
   }
@@ -1141,18 +1276,8 @@ void ModemEngineBody::_Detach(T38Engine *_t38engine)
     Mutex.Wait();
   }
 
-  if (P.FaxClass()) {
-    switch (state) {
-      case stSend:
-        param = state;
-        state = stResetHandle;
-        break;
-      default:
-        break;
-    }
-
+  if (P.FaxClass())
     parent.SignalDataReady();
-  }
 
   myPTRACE(1, "ModemEngineBody::_Detach t38engine Detached");
 }
@@ -1167,6 +1292,11 @@ PBoolean ModemEngineBody::Attach(AudioEngine *_audioEngine)
   PTRACE(1, "ModemEngineBody::Attach audioEngine " << state);
 
   PWaitAndSignal mutexWait(Mutex);
+
+  if (callState == cstCleared || callState == cstReleasing) {
+    myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
+    return FALSE;
+  }
 
   for (;;) {
     if (audioEngine != NULL) {
@@ -1235,18 +1365,8 @@ void ModemEngineBody::_Detach(AudioEngine *_audioEngine)
     Mutex.Wait();
   }
 
-  if (P.AudioClass()) {
-    switch (state) {
-      case stSend:
-        param = state;
-        state = stResetHandle;
-        break;
-      default:
-        break;
-    }
-
+  if (P.AudioClass())
     parent.SignalDataReady();
-  }
 
   myPTRACE(1, "ModemEngineBody::_Detach audioEngine Detached");
 }
@@ -1262,11 +1382,11 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
   if (extra == seq) {
     switch (state) {
       case stSendAckWait:
-        state = stSendAckHandle;
+        SetState(stSendAckHandle);
         timeout.Stop();
         break;
       case stRecvBegWait:
-        state = stRecvBegHandle;
+        SetState(stRecvBegHandle);
         timeout.Stop();
         break;
       case stConnectHandle:
@@ -1281,25 +1401,16 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
   }
   else
   switch (extra) {
-    case EngineBase::cbpReset:
-      switch (state) {
-        case stSend:
-          param = state;
-          state = stResetHandle;
-          break;
-        default:
-          break;
-      }
-      break;
     case EngineBase::cbpOutBufEmpty:
       switch (state) {
         case stSend:
-          state = stSendBufEmptyHandle;
+          SetState(stSendBufEmptyHandle);
           break;
         default:
           break;
       }
       break;
+    case EngineBase::cbpReset:
     case EngineBase::cbpOutBufNoFull:
     case EngineBase::cbpUserInput:
       break;
@@ -1407,7 +1518,7 @@ PBoolean ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, PBo
                       return FALSE;
                   } else {
                     timeout.Stop();
-                    state = stCommand;
+                    SetState(stCommand);
                     return FALSE;
                   }
                 }
@@ -1695,7 +1806,7 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                 PWaitAndSignal mutexWait(Mutex);
                 dataType = EngineBase::dtRaw;
                 moreFrames = FALSE;
-                state = stSend;
+                SetState(stSend);
                 if (audioEngine && audioEngine->SendStart(dataType, 0)) {
                   PINDEX len = tone.GetSize();
 
@@ -1704,14 +1815,14 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                     audioEngine->Send(ps, len*sizeof(*ps));
                   }
 
-                  state = stSendAckWait;
+                  SetState(stSendAckWait);
 
                   if (!audioEngine->SendStop(FALSE, NextSeq())) {
-                    state = stCommand;
+                    SetState(stCommand);
                     return FALSE;
                   }
                 } else {
-                  state = stCommand;
+                  SetState(stCommand);
                   return FALSE;
                 }
               } else {
@@ -1757,38 +1868,52 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
 
 PBoolean ModemEngineBody::Answer()
 {
-  PWaitAndSignal mutexWait(Mutex);
+  PBoolean wasOnHook = OffHook();
 
   timerRing.Stop();
   callDirection = cdIncoming;
   forceFaxMode = TRUE;
 
   if (!connectionEstablished) {
-    state = stConnectWait;
-    timeout.Start(60000);
+    PBoolean ok;
 
-    PStringToString request;
-    request.SetAt("modemtoken", parent.modemToken());
-    request.SetAt("command", "answer");
-    request.SetAt("calltoken", CallToken());
+    if (callState == cstCalled) {
+      SetCallState(cstAnswering);
 
-    Mutex.Signal();
-    callbackEndPoint(request, 2);
-    Mutex.Wait();
+      SetState(stConnectWait);
+      timeout.Start(60000);
 
-    PString response = request("response");
+      PStringToString request;
+      request.SetAt("modemtoken", parent.modemToken());
+      request.SetAt("command", "answer");
+      request.SetAt("calltoken", CallToken());
 
-    if (response != "confirm" ) {
+      Mutex.Signal();
+      callbackEndPoint(request, 2);
+      Mutex.Wait();
+
+      ok = (request("response") == "confirm");
+    } else {
+      ok = FALSE;
+    }
+
+    if (!ok) {
       callDirection = cdUndefined;
       forceFaxMode = FALSE;
       timeout.Stop();
-      state = stCommand;
+      SetState(stCommand);
+
+      if (wasOnHook)
+        OnHook();
+      else
+        _ClearCall();
+
       return FALSE;
     }
   } else {
     timeout.Stop();
     param = chConnectionEstablished;
-    state = stConnectHandle;
+    SetState(stConnectHandle);
     parent.SignalDataReady();
   }
 
@@ -1858,8 +1983,12 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
         case 'A':	// Accept incoming call
           ok = FALSE;
 
-          if (!Answer())
-            err = TRUE;
+          {
+            PWaitAndSignal mutexWait(Mutex);
+
+            if (!Answer())
+              err = TRUE;
+          }
 
           break;
         case 'B':       // Turn ITU-T V.22/BELL 212A
@@ -1874,11 +2003,13 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           {
             PWaitAndSignal mutexWait(Mutex);
 
+            PBoolean wasOnHook = OffHook();
+
             PString num;
             PString LocalPartyName;
             PBoolean local = FALSE;
             PBoolean setForceFaxMode = FALSE;
-            int setCallDirection = cdOutgoing;
+            CallDirection setCallDirection = cdOutgoing;
 
             if (!CallToken().IsEmpty()) {
               if (!pPlayTone)
@@ -2048,6 +2179,10 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                       delete pPlayTone;
                       pPlayTone = NULL;
                     }
+
+                    if (wasOnHook)
+                      OnHook();
+
                     err = TRUE;
                     break;
                   }
@@ -2055,7 +2190,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   callDirection = setCallDirection;
                   forceFaxMode = (forceFaxMode || setForceFaxMode);
                   param = chConnected;
-                  state = stConnectHandle;
+                  SetState(stConnectHandle);
                   parent.SignalDataReady();
 
                   if (audioEngine && callDirection == cdOutgoing && P.FaxClass())
@@ -2064,7 +2199,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   break;
                 }
 
-                _ClearCall();
+                OnHook();
 
                 if (crlf) {
                   resp += "\r\n";
@@ -2077,11 +2212,13 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 break;
               }
 
+              SetCallState(cstDialing);
+
               callDirection = setCallDirection;
               forceFaxMode = setForceFaxMode;
 
               timerRing.Stop();
-              state = stConnectWait;
+              SetState(stConnectWait);
               timeout.Start((unsigned(P.S7()) + 1) * 1000);
 
               PStringToString request;
@@ -2107,8 +2244,13 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   pPlayTone = NULL;
                 }
 
+                if (wasOnHook)
+                  OnHook();
+                else
+                  _ClearCall();
+
                 timeout.Stop();
-                state = stCommand;
+                SetState(stCommand);
                 if (response == "reject") {
                   if (crlf) {
                     resp += "\r\n";
@@ -2131,6 +2273,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 delete pPlayTone;
                 pPlayTone = NULL;
               }
+
+              if (wasOnHook)
+                OnHook();
             }
           }
           break;
@@ -2151,20 +2296,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
             if (t38engine)
               t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
 
-            if (callDirection != cdUndefined) {
-              if (t38engine && t38engine->SendingNotCompleted()) {
-                Mutex.Signal();
-                myPTRACE(2, "ModemEngineBody::HandleCmd: Sending is not completed");
-                PThread::Sleep(100);
-                Mutex.Wait();
-              }
-
-              _ClearCall();
-            }
-            else
-            if (P.ClearMode()) {
-              _ClearCall();
-            }
+            if (off_hook || P.ClearMode())
+              OnHook();
           } else {
             err = TRUE;
           }
@@ -2320,16 +2453,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               if (t38engine)
                 t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
 
-              if (callDirection != cdUndefined) {
-                if (t38engine && t38engine->SendingNotCompleted()) {
-                  Mutex.Signal();
-                  myPTRACE(2, "ModemEngineBody::HandleCmd: Sending is not completed");
-                  PThread::Sleep(100);
-                  Mutex.Wait();
-                }
-
-                _ClearCall();
-              }
+              if (off_hook)
+                OnHook();
             } else {
               err = TRUE;
             }
@@ -2834,8 +2959,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 case 0: {
                                   PWaitAndSignal mutexWait(Mutex);
 
-                                  if (callDirection != cdUndefined || P.ClearMode())
-                                    _ClearCall();
+                                  if (off_hook || P.ClearMode())
+                                    OnHook();
                                   break;
                                 }
                                 case 1:
@@ -2843,8 +2968,12 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                 case 7:
                                   ok = FALSE;
 
-                                  if (!Answer())
-                                    err = TRUE;
+                                  {
+                                    PWaitAndSignal mutexWait(Mutex);
+
+                                    if (!Answer())
+                                      err = TRUE;
+                                  }
                                   break;
                                 default:
                                   err = TRUE;
@@ -2852,7 +2981,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                           }
                           break;
                         case '?':
-                          resp += connectionEstablished ? "\r\n1" : "\r\n0";
+                          resp += off_hook ? "\r\n1" : "\r\n0";
                           crlf = TRUE;
                           break;
                         default:
@@ -3109,9 +3238,6 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               {
                 PWaitAndSignal mutexWait(Mutex);
 
-                if (callDirection != cdUndefined)
-                  _ClearCall();
-
                 P = Profiles[0];
 
                 if (audioEngine)
@@ -3119,6 +3245,9 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 
                 if (t38engine)
                   t38engine->ChangeModemClass(P.AudioClass() ? EngineBase::mcAudio : EngineBase::mcFax);
+
+                if (off_hook)
+                  OnHook();
               }
               break;
             case 'H':					// &H
@@ -3297,9 +3426,9 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
     while (len > 0) {
       switch (state) {
         case stCommand:
-          {
-          PWaitAndSignal mutexWait(Mutex);
-          lastPtyActivity = PTime();
+          if (!off_hook) {
+            PWaitAndSignal mutexWait(Mutex);
+            lastOnHookActivity = PTime();
           }
 
           while (state == stCommand && len > 0) {
@@ -3361,14 +3490,14 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
               PWaitAndSignal mutexWait(Mutex);
               switch( count ) {
                 case -1:
-                  state = stSendAckWait;
+                  SetState(stSendAckWait);
                   if ((P.AudioClass() && (!audioEngine || !audioEngine->SendStop(moreFrames, NextSeq()))) ||
                       (P.FaxClass() && (!t38engine || !t38engine->SendStop(moreFrames, NextSeq()))))
                   {
                     PString resp = RC_PREF() + RC_ERROR();
 
                     bresp.Concatenate(PBYTEArray((const BYTE *)resp, resp.GetLength()));
-                    state = stCommand;
+                    SetState(stCommand);
                   }
                   break;
                 case 0:
@@ -3429,7 +3558,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
           myPTRACE(1, "Reset state stSendAckWait");
           {
             PWaitAndSignal mutexWait(Mutex);
-            state = stCommand;
+            SetState(stCommand);
             timeout.Stop();
             if (t38engine)
               t38engine->ResetModemState();
@@ -3451,10 +3580,10 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
               if (state == stRecv)
                 bresp.Concatenate(PBYTEArray((const BYTE *)"\x10\x03", 2));	// add <DLE><ETX>
 
-              state = stCommand;
+              SetState(stCommand);
               resp += RC_OK();
             } else {
-              state = stCommand;
+              SetState(stCommand);
 
               if (t38engine) {
                 t38engine->ResetModemState();
@@ -3485,7 +3614,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
       }
       else
-      if (callDirection == cdUndefined) {
+      if (!off_hook && callState == cstCalled) {
         resp = RC_RING();
         BYTE s0, ringCount;
         P.GetReg(0, s0);
@@ -3499,11 +3628,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             resp += RC_RING();
         }
         P.SetReg(1, ++ringCount);
-        if (s0 > 0 && (ringCount >= s0)) {
-          Mutex.Signal();
+
+        if (s0 > 0 && (ringCount >= s0))
           Answer();
-          Mutex.Wait();
-        }
       }
     }
   }
@@ -3514,7 +3641,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       case stReqModeAckWait:
       case stRecvBegWait:
         resp = RC_NO_CARRIER();
-        state = stCommand;
+        SetState(stCommand);
         if (t38engine)
           t38engine->ResetModemState();
         else
@@ -3527,7 +3654,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         }
       case stConnectWait:
         resp = RC_NO_CARRIER();
-        state = stCommand;
+        SetState(stCommand);
         _ClearCall();
         break;
       default:
@@ -3535,7 +3662,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     }
   }
 
-  if (connectionEstablished) {
+  {
     PWaitAndSignal mutexWait(Mutex);
 
     EngineBase *engines[] = {audioEngine, t38engine};
@@ -3633,7 +3760,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           default:
             resp = RC_ERROR();
         }
-        state = stCommand;
+        SetState(stCommand);
         if (t38engine)
           t38engine->ResetModemState();
         else
@@ -3643,10 +3770,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     case stSendBufEmptyHandle:
       {
         PWaitAndSignal mutexWait(Mutex);
-        state = stSendAckWait;
+        SetState(stSendAckWait);
         if( !t38engine || !t38engine->SendStop(moreFrames, NextSeq()) ) {
           resp = RC_ERROR();
-          state = stCommand;
+          SetState(stCommand);
         }
       }
       break;
@@ -3686,12 +3813,14 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
               if (err) {
                 resp = RC_ERROR();
-                state = stCommand;
+                SetState(stCommand);
                 _ClearCall();
               }
 
-              delete pPlayTone;
-              pPlayTone = NULL;
+              if (pPlayTone) {
+                delete pPlayTone;
+                pPlayTone = NULL;
+              }
               break;
             }
             param = chTonePlayed;
@@ -3706,17 +3835,17 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             connectionEstablished = TRUE;
 
             if (P.AudioClass()) {
-              state = stCommand;
+              SetState(stCommand);
               timeout.Stop();
               resp = RC_OK();
             }
             else
             if (t38engine) {
-              state = stReqModeAckHandle;
+              SetState(stReqModeAckHandle);
               timeout.Stop();
               parent.SignalDataReady();
             } else {
-              state = stReqModeAckWait;
+              SetState(stReqModeAckWait);
 
               timeout.Start(forceFaxMode ? 10000 : 60000);
 
@@ -3734,7 +3863,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               PString response = request("response");
 
               if (forceFaxMode && response != "confirm") {
-                state = stCommand;
+                SetState(stCommand);
                 timeout.Stop();
                 resp = RC_NO_CARRIER();
               }
@@ -3749,16 +3878,16 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         switch( callDirection ) {
           case cdIncoming:
             dataType = EngineBase::dtCed;
-            state = stSend;
+            SetState(stSend);
             if (t38engine && t38engine->SendStart(dataType, 3000)) {
-              state = stSendAckWait;
+              SetState(stSendAckWait);
               if (!t38engine->SendStop(FALSE, NextSeq())) {
                 resp = RC_ERROR();
-                state = stCommand;
+                SetState(stCommand);
               }
             } else {
               resp = RC_NO_CARRIER();
-              state = stCommand;
+              SetState(stCommand);
             }
             break;
           case cdOutgoing:
@@ -3769,7 +3898,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             break;
           default:
             resp = RC_NO_CARRIER();
-            state = stCommand;
+            SetState(stCommand);
         }
       }
       break;
@@ -3781,7 +3910,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           break;
         case EngineBase::dtSilence:
             resp = RC_OK();
-            state = stCommand;
+            SetState(stCommand);
           break;
         case EngineBase::dtHdlc:
         case EngineBase::dtRaw:
@@ -3789,10 +3918,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             PWaitAndSignal mutexWait(Mutex);
             if( moreFrames ) {
               resp = RC_CONNECT();
-              state = stSend;
+              SetState(stSend);
             } else {
               resp = RC_OK();
-              state = stCommand;
+              SetState(stCommand);
             }
             ResetDleData();
           }
@@ -3812,7 +3941,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         else
         if (P.AudioClass() && audioEngine && audioEngine->RecvStart(NextSeq())) {
           resp = RC_CONNECT();
-          state = stRecv;
+          SetState(stRecv);
           parent.SignalDataReady();	// try to Recv w/o delay
         }
         else
@@ -3824,16 +3953,16 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               if (dataType == EngineBase::dtHdlc)
                 fcs = FCS();
             }
-            state = stRecv;
+            SetState(stRecv);
             parent.SignalDataReady();	// try to Recv w/o delay
           } else {
             t38engine->RecvStop();
             resp = RC_FCERROR();
-            state = stCommand;
+            SetState(stCommand);
           }
         } else {
           resp = RC_ERROR();
-          state = stCommand;
+          SetState(stCommand);
         }
         ResetDleData();
       }
@@ -3972,7 +4101,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           switch (count) {
             case -1:
               {
-                state = stCommand;
+                SetState(stCommand);
 
                 if (P.AudioClass()) {
                   resp = RC_OK();
