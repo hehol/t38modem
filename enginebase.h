@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.7  2010-03-18 08:42:17  vfrolov
- * Added named tracing of data types
+ * Revision 1.8  2010-07-07 08:09:47  vfrolov
+ * Added IsAttached()
+ *
+ * Revision 1.8  2010/07/07 08:09:47  vfrolov
+ * Added IsAttached()
  *
  * Revision 1.7  2010/03/18 08:42:17  vfrolov
  * Added named tracing of data types
@@ -98,6 +101,7 @@ class EngineBase : public PObject
 
   /**@name Modem API */
   //@{
+    PBoolean IsAttached() const;
     PBoolean Attach(const PNotifier &callback);
     void Detach(const PNotifier &callback);
 
