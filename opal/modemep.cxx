@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.23  2010-03-23 07:51:28  vfrolov
- * Added ability to disable auto fax mode forcing with OPAL-Force-Fax-Mode=false
+ * Revision 1.24  2010-07-07 08:11:44  vfrolov
+ * Fixed race condition with engine attaching
+ *
+ * Revision 1.24  2010/07/07 08:11:44  vfrolov
+ * Fixed race condition with engine attaching
  *
  * Revision 1.23  2010/03/23 07:51:28  vfrolov
  * Added ability to disable auto fax mode forcing with OPAL-Force-Fax-Mode=false
@@ -537,9 +540,8 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
   if (mediaFormat == OpalT38) {
     PAssert(t38engine != NULL, "t38engine is NULL");
 
-    if (!isSource) {
+    if (!t38engine->IsAttached()) {
       PAssert(pmodem != NULL, "pmodem is NULL");
-
       pmodem->Attach(t38engine);
     }
 
@@ -549,7 +551,7 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
   if (mediaFormat == OpalPCM16) {
     PAssert(audioEngine != NULL, "audioEngine is NULL");
 
-    if (!isSource) {
+    if (!audioEngine->IsAttached()) {
       PAssert(pmodem != NULL, "pmodem is NULL");
       pmodem->Attach(audioEngine);
     }
