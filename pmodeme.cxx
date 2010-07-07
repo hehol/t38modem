@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.88  2010-07-07 08:22:47  vfrolov
- * Redesigned modem engine
+ * Revision 1.89  2010-07-07 13:40:56  vfrolov
+ * Fixed ussue with call clearing in stSend state
+ * Added missing responce tracing
+ *
+ * Revision 1.89  2010/07/07 13:40:56  vfrolov
+ * Fixed ussue with call clearing in stSend state
+ * Added missing responce tracing
  *
  * Revision 1.88  2010/07/07 08:22:47  vfrolov
  * Redesigned modem engine
@@ -1507,7 +1512,7 @@ PBoolean ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, PBo
                   timeout.Start(60000);
                   dataType = dt;
                   param = dms*10;
-                  state = stRecvBegWait;
+                  SetState(stRecvBegWait);
                   if (t38engine && t38engine->RecvWait(dataType, 0, NextSeq(), done)) {
                     if (!done)
                       break;
@@ -3494,10 +3499,9 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                   if ((P.AudioClass() && (!audioEngine || !audioEngine->SendStop(moreFrames, NextSeq()))) ||
                       (P.FaxClass() && (!t38engine || !t38engine->SendStop(moreFrames, NextSeq()))))
                   {
-                    PString resp = RC_PREF() + RC_ERROR();
-
-                    bresp.Concatenate(PBYTEArray((const BYTE *)resp, resp.GetLength()));
-                    SetState(stCommand);
+                    SetState(stSendAckHandle);
+                    timeout.Stop();
+                    parent.SignalDataReady();  // try to SendAckHandle w/o delay
                   }
                   break;
                 case 0:
@@ -3577,8 +3581,12 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             PString resp = RC_PREF();
 
             if (P.AudioClass()) {
-              if (state == stRecv)
-                bresp.Concatenate(PBYTEArray((const BYTE *)"\x10\x03", 2));	// add <DLE><ETX>
+              if (state == stRecv) {
+                PBYTEArray _bresp((const BYTE *)"\x10\x03", 2); // add <DLE><ETX>
+
+                myPTRACE(1, "<-- " << PRTHEX(_bresp));
+                bresp.Concatenate(_bresp);
+              }
 
               SetState(stCommand);
               resp += RC_OK();
@@ -3594,7 +3602,10 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
               }
             }
 
-            bresp.Concatenate(PBYTEArray((const BYTE *)resp, resp.GetLength()));
+            PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
+
+            myPTRACE(1, "<-- " << PRTHEX(_bresp));
+            bresp.Concatenate(_bresp);
           }
       }
     }
@@ -3772,8 +3783,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         PWaitAndSignal mutexWait(Mutex);
         SetState(stSendAckWait);
         if( !t38engine || !t38engine->SendStop(moreFrames, NextSeq()) ) {
-          resp = RC_ERROR();
-          SetState(stCommand);
+          SetState(stSendAckHandle);
+          timeout.Stop();
+          parent.SignalDataReady();  // try to SendAckHandle w/o delay
         }
       }
       break;
