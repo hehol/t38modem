@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.89  2010-07-07 13:40:56  vfrolov
- * Fixed ussue with call clearing in stSend state
- * Added missing responce tracing
+ * Revision 1.90  2010-07-08 05:11:34  vfrolov
+ * Redesigned modem engine (continue)
+ *
+ * Revision 1.90  2010/07/08 05:11:34  vfrolov
+ * Redesigned modem engine (continue)
  *
  * Revision 1.89  2010/07/07 13:40:56  vfrolov
  * Fixed ussue with call clearing in stSend state
@@ -585,7 +587,6 @@ static ostream & operator<<(ostream & out, CallState state)
 #endif
 ///////////////////////////////////////////////////////////////
 enum State {
-  stResetHandle,
   stCommand,
   stConnectWait,
   stConnectHandle,
@@ -604,7 +605,6 @@ enum State {
 static ostream & operator<<(ostream & out, State state)
 {
   switch (state) {
-    case stResetHandle:         return out << "stResetHandle";
     case stCommand:             return out << "stCommand";
     case stConnectWait:         return out << "stConnectWait";
     case stConnectHandle:       return out << "stConnectHandle";
@@ -709,8 +709,7 @@ class ModemEngineBody : public PObject
       return FALSE;
     }
 
-    PBoolean SendStart(EngineBase::DataType dt, int br, PString &resp) {
-      PWaitAndSignal mutexWait(Mutex);
+    PBoolean _SendStart(EngineBase::DataType dt, int br, PString &resp) {
       dataType = dt;
       ResetDleData();
       SetBitRevDleData();
@@ -725,6 +724,11 @@ class ModemEngineBody : public PObject
 
       resp = RC_CONNECT();
       return TRUE;
+    }
+
+    PBoolean SendStart(EngineBase::DataType dt, int br, PString &resp) {
+      PWaitAndSignal mutexWait(Mutex);
+      return _SendStart(dt, br, resp);
     }
 
     PBoolean RecvStart(EngineBase::DataType dt, int br) {
@@ -790,7 +794,6 @@ class ModemEngineBody : public PObject
 
     CallDirection callDirection;
     CallState callState;
-    CallState preReleasingCallState;
     State state;
 
     #define TRACE_STATE(level, header) \
@@ -820,14 +823,18 @@ class ModemEngineBody : public PObject
     }
 
     void SetCallState(CallState newState) {
-      callState = newState;
-      callSubState = 0;
-      TRACE_STATE(4, "ModemEngineBody::SetCallState:");
+      if (callState != newState || callSubState != 0) {
+        callState = newState;
+        callSubState = 0;
+        TRACE_STATE(4, "ModemEngineBody::SetCallState:");
+      }
     }
 
     void SetState(State newState) {
-      state = newState;
-      TRACE_STATE(4, "ModemEngineBody::SetState:");
+      if (state != newState) {
+        state = newState;
+        TRACE_STATE(4, "ModemEngineBody::SetState:");
+      }
     }
 
     int param;
@@ -1051,7 +1058,6 @@ void ModemEngineBody::_ClearCall()
   lockReleasingState++;
 
   if (callState != cstReleasing) {
-    preReleasingCallState = callState;
     SetCallState(cstReleasing);
 
     timerRing.Stop();
@@ -3480,6 +3486,8 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             int lendone = dleData.PutDleData(pBuf, len);
 
             if (lendone > 0) {
+                PTRACE(4, "--> DLE " << lendone << " bytes");
+
                 if (Echo())
                   bresp.Concatenate(PBYTEArray(pBuf, lendone));
                 len -= lendone;
@@ -3614,9 +3622,9 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 void ModemEngineBody::CheckState(PBYTEArray & bresp)
 {
   PString resp;
+  PWaitAndSignal mutexWait(Mutex);
 
   {
-    PWaitAndSignal mutexWait(Mutex);
     if (cmd.IsEmpty() && timerRing.Get())  {
       if (callDirection == cdOutgoing && !pPlayTone && P.AudioClass()) {
         BYTE b[2] = {'\x10', 'r'};
@@ -3647,7 +3655,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
   }
 
   if (timeout.Get()) {
-    PWaitAndSignal mutexWait(Mutex);
     switch( state ) {
       case stReqModeAckWait:
       case stRecvBegWait:
@@ -3674,8 +3681,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
   }
 
   {
-    PWaitAndSignal mutexWait(Mutex);
-
     EngineBase *engines[] = {audioEngine, t38engine};
 
     for (int i = 0 ; i < (int)(sizeof(engines)/sizeof(engines[0])) ; i++) {
@@ -3730,57 +3735,63 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     }
   }
 
-  switch( state ) {
-    case stResetHandle:
-      {
-        PWaitAndSignal mutexWait(Mutex);
+  if (off_hook && callState == cstReleasing && callSubState == 0) {
+    callSubState++;
 
-        if (!connectionEstablished && P.AudioClass()) {
-          PBYTEArray _bresp((const BYTE *)"\x10" "b", 2);		// <DLE>b
-          bresp.Concatenate(_bresp);
-          myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
-        }
+    if (P.AudioClass()) {
+      PBYTEArray _bresp((const BYTE *)"\x10" "b", 2);		// <DLE>b
+      bresp.Concatenate(_bresp);
+      myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+    }
 
-        switch( param ) {
-          case stCommand:
-            break;
-          case stSend:
-            resp = RC_ERROR();
-            break;
-          case stRecvBegWait:
-            resp = RC_NO_CARRIER();
-            break;
-          case stRecv:
-            if (dataCount || P.AudioClass()) {
-              PBYTEArray _bresp((const BYTE *)"\x10\x03", 2);		// <DLE><ETX>
-              bresp.Concatenate(_bresp);
-              PTRACE(2, "<-- DLE " << PRTHEX(_bresp));
-            }
-
-            resp = P.AudioClass() ? RC_OK() : RC_ERROR();
-            break;
-          case stConnectWait:
-          case stConnectHandle:
-          case stReqModeAckWait:
-          case stReqModeAckHandle:
-            if (callDirection == cdOutgoing)
-              resp = RC_BUSY();
-            else
-              resp = RC_ERROR();
-            break;
-          default:
-            resp = RC_ERROR();
-        }
-        SetState(stCommand);
-        if (t38engine)
-          t38engine->ResetModemState();
+    switch (state) {
+      case stCommand:
+        break;
+      case stConnectWait:
+      case stConnectHandle:
+      case stReqModeAckWait:
+      case stReqModeAckHandle:
+        if (callDirection == cdOutgoing)
+          resp = RC_BUSY();
         else
-          _ClearCall();
-      }
-      break;
+          resp = RC_ERROR();
+
+        SetState(stCommand);
+        break;
+      case stSend:
+      case stSendBufEmptyHandle:
+        break;
+      case stSendAckWait:
+        SetState(stSendAckHandle);
+        timeout.Stop();
+        break;
+      case stSendAckHandle:
+        break;
+      case stRecvBegWait:
+        resp = RC_NO_CARRIER();
+        SetState(stCommand);
+        break;
+      case stRecvBegHandle:
+        break;
+      case stRecv:
+        if (dataCount || P.AudioClass()) {
+          PBYTEArray _bresp((const BYTE *)"\x10\x03", 2);		// <DLE><ETX>
+          bresp.Concatenate(_bresp);
+          PTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+        }
+
+        resp = P.AudioClass() ? RC_OK() : RC_ERROR();
+        SetState(stCommand);
+        break;
+      default:
+        resp = RC_ERROR();
+        SetState(stCommand);
+    }
+  }
+
+  switch (state) {
     case stSendBufEmptyHandle:
       {
-        PWaitAndSignal mutexWait(Mutex);
         SetState(stSendAckWait);
         if( !t38engine || !t38engine->SendStop(moreFrames, NextSeq()) ) {
           SetState(stSendAckHandle);
@@ -3791,7 +3802,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       break;
     case stConnectHandle:
       {
-        PWaitAndSignal mutexWait(Mutex);
         switch(param) {
           case chConnected:
             if (!audioEngine) {
@@ -3886,7 +3896,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       break;
     case stReqModeAckHandle:
       {
-        PWaitAndSignal mutexWait(Mutex);
         switch( callDirection ) {
           case cdIncoming:
             dataType = EngineBase::dtCed;
@@ -3915,9 +3924,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       }
       break;
     case stSendAckHandle:
-      switch( dataType ) {
+      switch (dataType) {
         case EngineBase::dtCed:
-          if (!SendStart(EngineBase::dtHdlc, 3, resp))
+          if (!_SendStart(EngineBase::dtHdlc, 3, resp))
             resp = RC_ERROR();
           break;
         case EngineBase::dtSilence:
@@ -3927,8 +3936,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         case EngineBase::dtHdlc:
         case EngineBase::dtRaw:
           {
-            PWaitAndSignal mutexWait(Mutex);
-            if( moreFrames ) {
+            if (moreFrames) {
               resp = RC_CONNECT();
               SetState(stSend);
             } else {
@@ -3944,8 +3952,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       break;
     case stRecvBegHandle:
       {
-        PWaitAndSignal mutexWait(Mutex);
-
         if (dataType == EngineBase::dtSilence) {
           if (!SendSilence(param))
             resp = RC_ERROR();
@@ -3985,8 +3991,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         int count;
 
         for(;;) {
-          PWaitAndSignal mutexWait(Mutex);
-
           if (P.AudioClass()) {
             if (!audioEngine) {
               dleData.PutEof();
@@ -4106,8 +4110,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         }
 
         for(;;) {
-          PWaitAndSignal mutexWait(Mutex);
-
           count = dleData.GetDleData(Buf, sizeof(Buf));
 
           switch (count) {
@@ -4139,11 +4141,11 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             default: {
               PBYTEArray _bresp(PBYTEArray(Buf, count));
 #if PTRACING
-              if (myCanTrace(2)) {
+              if (PTrace::CanTrace(4)) {
                  if (count <= 16) {
-                   PTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+                   PTRACE(4, "<-- DLE " << PRTHEX(_bresp));
                  } else {
-                   PTRACE(2, "<-- DLE " << count << " bytes");
+                   PTRACE(4, "<-- DLE " << count << " bytes");
                  }
               }
 #endif
