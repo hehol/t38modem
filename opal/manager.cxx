@@ -24,8 +24,15 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.13  2010-03-15 13:40:27  vfrolov
- * Removed unused code
+ * Revision 1.14  2010-07-08 11:40:18  vfrolov
+ * Fixed route message for sip
+ * Added call end reason to call cleared message
+ * Added support for multiple <dn!N> per route
+ *
+ * Revision 1.14  2010/07/08 11:40:18  vfrolov
+ * Fixed route message for sip
+ * Added call end reason to call cleared message
+ * Added support for multiple <dn!N> per route
  *
  * Revision 1.13  2010/03/15 13:40:27  vfrolov
  * Removed unused code
@@ -291,10 +298,13 @@ bool MyManager::OnRouteConnection(PStringSet & routesTried,
   PSafePtr<OpalConnection> dst_conn = call.GetConnection(1);
 
   if (dst_conn != NULL) {
-    if (dst_conn->GetRemotePartyAddress().NumCompare(dst_conn->GetPrefixName() + ":") != EqualTo)
-      dst = dst_conn->GetPrefixName() + ":" + dst_conn->GetRemotePartyAddress();
+    if (dst_conn->GetPrefixName().NumCompare("sip") == EqualTo)
+      dst = dst_conn->GetRemotePartyURL();
     else
       dst = dst_conn->GetRemotePartyAddress();
+
+    if (dst.NumCompare(dst_conn->GetPrefixName() + ":") != EqualTo)
+      dst = dst_conn->GetPrefixName() + ":" + dst;
   }
 
   cout << "Call[" << token << "] from " << a_party << " to " << b_party << ", route to " << dst << endl;
@@ -305,8 +315,8 @@ bool MyManager::OnRouteConnection(PStringSet & routesTried,
 
 void MyManager::OnClearedCall(OpalCall & call)
 {
-  cout << "Call[" << call.GetToken() << "] cleared" << endl;
-  PTRACE(1, "Call[" << call.GetToken() << "] cleared");
+  cout << "Call[" << call.GetToken() << "] cleared (" << call.GetCallEndReasonText() << ")" << endl;
+  PTRACE(1, "Call[" << call.GetToken() << "] cleared (" << call.GetCallEndReason() << ")");
 
   OpalManager::OnClearedCall(call);
 }
@@ -331,15 +341,17 @@ PString MyManager::ApplyRouteTable(const PString & proto, const PString & addr, 
 {
   PString destination = OpalManager::ApplyRouteTable(proto, addr, routeIndex);
 
-  PINDEX pos;
+  PINDEX pos = 0;
 
-  if ((pos = destination.Find("<dn!")) != P_MAX_INDEX) {
+  while ((pos = destination.Find("<dn!", pos)) != P_MAX_INDEX) {
     PINDEX strip_num_len = (PINDEX)::strspn((const char *)destination + pos + 4, "0123456789");
 
     if (destination[pos + 4 + strip_num_len] == '>') {
       PINDEX strip_num = (PINDEX)destination.Mid(pos + 4, strip_num_len).AsInteger();
 
       destination.Splice(addr.Left((PINDEX)::strspn(addr, "0123456789*#")).Mid(strip_num), pos, 4 + strip_num_len + 1);
+    } else {
+      pos++;
     }
   }
 
