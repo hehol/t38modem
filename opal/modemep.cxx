@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.25  2010-07-09 04:51:55  vfrolov
- * Implemented alternate route option (OPAL-Try-Next)
- * Added timeout option for SetUpPhase (OPAL-Set-Up-Phase-Timeout)
+ * Revision 1.26  2010-07-09 07:12:36  vfrolov
+ * Added "Trying alternate route ..." message
+ *
+ * Revision 1.26  2010/07/09 07:12:36  vfrolov
+ * Added "Trying alternate route ..." message
  *
  * Revision 1.25  2010/07/09 04:51:55  vfrolov
  * Implemented alternate route option (OPAL-Try-Next)
@@ -333,6 +335,17 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
         PString partyA = PString("modem:") + request("localpartyname");
         PString partyB = request("number") + "@" + modem->ttyName();
 
+        PString originalPartyB;
+        long tries = request("trynextcount").AsInteger();
+
+        if (tries++ > 0) {
+          originalPartyB = request("originalpartyb");
+          cout << "Trying alternate route " << tries << " to " << partyB << " instead " << originalPartyB << endl;
+          PTRACE(1, "Trying alternate route " << tries << " to " << partyB << " instead " << originalPartyB);
+        } else {
+          originalPartyB = partyB;
+        }
+
         myPTRACE(1, "MyManager::OnMyCallback SetUpCall(" << partyA << ", " << partyB << ")");
 
         PSafePtr<OpalCall> call = GetManager().SetUpCall(partyA, partyB, modem);
@@ -341,6 +354,11 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
           PSafePtr<OpalConnection> pConn = call->GetConnection(0);
 
           if (pConn != NULL) {
+            OpalConnection::StringOptions newOptions;
+            newOptions.SetAt("Try-Next-Count", tries);
+            newOptions.SetAt("Original-Party-B", originalPartyB);
+            pConn->SetStringOptions(newOptions, false);
+
             request.SetAt("calltoken", pConn->GetToken());
             response = "confirm";
             modem = NULL;
@@ -555,6 +573,8 @@ ModemConnection::~ModemConnection()
             request.SetAt("trynextcommand", "dial");
             request.SetAt("number", num);
             request.SetAt("localpartyname", remotePartyNumber);
+            request.SetAt("trynextcount", GetStringOptions().Contains("Try-Next-Count") ? GetStringOptions()("Try-Next-Count") : "1");
+            request.SetAt("originalpartyb", GetStringOptions().Contains("Original-Party-B") ? GetStringOptions()("Original-Party-B") : "unknown");
           }
           break;
         default:
