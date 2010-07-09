@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.90  2010-07-08 05:11:34  vfrolov
- * Redesigned modem engine (continue)
+ * Revision 1.91  2010-07-09 04:46:55  vfrolov
+ * Implemented alternate route
+ *
+ * Revision 1.91  2010/07/09 04:46:55  vfrolov
+ * Implemented alternate route
  *
  * Revision 1.90  2010/07/08 05:11:34  vfrolov
  * Redesigned modem engine (continue)
@@ -588,6 +591,7 @@ static ostream & operator<<(ostream & out, CallState state)
 ///////////////////////////////////////////////////////////////
 enum State {
   stCommand,
+  stDial,
   stConnectWait,
   stConnectHandle,
   stReqModeAckWait,
@@ -606,6 +610,7 @@ static ostream & operator<<(ostream & out, State state)
 {
   switch (state) {
     case stCommand:             return out << "stCommand";
+    case stDial:                return out << "stDial";
     case stConnectWait:         return out << "stConnectWait";
     case stConnectHandle:       return out << "stConnectHandle";
     case stReqModeAckWait:      return out << "stReqModeAckWait";
@@ -838,6 +843,7 @@ class ModemEngineBody : public PObject
     }
 
     int param;
+    PStringToString params;
     PString cmd;
     EngineBase::DataType dataType;
 
@@ -1194,7 +1200,18 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     else
     if (CallToken() == request("calltoken")) {
       CallToken("");
-      _ClearCall();
+ 
+      if (callState == cstDialing && state == stConnectWait && request("trynextcommand") == "dial") {
+        SetState(stDial);
+        params = request;
+        params.RemoveAt("command");
+        params.RemoveAt("calltoken");
+        params.RemoveAt("trynextcommand");
+        parent.SignalDataReady();
+      } else {
+        _ClearCall();
+      }
+
       request.SetAt("response", "confirm");
     }
     else {
@@ -2247,14 +2264,6 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               if (response == "confirm") {
                 CallToken(request("calltoken"));
               } else {
-                callDirection = cdUndefined;
-                forceFaxMode = FALSE;
-
-                if (pPlayTone) {
-                  delete pPlayTone;
-                  pPlayTone = NULL;
-                }
-
                 if (wasOnHook)
                   OnHook();
                 else
@@ -3747,6 +3756,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     switch (state) {
       case stCommand:
         break;
+      case stDial:
       case stConnectWait:
       case stConnectHandle:
       case stReqModeAckWait:
@@ -3790,6 +3800,30 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
   }
 
   switch (state) {
+    case stDial:
+      {
+        SetState(stConnectWait);
+        timeout.Start((unsigned(P.S7()) + 1) * 1000);
+
+        PStringToString request = params;
+        request.SetAt("modemtoken", parent.modemToken());
+        request.SetAt("command", "dial");
+
+        Mutex.Signal();
+        callbackEndPoint(request, 5);
+        Mutex.Wait();
+
+        PString response = request("response");
+
+        if (response == "confirm") {
+          CallToken(request("calltoken"));
+        } else {
+          _ClearCall();
+          timeout.Stop();
+          parent.SignalDataReady();  // try to stConnectWait w/o delay
+        }
+      }
+      break;
     case stSendBufEmptyHandle:
       {
         SetState(stSendAckWait);
