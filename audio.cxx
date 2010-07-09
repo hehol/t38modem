@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.12  2010-03-18 08:42:17  vfrolov
- * Added named tracing of data types
+ * Revision 1.13  2010-07-09 04:44:27  vfrolov
+ * Added tracing targetTimeFakeOut
+ *
+ * Revision 1.13  2010/07/09 04:44:27  vfrolov
+ * Added tracing targetTimeFakeOut
  *
  * Revision 1.12  2010/03/18 08:42:17  vfrolov
  * Added named tracing of data types
@@ -335,6 +338,8 @@ PBoolean AudioEngine::isOutBufFull() const
 
     if (sleep_time <= 0)
       return FALSE;
+
+    PTRACE(5, "AudioEngine::isOutBufFull targetTimeFakeOut=" << targetTimeFakeOut.AsString("yyyy/MM/dd hh:mm:ss.uuu", PTime::Local));
 
     timerFakeOut = sleep_time;
 
