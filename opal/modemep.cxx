@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.24  2010-07-07 08:11:44  vfrolov
- * Fixed race condition with engine attaching
+ * Revision 1.25  2010-07-09 04:51:55  vfrolov
+ * Implemented alternate route option (OPAL-Try-Next)
+ * Added timeout option for SetUpPhase (OPAL-Set-Up-Phase-Timeout)
+ *
+ * Revision 1.25  2010/07/09 04:51:55  vfrolov
+ * Implemented alternate route option (OPAL-Try-Next)
+ * Added timeout option for SetUpPhase (OPAL-Set-Up-Phase-Timeout)
  *
  * Revision 1.24  2010/07/07 08:11:44  vfrolov
  * Fixed race condition with engine attaching
@@ -187,6 +192,12 @@ class ModemConnection : public OpalConnection
     AudioEngine * audioEngine;
     T38Engine * t38engine;
     PseudoModemMode requestedMode;
+    bool isPartyA;
+
+    PDECLARE_NOTIFIER(PTimer,  ModemConnection, OnPhaseTimeout);
+    PTimer phaseTimer;
+    Phases phaseTimerPhase;
+    bool phaseWasTimeout;
 };
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -488,11 +499,16 @@ ModemConnection::ModemConnection(
   , audioEngine(NULL)
   , t38engine(NULL)
   , requestedMode(pmmAny)
+  , isPartyA(userData != NULL)
+  , phaseTimerPhase(NumPhases)
+  , phaseWasTimeout(false)
 {
   remotePartyNumber = GetPartyName(remoteParty);
   remotePartyAddress = remoteParty;
 
-  myPTRACE(1, "ModemConnection::ModemConnection " << *this);
+  myPTRACE(4, "ModemConnection::ModemConnection " << *this);
+
+  phaseTimer.SetNotifier(PCREATE_NOTIFIER(OnPhaseTimeout));
 
   if (userData)
     Attach((PseudoModem *)userData);
@@ -500,7 +516,7 @@ ModemConnection::ModemConnection(
 
 ModemConnection::~ModemConnection()
 {
-  myPTRACE(1, "ModemConnection::~ModemConnection " << *this);
+  myPTRACE(4, "ModemConnection::~ModemConnection " << *this << " " << GetCallEndReason());
 
   if (pmodem != NULL) {
     if (t38engine != NULL)
@@ -509,17 +525,46 @@ ModemConnection::~ModemConnection()
     if (audioEngine != NULL)
       pmodem->Detach(audioEngine);
 
+    PseudoModem *pmodemTmp = pmodem;
+
+    ((ModemEndPoint &)GetEndPoint()).PMFree(pmodem);
+    pmodem = NULL;
+
     PStringToString request;
     request.SetAt("command", "clearcall");
     request.SetAt("calltoken", GetToken());
-    if( !pmodem->Request(request) ) {
-      myPTRACE(1, "ModemConnection::~ModemConnection error request={\n" << request << "}");
+
+    if (isPartyA) {
+      switch (GetCallEndReason()) {
+        case EndedByLocalUser:
+          if (!phaseWasTimeout)
+            break;
+        case EndedByQ931Cause:
+        case EndedByConnectFail:
+        case EndedByGatekeeper:
+        case EndedByNoBandwidth:
+        case EndedByCapabilityExchange:
+        case EndedByCallForwarded:
+        case EndedByNoEndPoint:
+        case EndedByHostOffline:
+        case EndedByUnreachable:
+        case EndedByTransportFail:
+          if (GetStringOptions().Contains("Try-Next")) {
+            PString num = GetStringOptions()("Try-Next");
+            myPTRACE(1, "ModemConnection::~ModemConnection: Try-Next=" << num);
+            request.SetAt("trynextcommand", "dial");
+            request.SetAt("number", num);
+            request.SetAt("localpartyname", remotePartyNumber);
+          }
+          break;
+        default:
+          break;
+      }
     }
 
-    ModemEndPoint &ep = (ModemEndPoint &)GetEndPoint();
-
-    ep.PMFree(pmodem);
-    pmodem = NULL;
+    if (!pmodemTmp->Request(request)) {
+      myPTRACE(1, "ModemConnection::~ModemConnection error request={\n" << request << "}");
+    }
   }
 
   if (t38engine != NULL)
@@ -527,6 +572,19 @@ ModemConnection::~ModemConnection()
 
   if (audioEngine != NULL)
     delete audioEngine;
+
+  phaseTimer.Stop();
+}
+
+void ModemConnection::OnPhaseTimeout(PTimer &, INT)
+{
+  PTRACE(4, "ModemConnection::OnPhaseTimeout: for " << phaseTimerPhase << " on " << GetPhase());
+
+  if (phaseTimerPhase == GetPhase()) {
+    PTRACE(4, "ModemConnection::OnPhaseTimeout: clearing call");
+    phaseWasTimeout = true;
+    ClearCall();
+  }
 }
 
 OpalMediaStream * ModemConnection::CreateMediaStream(
@@ -609,6 +667,17 @@ PBoolean ModemConnection::SetUpConnection()
     if (!GetCall().OnSetUp(*this)) {
       Release(EndedByNoAccept);
       return FALSE;
+    }
+
+    if (GetStringOptions().Contains("Set-Up-Phase-Timeout")) {
+      long secs = GetStringOptions()("Set-Up-Phase-Timeout").AsInteger();
+
+      PTRACE(4, "ModemConnection::SetUpConnection: Set-Up-Phase-Timeout=" << secs);
+
+      if (secs > 0) {
+        phaseTimerPhase = SetUpPhase;
+        phaseTimer.SetInterval(0, secs);
+      }
     }
 
     return TRUE;
