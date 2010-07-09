@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.26  2010-07-09 07:12:36  vfrolov
- * Added "Trying alternate route ..." message
+ * Revision 1.27  2010-07-09 13:18:13  vfrolov
+ * Fixed help message
+ *
+ * Revision 1.27  2010/07/09 13:18:13  vfrolov
+ * Fixed help message
  *
  * Revision 1.26  2010/07/09 07:12:36  vfrolov
  * Added "Trying alternate route ..." message
@@ -248,12 +251,20 @@ PStringArray ModemEndPoint::Descriptions()
       "                              for numbers with prefix num.\n"
       "                              Use none@tty to disable incoming calls.\n"
       "                              See Modem drivers section for tty format.\n"
-      "  --force-fax-mode          : Force fax mode (T.38 or G.711 pass-trough).\n"
-      "                              Can be overriden by route option\n"
-      "                                OPAL-Force-Fax-Mode=false\n"
-      "  --no-force-t38-mode       : No force T.38 mode.\n"
-      "                              Can be overriden by route option\n"
-      "                                OPAL-No-Force-T38-Mode=false\n"
+      "  --force-fax-mode          : Use OPAL-Force-Fax-Mode=true route option by\n"
+      "                              default.\n"
+      "  --no-force-t38-mode       : Use OPAL-No-Force-T38-Mode=true route option by\n"
+      "                              default.\n"
+      "Modem route options:\n"
+      "  OPAL-Set-Up-Phase-Timeout=secs\n"
+      "    Set timeout for outgoing call Set-Up phase to secs seconds.\n"
+      "  OPAL-Try-Next=dst\n"
+      "    Set alternate incoming destination address for outgoing calls to dst. This\n"
+      "    address will be used to re-route if outgoing call Set-Up phase fails.\n"
+      "  OPAL-Force-Fax-Mode={true|false}\n"
+      "    Enable or disable forcing fax mode (T.38 or G.711 pass-trough).\n"
+      "  OPAL-No-Force-T38-Mode={true|false}\n"
+      "    Not enable or not disable forcing T.38 mode.\n"
       "Modem drivers:\n"
   ).Lines();
 

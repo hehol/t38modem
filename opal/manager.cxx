@@ -24,10 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.14  2010-07-08 11:40:18  vfrolov
- * Fixed route message for sip
- * Added call end reason to call cleared message
- * Added support for multiple <dn!N> per route
+ * Revision 1.15  2010-07-09 13:18:13  vfrolov
+ * Fixed help message
+ *
+ * Revision 1.15  2010/07/09 13:18:13  vfrolov
+ * Fixed help message
  *
  * Revision 1.14  2010/07/08 11:40:18  vfrolov
  * Fixed route message for sip
@@ -127,12 +128,14 @@ PStringArray MyManager::Descriptions()
       "  --ports T:B-M[,...]       : For (T)ype set (B)ase and (M)ax ports to use.\n"
       "                              T is 'udp', 'rtp' or 'tcp'. B and M are numbers.\n"
       "  --route pat=dst[;option[=value][;...]]\n"
-      "                            : Route the incoming calls with destination address\n"
+      "                            : Route the calls with incoming destination address\n"
       "                              matching the regexp pat to the outgoing\n"
       "                              destination address dst.\n"
-      "                              If dst contains '<dn>', it will be replaced by a\n"
-      "                              destination number. To strip N first digits from\n"
-      "                              number use '<dn!N>' form.\n"
+      "                              All '<dn>' meta-strings found in dst or in\n"
+      "                              following route options will be replaced by all\n"
+      "                              valid consecutive E.164 digits from the incoming\n"
+      "                              destination address. To strip N first digits use\n"
+      "                              '<dn!N>' meta-string.\n"
       "                              If the specification is of the form @filename,\n"
       "                              then the file is read with each line consisting\n"
       "                              of a pat=dst[;...] route specification.\n"
