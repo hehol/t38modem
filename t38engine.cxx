@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.68  2010-04-22 15:41:30  vfrolov
- * Fixed +FRS delay if remote does not send no-signal indicator
+ * Revision 1.69  2010-09-08 17:22:23  vfrolov
+ * Redesigned modem engine (continue)
+ *
+ * Revision 1.69  2010/09/08 17:22:23  vfrolov
+ * Redesigned modem engine (continue)
  *
  * Revision 1.68  2010/04/22 15:41:30  vfrolov
  * Fixed +FRS delay if remote does not send no-signal indicator
@@ -653,6 +656,8 @@ void T38Engine::_ResetModemState() {
     } else
       myPTRACE(1, name << " ResetModemState stateModem(" << stateModem << ") != stmIdle");
   }
+
+  onIdleOut = dtNone;
   callbackParamIn = cbpReset;
   callbackParamOut = cbpReset;
 }
@@ -934,7 +939,7 @@ int T38Engine::Recv(void *pBuf, PINDEX count)
   return len;
 }
 
-int T38Engine::RecvDiag()
+int T38Engine::RecvDiag() const
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
@@ -1333,14 +1338,13 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
               return 0;
           }
         } else {
-          switch( onIdleOut ) {
+          switch (onIdleOut) {
             case dtCng:
               t38indicator(ifp, T38I(e_cng));
               break;
-            case dtSilence:
-              t38indicator(ifp, T38I(e_no_signal));
-              break;
             default:
+              PTRACE(1, name << " SendOnIdle dataType(" << onIdleOut << ") is not supported");
+            case dtNone:
               waitData = TRUE;
           }
           onIdleOut = dtNone;

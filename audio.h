@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.h,v $
- * Revision 1.5  2010-03-18 08:42:17  vfrolov
- * Added named tracing of data types
+ * Revision 1.6  2010-09-08 17:22:23  vfrolov
+ * Redesigned modem engine (continue)
+ *
+ * Revision 1.6  2010/09/08 17:22:23  vfrolov
+ * Redesigned modem engine (continue)
  *
  * Revision 1.5  2010/03/18 08:42:17  vfrolov
  * Added named tracing of data types
@@ -61,21 +64,28 @@ class AudioEngine : public PChannel, public EngineBase
 
   public:
 
+  /**@name Construction */
+  //@{
     AudioEngine(const PString &_name = "");
     ~AudioEngine();
+  //@}
 
+  /**@name Modem API */
+  //@{
     PBoolean Read(void * buffer, PINDEX amount);
-    void SendOnIdle(DataType _dataType);
-    PBoolean SendStart(DataType _dataType, int param);
-    int Send(const void *pBuf, PINDEX count);
-    PBoolean SendStop(PBoolean moreFrames, int _callbackParam);
-    PBoolean isOutBufFull() const;
+    virtual void SendOnIdle(DataType _dataType);
+    virtual PBoolean SendStart(DataType _dataType, int param);
+    virtual int Send(const void *pBuf, PINDEX count);
+    virtual PBoolean SendStop(PBoolean moreFrames, int _callbackParam);
+    virtual PBoolean isOutBufFull() const;
 
     PBoolean Write(const void * buffer, PINDEX len);
-    PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done);
-    PBoolean RecvStart(int _callbackParam);
-    int Recv(void *pBuf, PINDEX count);
-    void RecvStop();
+    virtual PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done);
+    virtual PBoolean RecvStart(int _callbackParam);
+    virtual int Recv(void *pBuf, PINDEX count);
+    virtual void RecvStop();
+
+  //@}
 
   protected:
 

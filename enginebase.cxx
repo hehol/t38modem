@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.cxx,v $
- * Revision 1.8  2010-07-07 08:09:47  vfrolov
- * Added IsAttached()
+ * Revision 1.9  2010-09-08 17:22:23  vfrolov
+ * Redesigned modem engine (continue)
+ *
+ * Revision 1.9  2010/09/08 17:22:23  vfrolov
+ * Redesigned modem engine (continue)
  *
  * Revision 1.8  2010/07/07 08:09:47  vfrolov
  * Added IsAttached()
@@ -72,20 +75,21 @@ ostream & operator<<(ostream & out, EngineBase::DataType dataType)
     case EngineBase::dtRaw:       return out << "dtRaw";
   }
 
-  return out << INT(dataType);
+  return out << "dt" << INT(dataType);
 }
 
 ostream & operator<<(ostream & out, EngineBase::ModemCallbackParam param)
 {
   switch (param) {
-    case EngineBase::cbpUserDataMask:	break;
-    case EngineBase::cbpOutBufNoFull:	return out << "cbpOutBufNoFull";
-    case EngineBase::cbpReset:		return out << "cbpReset";
-    case EngineBase::cbpOutBufEmpty:	return out << "cbpOutBufEmpty";
-    case EngineBase::cbpUserInput:	return out << "cbpUserInput";
+    case EngineBase::cbpUserDataMask:   break;
+    case EngineBase::cbpOutBufNoFull:   return out << "cbpOutBufNoFull";
+    case EngineBase::cbpUpdateState:    return out << "cbpUpdateState";
+    case EngineBase::cbpReset:          return out << "cbpReset";
+    case EngineBase::cbpOutBufEmpty:    return out << "cbpOutBufEmpty";
+    case EngineBase::cbpUserInput:      return out << "cbpUserInput";
   }
 
-  return out << INT(param);
+  return out << "cbp" << INT(param);
 }
 
 ostream & operator<<(ostream & out, EngineBase::ModemClass modemClass)
@@ -96,7 +100,7 @@ ostream & operator<<(ostream & out, EngineBase::ModemClass modemClass)
     case EngineBase::mcFax:             return out << "mcFax";
   }
 
-  return out << INT(modemClass);
+  return out << "mc" << INT(modemClass);
 }
 #endif
 ///////////////////////////////////////////////////////////////
@@ -192,6 +196,8 @@ void EngineBase::OpenIn()
   isOpenIn = TRUE;
 
   OnOpenIn();
+
+  ModemCallbackWithUnlock(cbpUpdateState);
 }
 
 void EngineBase::OpenOut()
@@ -206,6 +212,8 @@ void EngineBase::OpenOut()
   isOpenOut = TRUE;
 
   OnOpenOut();
+
+  ModemCallbackWithUnlock(cbpUpdateState);
 }
 
 void EngineBase::CloseIn()
@@ -220,6 +228,8 @@ void EngineBase::CloseIn()
   isOpenIn = FALSE;
 
   OnCloseIn();
+
+  ModemCallbackWithUnlock(cbpUpdateState);
 }
 
 void EngineBase::CloseOut()
@@ -234,6 +244,8 @@ void EngineBase::CloseOut()
   isOpenOut = FALSE;
 
   OnCloseOut();
+
+  ModemCallbackWithUnlock(cbpUpdateState);
 }
 
 void EngineBase::ChangeModemClass(ModemClass newModemClass)

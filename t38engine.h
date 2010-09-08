@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.37  2010-03-18 08:42:17  vfrolov
- * Added named tracing of data types
+ * Revision 1.38  2010-09-08 17:22:24  vfrolov
+ * Redesigned modem engine (continue)
+ *
+ * Revision 1.38  2010/09/08 17:22:24  vfrolov
+ * Redesigned modem engine (continue)
  *
  * Revision 1.37  2010/03/18 08:42:17  vfrolov
  * Added named tracing of data types
@@ -206,21 +209,20 @@ class T38Engine : public EngineBase
   /**@name Modem API */
   //@{
     void ResetModemState();
-    PBoolean isOutBufFull() const;
 
-    void SendOnIdle(DataType _dataType);
-    PBoolean SendStart(DataType _dataType, int param);
-    int Send(const void *pBuf, PINDEX count);
-    PBoolean SendStop(PBoolean moreFrames, int _callbackParam);
+    virtual void SendOnIdle(DataType _dataType);
+    virtual PBoolean SendStart(DataType _dataType, int param);
+    virtual int Send(const void *pBuf, PINDEX count);
+    virtual PBoolean SendStop(PBoolean moreFrames, int _callbackParam);
+    virtual PBoolean isOutBufFull() const;
 
-    PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done);
-    PBoolean RecvStart(int _callbackParam);
-    int Recv(void *pBuf, PINDEX count);
-    int RecvDiag();
-    void RecvStop();
+    virtual PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done);
+    virtual PBoolean RecvStart(int _callbackParam);
+    virtual int Recv(void *pBuf, PINDEX count);
+    virtual void RecvStop();
+    virtual int RecvDiag() const;
 
     PBoolean SendingNotCompleted() const;
-  //@}
 
     void Close() { CloseIn(); CloseOut(); }
 
@@ -258,6 +260,7 @@ class T38Engine : public EngineBase
     PBoolean HandlePacketLost(
       unsigned nLost
     );
+  //@}
 
   protected:
 

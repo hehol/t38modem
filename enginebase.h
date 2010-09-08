@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.8  2010-07-07 08:09:47  vfrolov
- * Added IsAttached()
+ * Revision 1.9  2010-09-08 17:22:23  vfrolov
+ * Redesigned modem engine (continue)
+ *
+ * Revision 1.9  2010/09/08 17:22:23  vfrolov
+ * Redesigned modem engine (continue)
  *
  * Revision 1.8  2010/07/07 08:09:47  vfrolov
  * Added IsAttached()
@@ -65,8 +68,11 @@ class EngineBase : public PObject
 
   public:
 
+  /**@name Construction */
+  //@{
     EngineBase(const PString &_name = "");
     virtual ~EngineBase();
+  //@}
 
     enum {
       diagOutOfOrder	= 0x01,
@@ -86,11 +92,12 @@ class EngineBase : public PObject
     };
 
     enum ModemCallbackParam {
-      cbpUserDataMask	= 0xFF,
-      cbpOutBufNoFull	= 256,
-      cbpReset		= -1,
-      cbpOutBufEmpty	= -2,
-      cbpUserInput	= -3,
+      cbpUserDataMask  = 0xFF,
+      cbpOutBufNoFull  = 256,
+      cbpUpdateState   = 257,
+      cbpReset         = -1,
+      cbpOutBufEmpty   = -2,
+      cbpUserInput     = -3,
     };
 
     enum ModemClass {
@@ -110,6 +117,9 @@ class EngineBase : public PObject
     void CloseIn();
     void CloseOut();
 
+    PBoolean IsOpenIn() const { return isOpenIn && IsModemOpen(); }
+    PBoolean IsOpenOut() const { return isOpenOut && IsModemOpen(); }
+
     PBoolean TryLockModemCallback();
     void UnlockModemCallback();
 
@@ -117,12 +127,22 @@ class EngineBase : public PObject
 
     void WriteUserInput(const PString & value);
     int RecvUserInput(void * pBuf, PINDEX count);
+
+    virtual void SendOnIdle(DataType _dataType) = 0;
+    virtual PBoolean SendStart(DataType _dataType, int param) = 0;
+    virtual int Send(const void *pBuf, PINDEX count) = 0;
+    virtual PBoolean SendStop(PBoolean moreFrames, int _callbackParam) = 0;
+    virtual PBoolean isOutBufFull() const = 0;
+
+    virtual PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done) = 0;
+    virtual PBoolean RecvStart(int _callbackParam) = 0;
+    virtual int Recv(void *pBuf, PINDEX count) = 0;
+    virtual void RecvStop() = 0;
+    virtual int RecvDiag() const { return 0; };
   //@}
 
   protected:
     PBoolean IsModemOpen() const { return !modemCallback.IsNULL(); }
-    PBoolean IsOpenIn() const { return isOpenIn && IsModemOpen(); }
-    PBoolean IsOpenOut() const { return isOpenOut && IsModemOpen(); }
 
     virtual void OnAttach();
     virtual void OnDetach();
