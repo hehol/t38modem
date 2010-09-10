@@ -24,10 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.93  2010-09-10 05:34:12  vfrolov
- * Allowed "+ A B C D" dialing digits
- * Added ignoring unrecognized dialing digits (V.250)
- * Added missing on-hook's
+ * Revision 1.94  2010-09-10 18:08:07  vfrolov
+ * Implemented +VTD command
+ * Cleaned up code
+ *
+ * Revision 1.94  2010/09/10 18:08:07  vfrolov
+ * Implemented +VTD command
+ * Cleaned up code
  *
  * Revision 1.93  2010/09/10 05:34:12  vfrolov
  * Allowed "+ A B C D" dialing digits
@@ -400,10 +403,13 @@ class Profile
       void name(BYTE val) { SetReg(byte, val); } \
       BYTE name() const { BYTE val; GetReg(byte, val); return val; }
 
+    DeclareRegisterByte(AutoAnswer,    0);
+    DeclareRegisterByte(RingCount,     1);
     DeclareRegisterByte(S7,            7);
     DeclareRegisterByte(DialTimeComma, 8);
     DeclareRegisterByte(DialTimeDTMF, 11);
 
+    DeclareRegisterByte(Vtd,               MaxRegVoice - 7);
     DeclareRegisterByte(Vcml,              MaxRegVoice - 6);
     DeclareRegisterByte(Vsds,              MaxRegVoice - 5);
     DeclareRegisterByte(Vsdi,              MaxRegVoice - 4);
@@ -755,6 +761,10 @@ class ModemEngineBody : public PObject
     PBoolean HandleClass8Cmd(const char **ppCmd, PString &resp, PBoolean &ok, PBoolean &crlf);
     PBoolean Answer();
     void HandleCmd(const PString &cmd, PString &resp);
+
+    unsigned EstablishmentTimeout() const {
+      return unsigned(P.S7() ? P.S7() : Profiles[0].S7()) * 1000;
+    }
 
     void ResetDleData() {
       dleData.Clean();
@@ -1139,6 +1149,7 @@ Profile::Profile() {
   Vsds(128);
   Vsdi(50);
   Vcml(132);
+  Vtd(100);
   asciiResultCodes(TRUE);
   noResultCodes(FALSE);
   ModemClass("1");
@@ -1284,7 +1295,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       SrcNum(request("srcnum"));
       DstNum(request("dstnum"));
       timerRing.Start(5000);
-      P.SetReg(1, 0);
+      P.RingCount(0);
       request.SetAt("response", "confirm");
     }
   }
@@ -1350,7 +1361,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     else
     if (CallToken() == request("calltoken")) {
       CallToken("");
- 
+
       if (callState == cstDialing && state == stConnectWait && request("trynextcommand") == "dial") {
         timerRing.Stop();
         SetState(stDial);
@@ -1805,7 +1816,6 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
       return FALSE;
   }
 
-#define TONE_DEFAULT_LEN    PDTMFEncoder::DefaultToneLen
 #define TONE_FREQUENCY_MIN  PDTMFEncoder::MinFrequency
 #define TONE_FREQUENCY_MAX  (8000/4)
 #define TONE_DMS_MAX        500
@@ -1832,7 +1842,7 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                 PDTMFEncoder tone;
 
                 for (;;) {
-                  int dms = TONE_DEFAULT_LEN/10;
+                  int dms = P.Vtd();
 
                   switch (**ppCmd) {
                     case '[': {
@@ -2070,7 +2080,7 @@ PBoolean ModemEngineBody::Answer()
       SetCallState(cstAnswering);
 
       SetState(stConnectWait);
-      timeout.Start(60000);
+      timeout.Start(EstablishmentTimeout());
 
       PStringToString request;
       request.SetAt("modemtoken", parent.modemToken());
@@ -2394,7 +2404,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   pPlayTone->Concatenate(playTone);
                 }
 
-                timeout.Start((unsigned(P.S7()) + 1) * 1000);
+                timeout.Start(EstablishmentTimeout());
 
                 request.SetAt("modemtoken", parent.modemToken());
                 request.SetAt("command", "dial");
@@ -3333,10 +3343,39 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   }
                   break;
                 case 'T':
-                  switch (*pCmd) {
+                  switch (*pCmd++) {
+                    case 'D':				// +VTD
+                      switch (*pCmd++) {
+                        case '=':
+                          switch (*pCmd) {
+                            case '?':
+                              pCmd++;
+                              resp += "\r\n(0-255)";
+                              crlf = TRUE;
+                              break;
+                            default:
+                              {
+                                int val = ParseNum(&pCmd);
+
+                                if (val >= 0) {
+                                  PWaitAndSignal mutexWait(Mutex);
+                                  P.Vtd((BYTE)val);
+                                } else {
+                                  err = TRUE;
+                                }
+                              }
+                          }
+                          break;
+                        case '?':
+                          resp.sprintf("\r\n%u", (unsigned)P.Vtd());
+                          crlf = TRUE;
+                          break;
+                        default:
+                          err = TRUE;
+                      }
+                      break;
                     case 'X':				// +VTX
                     case 'S':				// +VTS
-                      pCmd++;
                       if (!HandleClass8Cmd(&pCmd, resp, ok, crlf))
                         err = TRUE;
                       break;
@@ -3768,9 +3807,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       else
       if (!off_hook && callState == cstCalled) {
         resp = RC_RING();
-        BYTE s0, ringCount;
-        P.GetReg(0, s0);
-        P.GetReg(1, ringCount);
+        BYTE ringCount = P.RingCount();
         if (!ringCount) {
           if(P.CidMode())
             resp += "NMBR = " + SrcNum() + "\r\n";
@@ -3779,9 +3816,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           if(P.CidMode() || P.DidMode())
             resp += RC_RING();
         }
-        P.SetReg(1, ++ringCount);
+        P.RingCount(++ringCount);
 
-        if (s0 > 0 && (ringCount >= s0))
+        if (P.AutoAnswer() > 0 && (ringCount >= P.AutoAnswer()))
           Answer();
       }
     }
@@ -3919,7 +3956,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     case stDial:
       {
         SetState(stConnectWait);
-        timeout.Start((unsigned(P.S7()) + 1) * 1000);
+        timeout.Start(EstablishmentTimeout());
 
         PStringToString request = params;
         request.SetAt("modemtoken", parent.modemToken());
