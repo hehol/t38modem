@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2002-2008 Vyacheslav Frolov
+ * Copyright (c) 2002-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.h,v $
- * Revision 1.4  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.5  2010-09-10 18:00:44  vfrolov
+ * Cleaned up code
+ *
+ * Revision 1.5  2010/09/10 18:00:44  vfrolov
+ * Cleaned up code
  *
  * Revision 1.4  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -44,9 +47,6 @@
 #ifndef _T30TONE_H
 #define _T30TONE_H
 
-///////////////////////////////////////////////////////////////
-#define SIMPLES_PER_SEC		8000
-#define CNG_HZ			1100
 ///////////////////////////////////////////////////////////////
 class T30Tone : public PObject
 {
@@ -75,13 +75,13 @@ class T30ToneDetect : public PObject
   public:
 
     T30ToneDetect();
+    ~T30ToneDetect();
+
     PBoolean Write(const void * buffer, PINDEX len);
 
   protected:
 
-    #define CNG_FILTER_BUF_LEN ((((SIMPLES_PER_SEC + CNG_HZ - 1)/CNG_HZ + 1)/2)*2)
-
-    long cng_filter_buf[CNG_FILTER_BUF_LEN];
+    long *cng_filter_buf;
     PINDEX index;
     long power;
     int cng_on_count;

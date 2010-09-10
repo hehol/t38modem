@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2002-2008 Vyacheslav Frolov
+ * Copyright (c) 2002-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.cxx,v $
- * Revision 1.6  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.7  2010-09-10 18:00:44  vfrolov
+ * Cleaned up code
+ *
+ * Revision 1.7  2010/09/10 18:00:44  vfrolov
+ * Cleaned up code
  *
  * Revision 1.6  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -45,7 +48,7 @@
  *
  * Revision 1.1  2002/04/30 10:59:07  vfrolov
  * Initial revision
- * 
+ *
  */
 
 #include <ptlib.h>
@@ -59,18 +62,19 @@
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-typedef	PInt16			SIMPLE_TYPE;
-
-#define TWO_PI			(3.1415926535897932384626433832795029L*2)
-#define BYTES_PER_SIMPLE	sizeof(SIMPLE_TYPE)
+typedef	PInt16                    SIMPLE_TYPE;
+#define TWO_PI                    (3.1415926535897932384626433832795029L*2)
+#define BYTES_PER_SIMPLE          sizeof(SIMPLE_TYPE)
+#define SIMPLES_PER_SEC           8000
 ///////////////////////////////////////////////////////////////
-#define CNG_MAX_DIV		100
-#define CNG_AMPLITUDE		5000
-#define CNG_ON_MSEC		500
-#define CNG_ON_BYTES		(((SIMPLES_PER_SEC*CNG_ON_MSEC)/1000)*BYTES_PER_SIMPLE)
-#define CNG_OFF_MSEC		3000
-#define CNG_OFF_BYTES		(((SIMPLES_PER_SEC*CNG_OFF_MSEC)/1000)*BYTES_PER_SIMPLE)
-#define CNG_SIMPLES_PER_REPEATE	(SIMPLES_PER_SEC/CNG_MAX_DIV)
+#define CNG_HZ                    1100
+#define CNG_MAX_DIV               100
+#define CNG_AMPLITUDE             5000
+#define CNG_ON_MSEC               500
+#define CNG_ON_BYTES              (((SIMPLES_PER_SEC*CNG_ON_MSEC)/1000)*BYTES_PER_SIMPLE)
+#define CNG_OFF_MSEC              3000
+#define CNG_OFF_BYTES             (((SIMPLES_PER_SEC*CNG_OFF_MSEC)/1000)*BYTES_PER_SIMPLE)
+#define CNG_SIMPLES_PER_REPEATE   (SIMPLES_PER_SEC/CNG_MAX_DIV)
 
 static BYTE CngTone[CNG_SIMPLES_PER_REPEATE*BYTES_PER_SIMPLE];
 
@@ -134,8 +138,9 @@ void T30Tone::Read(void * buffer, PINDEX amount)
   }
 }
 ///////////////////////////////////////////////////////////////
-#define tone_trace(cng_filter_buf, power, cng_power, cng_power_norm)
+#define CNG_FILTER_BUF_LEN ((((SIMPLES_PER_SEC + CNG_HZ - 1)/CNG_HZ + 1)/2)*2)
 
+#define tone_trace(cng_filter_buf, power, cng_power, cng_power_norm)
 #ifndef tone_trace
 static void tone_trace(const long *cng_filter_buf, long power, long cng_power, long cng_power_norm)
 {
@@ -158,13 +163,20 @@ enum {
 
 T30ToneDetect::T30ToneDetect()
 {
-  memset(cng_filter_buf, 0, sizeof(cng_filter_buf));
+  cng_filter_buf = new long[CNG_FILTER_BUF_LEN];
+  memset(cng_filter_buf, 0, CNG_FILTER_BUF_LEN*sizeof(cng_filter_buf[0]));
+
   index = 0;
   power = 0;
 
   cng_on_count = 0;
   cng_off_count = 0;
   cng_phase = cng_phase_off_head;
+}
+
+T30ToneDetect::~T30ToneDetect()
+{
+  delete [] cng_filter_buf;
 }
 
 #define CNG_FILTER_CHUNK_LEN	20
@@ -309,7 +321,7 @@ PBoolean T30ToneDetect::Write(const void * buffer, PINDEX len)
 
     // reatart filter
 
-    memset(cng_filter_buf, 0, sizeof(cng_filter_buf));
+    memset(cng_filter_buf, 0, CNG_FILTER_BUF_LEN*sizeof(cng_filter_buf[0]));
     index = 0;
     power = 0;
 

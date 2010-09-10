@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.13  2010-07-09 04:44:27  vfrolov
- * Added tracing targetTimeFakeOut
+ * Revision 1.14  2010-09-10 18:00:44  vfrolov
+ * Cleaned up code
+ *
+ * Revision 1.14  2010/09/10 18:00:44  vfrolov
+ * Cleaned up code
  *
  * Revision 1.13  2010/07/09 04:44:27  vfrolov
  * Added tracing targetTimeFakeOut
@@ -77,8 +80,10 @@
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
-typedef	PInt16			SIMPLE_TYPE;
-#define	BYTES_PER_SIMPLE	sizeof(SIMPLE_TYPE)
+typedef	PInt16                    SIMPLE_TYPE;
+#define BYTES_PER_SIMPLE          sizeof(SIMPLE_TYPE)
+#define SIMPLES_PER_SEC           8000
+#define BYTES_PER_MSEC            ((SIMPLES_PER_SEC*BYTES_PER_SIMPLE)/1000)
 ///////////////////////////////////////////////////////////////
 AudioEngine::AudioEngine(const PString &_name)
   : EngineBase(_name + " AudioEngine")
@@ -200,7 +205,7 @@ void AudioEngine::OnCloseOut()
     }
 
     if (sendAudio)
-      targetTimeFakeOut = PTime() + countTotal/16;
+      targetTimeFakeOut = PTime() + countTotal/BYTES_PER_MSEC;
   }
 }
 
@@ -236,7 +241,7 @@ PBoolean AudioEngine::Read(void * buffer, PINDEX amount)
 
   lastReadCount = amount;
 
-  readDelay.Delay(amount/16);
+  readDelay.Delay(amount/BYTES_PER_MSEC);
 
   return TRUE;
 }
@@ -292,7 +297,7 @@ int AudioEngine::Send(const void *pBuf, PINDEX count)
     if (isOpenOut)
       sendAudio->PutData(pBuf, count);
     else
-      targetTimeFakeOut += count/16;
+      targetTimeFakeOut += count/BYTES_PER_MSEC;
   }
 
   return count;
@@ -389,7 +394,7 @@ PBoolean AudioEngine::Write(const void * buffer, PINDEX len)
 
   lastWriteCount = len;
 
-  writeDelay.Delay(len/16);
+  writeDelay.Delay(len/BYTES_PER_MSEC);
 
   return TRUE;
 }
