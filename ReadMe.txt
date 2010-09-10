@@ -280,21 +280,23 @@ Examples:
 4.3.2 calling/called number modifiers
 -------------------------------------
 
-L   - reset and begin of calling number.
-T,P - continue of called number.
-D   - continue of called number (if used before the call answer).
+L     - purge calling number and start dialing it.
+T,P,D - continue to dial of called number if dialing of calling number was started.
 
 If calling number is empty after processing ATD command then t38modem's
 local party number used.
 
-The calling or called number is a string of 0 or more of the characters:
+The calling number is a string of 0 or more of the characters:
 
   "0 1 2 3 4 5 6 7 8 9 * #"
 
-The called number part after the call answer is a string of 0 or more of the
-characters:
+Note: dialing of calling number is not allowed in online command state.
 
-  "0 1 2 3 4 5 6 7 8 9 * # A B C D ,"
+The called number is a string of 0 or more of the characters:
+
+  "0 1 2 3 4 5 6 7 8 9 * # + A B C D"
+
+Note: '+' will be ignored in online command state or after '@' modifier.
 
 Examples:
 
@@ -323,7 +325,7 @@ Examples:
 
 @ - dial the called number part collected before first @, wait till the call
     answered and play the called number part collected after last @.
-    Implicitly '@' will continue of called number (see 4.3.2).
+    Implicitly '@' will continue dialing of called number (see 4.3.2).
 
 Examples:
 
