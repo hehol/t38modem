@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.94  2010-09-10 18:08:07  vfrolov
- * Implemented +VTD command
- * Cleaned up code
+ * Revision 1.95  2010-09-14 06:35:10  vfrolov
+ * Implemented dial string terminated by a semicolon ("ATD<dialstring>;[...]")
+ *
+ * Revision 1.95  2010/09/14 06:35:10  vfrolov
+ * Implemented dial string terminated by a semicolon ("ATD<dialstring>;[...]")
  *
  * Revision 1.94  2010/09/10 18:08:07  vfrolov
  * Implemented +VTD command
@@ -573,30 +575,30 @@ class Timeout : public PTimer
     PMutex Mutex;
 };
 ///////////////////////////////////////////////////////////////
-enum CallState {  // ---------+---------------------------+--------+-------------------------------------------+
-                  //          |     on sending command    |   on   |            on received command            |
-                  //          +---------------------------+clearing+-------------------------------------------+
-                  //          |"dial"|"answer"|"clearcall"|off_hook|"call"|"alerting"|"established"|"clearcall"|
-                  // ---------+------+--------+-----+-----+--------+------+----------+-------------+-----+-----+
-                  // off_hook | true |  true  |true |false|  true  |false |   true   |     true    |true |false|
-                  // ---------+------+--------+-----+-----+--------+------+----------+-------------+-----+-----+
-  cstCleared,     //            )--+                 <--+    <--+    )--+                                 <--+ |
-                  //               |                    |       |       |                                    | |
-                  //               |                    |       |       |                                    | |
-  cstDialing,     //            <--+           )--+  )--+    )--+       |     )--+         )--+     )--+  )--+ |
-                  //                              |     |       |       |        |            |        |     | |
-  cstAlerted,     //                           )--+  )--+    )--+       |     <--+         )--+     )--+  )--+ |
-                  //                              |     |       |       |                     |        |     | |
-                  //                              |     |       |       |                     |        |     | |
-  cstCalled,      //                    )--+   )--+  )--+       |    <--+                     |        |  )--+ |
-                  //                       |      |     |       |                             |        |     | |
-  cstAnswering,   //                    <--+   )--+  )--+    )--+                          )--+     )--+  )--+ |
-                  //                              |     |       |                             |        |     | |
-                  //                              |     |       |                             |        |     | |
-  cstEstablished, //                           )--+  )--+    )--+                          <--+     )--+  )--+ |
-                  //                              |     |       |                                      |     | |
-  cstReleasing,   //                           <--+  )--+    )--+                                   <--+  )--+ |
-};                // ---------+------+--------+-----+-----+--------+------+----------+-------------+-----+-----+
+enum CallState {  // ---------+---------------------------+--------+------------------------------------------------+
+                  //          |     on sending command    |   on   |               on received command              |
+                  //          +---------------------------+clearing+------------------------------------------------+
+                  //          |"dial"|"answer"|"clearcall"|off_hook|"call"|"alerting"|"established"|  "clearcall"   |
+                  // ---------+------+--------+-----+-----+--------+------+----------+-------------+----------+-----+
+                  // off_hook | true |  true  |true |false|  true  |false |   true   |     true    |   true   |false|
+                  // ---------+------+--------+-----+-----+--------+------+----------+-------------+----------+-----+
+  cstCleared,     //            )--+                 <--+    <--+    )--+                                <--+  <--+ |
+                  //               |                    |       |       |                                   |     | |
+                  //               |                    |       |       |                                   |     | |
+  cstDialing,     //            <--+           )--+  )--+    )--+       |     )--+         )--+     )--+ )--+  )--+ |
+                  //                              |     |       |       |        |            |        |          | |
+  cstAlerted,     //                           )--+  )--+    )--+       |     <--+         )--+     )--+       )--+ |
+                  //                              |     |       |       |                     |        |          | |
+                  //                              |     |       |       |                     |        |          | |
+  cstCalled,      //                    )--+   )--+  )--+       |    <--+                     |        |       )--+ |
+                  //                       |      |     |       |                             |        |          | |
+  cstAnswering,   //                    <--+   )--+  )--+    )--+                          )--+     )--+       )--+ |
+                  //                              |     |       |                             |        |          | |
+                  //                              |     |       |                             |        |          | |
+  cstEstablished, //                           )--+  )--+    )--+                          <--+     )--+       )--+ |
+                  //                              |     |       |                                      |          | |
+  cstReleasing,   //                           <--+  )--+    )--+                                   <--+       )--+ |
+};                // ---------+------+--------+-----+-----+--------+------+----------+-------------+----------+-----+
 
 #if PTRACING
 static ostream & operator<<(ostream & out, CallState state)
@@ -760,7 +762,8 @@ class ModemEngineBody : public PObject
     PBoolean HandleClass1Cmd(const char **ppCmd, PString &resp, PBoolean &ok, PBoolean &crlf);
     PBoolean HandleClass8Cmd(const char **ppCmd, PString &resp, PBoolean &ok, PBoolean &crlf);
     PBoolean Answer();
-    void HandleCmd(const PString &cmd, PString &resp);
+    void HandleCmd(PString &resp);
+    void HandleCmdRest(PString &resp);
 
     unsigned EstablishmentTimeout() const {
       return unsigned(P.S7() ? P.S7() : Profiles[0].S7()) * 1000;
@@ -1001,6 +1004,7 @@ class ModemEngineBody : public PObject
     int param;
     PStringToString params;
     PString cmd;
+    PString cmdRest;
     EngineBase::DataType dataType;
     EngineBase::DataType sendOnIdle;
 
@@ -1314,7 +1318,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     if (CallToken() == request("calltoken")) {
       SetCallState(cstAlerted);
 
-      if (state == stConnectWait && callDirection == cdOutgoing && !pPlayTone && P.ModemClassId() == EngineBase::mcAudio) {
+      if (state == stConnectWait && !pPlayTone && P.ModemClassId() == EngineBase::mcAudio) {
         SetState(stConnectHandle, chConnected);
         timerRing.Start(5000);
         parent.SignalDataReady();
@@ -1364,6 +1368,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
 
       if (callState == cstDialing && state == stConnectWait && request("trynextcommand") == "dial") {
         timerRing.Stop();
+        SetCallState(cstCleared);
         SetState(stDial);
         params = request;
         params.RemoveAt("command");
@@ -2070,7 +2075,6 @@ PBoolean ModemEngineBody::Answer()
 {
   OffHook();
   timerRing.Stop();
-  callDirection = cdIncoming;
   forceFaxMode = TRUE;
 
   if (!connectionEstablished) {
@@ -2110,22 +2114,8 @@ PBoolean ModemEngineBody::Answer()
   return TRUE;
 }
 
-
-#define ToSBit(funk)			\
-  switch( ParseNum(&pCmd, 0, 1, 1) ) {	\
-    case 0:				\
-      P.funk(FALSE);			\
-      break;				\
-    case 1:				\
-      P.funk(TRUE);			\
-      break;				\
-    default:				\
-      err = TRUE;			\
-  }
-
-void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
+void ModemEngineBody::HandleCmd(PString &resp)
 {
-
   PINDEX i;
 
   for (i = 0 ;  ; i++) {
@@ -2133,6 +2123,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 
     if (i == P_MAX_INDEX) {
       myPTRACE(1, "--> " << cmd.GetLength() << " bytes of binary");
+      cmd.MakeEmpty();
       return;
     }
 
@@ -2158,9 +2149,30 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
 
   pCmd += 2;  // skip AT
 
-  PString ucmd = PString(pCmd).ToUpper();
-  pCmd = ucmd;
+  cmdRest = PString(pCmd).ToUpper();
+  cmd.MakeEmpty();
 
+  HandleCmdRest(resp);
+}
+
+#define ToSBit(funk)                    \
+  switch (ParseNum(&pCmd, 0, 1, 1)) {   \
+    case 0:                             \
+      P.funk(FALSE);                    \
+      break;                            \
+    case 1:                             \
+      P.funk(TRUE);                     \
+      break;                            \
+    default:                            \
+      err = TRUE;                       \
+  }
+
+void ModemEngineBody::HandleCmdRest(PString &resp)
+{
+  PString tmp = cmdRest;
+  cmdRest.MakeEmpty();
+
+  const char *pCmd = tmp;
   PBoolean err = FALSE;
   PBoolean ok = TRUE;
   PBoolean crlf = FALSE;
@@ -2176,6 +2188,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
           {
             PWaitAndSignal mutexWait(Mutex);
 
+            callDirection = cdIncoming;
             if (!Answer())
               err = TRUE;
           }
@@ -2224,23 +2237,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
               }
 
               if (ch == ';') {
-                for (;;) {
-                  switch (*pCmd++) {
-                    case 0:
-                      pCmd--;
-                      break;
-                    case ' ':
-                    case ';':
-                      continue;
-                    case 'A':
-                      setCallDirection = cdIncoming;
-                      setForceFaxMode = TRUE;
-                      break;
-                    default:
-                      err = TRUE;
-                  }
-                  break;
-                }
+                setCallDirection = cdUndefined;
+                cmdRest = PString(pCmd);
                 break;
               }
 
@@ -2272,6 +2270,8 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   if (local)
                     continue;
                   if (addNumTone)
+                    continue;
+                  if (!num.IsEmpty())
                     continue;
                   break;
                 case 'A':
@@ -2357,9 +2357,6 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                   SetState(stConnectHandle, chConnected);
                   parent.SignalDataReady();
 
-                  if (callDirection == cdOutgoing && P.ModemClassId() == EngineBase::mcFax)
-                    SendOnIdle(EngineBase::dtCng);
-
                   if (numTone.GetLength()) {
                     if (!pPlayTone)
                       pPlayTone = new PDTMFEncoder();
@@ -2383,53 +2380,26 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                 break;
               }
 
-              SetCallState(cstDialing);
-
               callDirection = setCallDirection;
               forceFaxMode = setForceFaxMode;
 
-              if (callDirection == cdOutgoing && P.ModemClassId() == EngineBase::mcFax)
-                SendOnIdle(EngineBase::dtCng);
-
               timerRing.Stop();
-              SetState(stConnectWait);
+              SetState(stDial);
 
-              PStringToString request;
+              if (numTone.GetLength()) {
+                if (!pPlayTone)
+                  pPlayTone = new PDTMFEncoder();
 
-              if (!timerBusy.IsRunning()) {  // we can't dial after releasing w/o on-hook
-                if (numTone.GetLength()) {
-                  if (!pPlayTone)
-                    pPlayTone = new PDTMFEncoder();
-
-                  pPlayTone->Concatenate(playTone);
-                }
-
-                timeout.Start(EstablishmentTimeout());
-
-                request.SetAt("modemtoken", parent.modemToken());
-                request.SetAt("command", "dial");
-                request.SetAt("number", num);
-                request.SetAt("localpartyname", LocalPartyName);
-
-                Mutex.Signal();
-                callbackEndPoint(request, 3);
-                Mutex.Wait();
+                pPlayTone->Concatenate(playTone);
               }
 
-              if (request("response") == "confirm") {
-                CallToken(request("calltoken"));
-              } else {
-                OnHook();
+              timeout.Start(EstablishmentTimeout());
 
-                if (crlf) {
-                  resp += "\r\n";
-                  crlf = FALSE;
-                } else {
-                  resp += RC_PREF();
-                }
+              params.RemoveAll();
+              params.SetAt("number", num);
+              params.SetAt("localpartyname", LocalPartyName);
 
-                resp += RC_BUSY();
-              }
+              parent.SignalDataReady();  // try to Dial w/o delay
             } else {
               if (wasOnHook)
                 OnHook();
@@ -3119,6 +3089,7 @@ void ModemEngineBody::HandleCmd(const PString & cmd, PString & resp)
                                   {
                                     PWaitAndSignal mutexWait(Mutex);
 
+                                    callDirection = cdUndefined;
                                     if (!Answer())
                                       err = TRUE;
                                   }
@@ -3629,7 +3600,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 
               PString resp;
 
-              HandleCmd(cmd, resp);
+              HandleCmd(resp);
 
               if (resp.GetLength()) {
                 PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
@@ -3637,8 +3608,6 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                 myPTRACE(1, "<-- " << PRTHEX(_bresp));
                 bresp.Concatenate(_bresp);
               }
-
-              cmd = PString();
             }
           }
           break;
@@ -3798,7 +3767,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     }
 
     if (timerRing.Get()) {
-      if (callDirection == cdOutgoing && !pPlayTone && P.ModemClassId() == EngineBase::mcAudio) {
+      if (off_hook && !pPlayTone && P.ModemClassId() == EngineBase::mcAudio) {
         BYTE b[2] = {'\x10', 'r'};
         PBYTEArray _bresp(b, sizeof(b));
         bresp.Concatenate(_bresp);
@@ -3818,8 +3787,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         }
         P.RingCount(++ringCount);
 
-        if (P.AutoAnswer() > 0 && (ringCount >= P.AutoAnswer()))
+        if (P.AutoAnswer() > 0 && (ringCount >= P.AutoAnswer())) {
+          callDirection = cdIncoming;
           Answer();
+        }
       }
     }
   }
@@ -3954,7 +3925,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
   switch (state) {
     case stDial:
-      {
+      if (callState == cstCleared) {  // we can't dial after releasing w/o on-hook
+        SetCallState(cstDialing);
         SetState(stConnectWait);
         timeout.Start(EstablishmentTimeout());
 
@@ -3968,12 +3940,13 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
         if (request("response") == "confirm") {
           CallToken(request("calltoken"));
+          break;
         } else {
           timeout.Stop();
-          OnHook();
-          resp = RC_BUSY();
         }
       }
+      OnHook();
+      resp = RC_BUSY();
       break;
     case stSendBufEmptyHandle:
       {
@@ -4047,12 +4020,22 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             }
             SetSubState(chConnectionEstablished);
           case chConnectionEstablished:
+            if (callDirection == cdOutgoing && P.ModemClassId() == EngineBase::mcFax)
+              SendOnIdle(EngineBase::dtCng);
+
             connectionEstablished = TRUE;
 
-            if (P.ModemClassId() == EngineBase::mcAudio) {
+            if (P.ModemClassId() == EngineBase::mcAudio || callDirection == cdUndefined) {
               SetState(stCommand);
               timeout.Stop();
-              resp = RC_OK();
+
+              PString _resp;
+              HandleCmdRest(_resp);
+
+              PBYTEArray _bresp((const BYTE *)(const char *)_resp, _resp.GetLength());
+
+              myPTRACE(1, "<-- " << PRTHEX(_bresp));
+              bresp.Concatenate(_bresp);
             }
             else
             if (t38engine) {
