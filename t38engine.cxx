@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.69  2010-09-08 17:22:23  vfrolov
- * Redesigned modem engine (continue)
+ * Revision 1.70  2010-09-22 15:39:19  vfrolov
+ * Moved ResetModemState() to EngineBase
+ * Replaced _ResetModemState() by OnResetModemState()
+ *
+ * Revision 1.70  2010/09/22 15:39:19  vfrolov
+ * Moved ResetModemState() to EngineBase
+ * Replaced _ResetModemState() by OnResetModemState()
  *
  * Revision 1.69  2010/09/08 17:22:23  vfrolov
  * Redesigned modem engine (continue)
@@ -618,15 +623,11 @@ void T38Engine::OnCloseOut()
 void T38Engine::OnAttach()
 {
   EngineBase::OnAttach();
-
-  _ResetModemState();
 }
 
 void T38Engine::OnDetach()
 {
   EngineBase::OnDetach();
-
-  _ResetModemState();
   SignalOutDataReady();
 }
 
@@ -636,25 +637,20 @@ void T38Engine::OnChangeModemClass()
 }
 ///////////////////////////////////////////////////////////////
 //
-void T38Engine::ResetModemState() {
-  PWaitAndSignal mutexWaitModem(MutexModem);
-  PWaitAndSignal mutexWait(Mutex);
+void T38Engine::OnResetModemState() {
+  EngineBase::OnResetModemState();
 
-  _ResetModemState();
-}
-
-void T38Engine::_ResetModemState() {
   if (modStreamIn && modStreamIn->DeleteFirstBuf()) {
-    PTRACE(1, name << " ResetModemState modStreamIn->DeleteFirstBuf(), clean");
+    PTRACE(1, name << " T38Engine::OnResetModemState modStreamIn->DeleteFirstBuf(), clean");
   }
 
   bufOut.PutEof();
   if (stateModem != stmIdle) {
     if (!isStateModemOut()) {
-      myPTRACE(1, name << " ResetModemState stateModem(" << stateModem << ") != stmIdle, reset");
+      myPTRACE(1, name << " T38Engine::OnResetModemState stateModem(" << stateModem << ") != stmIdle, reset");
       stateModem = stmIdle;
     } else
-      myPTRACE(1, name << " ResetModemState stateModem(" << stateModem << ") != stmIdle");
+      myPTRACE(1, name << " T38Engine::OnResetModemState stateModem(" << stateModem << ") != stmIdle");
   }
 
   onIdleOut = dtNone;

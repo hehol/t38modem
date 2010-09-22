@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.38  2010-09-08 17:22:24  vfrolov
- * Redesigned modem engine (continue)
+ * Revision 1.39  2010-09-22 15:39:19  vfrolov
+ * Moved ResetModemState() to EngineBase
+ * Replaced _ResetModemState() by OnResetModemState()
+ *
+ * Revision 1.39  2010/09/22 15:39:19  vfrolov
+ * Moved ResetModemState() to EngineBase
+ * Replaced _ResetModemState() by OnResetModemState()
  *
  * Revision 1.38  2010/09/08 17:22:24  vfrolov
  * Redesigned modem engine (continue)
@@ -208,8 +213,6 @@ class T38Engine : public EngineBase
 
   /**@name Modem API */
   //@{
-    void ResetModemState();
-
     virtual void SendOnIdle(DataType _dataType);
     virtual PBoolean SendStart(DataType _dataType, int param);
     virtual int Send(const void *pBuf, PINDEX count);
@@ -266,6 +269,7 @@ class T38Engine : public EngineBase
 
     virtual void OnAttach();
     virtual void OnDetach();
+    virtual void OnResetModemState();
     virtual void OnChangeModemClass();
     virtual void OnOpenIn();
     virtual void OnOpenOut();
@@ -280,8 +284,6 @@ class T38Engine : public EngineBase
     PBoolean WaitOutDataReady(const PTimeInterval & timeout) {
       return outDataReadySyncPoint.Wait(timeout);
     }
-
-    void _ResetModemState();
 
   private:
     DataStream bufOut;
