@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.14  2010-09-10 18:00:44  vfrolov
- * Cleaned up code
+ * Revision 1.15  2010-09-22 15:23:48  vfrolov
+ * Added OnResetModemState()
+ *
+ * Revision 1.15  2010/09/22 15:23:48  vfrolov
+ * Added OnResetModemState()
  *
  * Revision 1.14  2010/09/10 18:00:44  vfrolov
  * Cleaned up code
@@ -131,10 +134,19 @@ void AudioEngine::OnAttach()
 void AudioEngine::OnDetach()
 {
   EngineBase::OnDetach();
+}
+
+void AudioEngine::OnResetModemState()
+{
+  EngineBase::OnResetModemState();
 
   if (sendAudio) {
-    delete sendAudio;
-    sendAudio = NULL;
+    if (isOpenOut) {
+      sendAudio->PutEof();
+    } else {
+      delete sendAudio;
+      sendAudio = NULL;
+    }
   }
 
   if (recvAudio) {

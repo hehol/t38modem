@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.h,v $
- * Revision 1.6  2010-09-08 17:22:23  vfrolov
- * Redesigned modem engine (continue)
+ * Revision 1.7  2010-09-22 15:23:48  vfrolov
+ * Added OnResetModemState()
+ *
+ * Revision 1.7  2010/09/22 15:23:48  vfrolov
+ * Added OnResetModemState()
  *
  * Revision 1.6  2010/09/08 17:22:23  vfrolov
  * Redesigned modem engine (continue)
@@ -91,6 +94,7 @@ class AudioEngine : public PChannel, public EngineBase
 
     virtual void OnAttach();
     virtual void OnDetach();
+    virtual void OnResetModemState();
     virtual void OnChangeModemClass();
     virtual void OnOpenIn();
     virtual void OnOpenOut();
