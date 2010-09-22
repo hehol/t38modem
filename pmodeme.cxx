@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.95  2010-09-14 06:35:10  vfrolov
- * Implemented dial string terminated by a semicolon ("ATD<dialstring>;[...]")
+ * Revision 1.96  2010-09-22 15:51:13  vfrolov
+ * Moved ResetModemState() to EngineBase
+ *
+ * Revision 1.96  2010/09/22 15:51:13  vfrolov
+ * Moved ResetModemState() to EngineBase
  *
  * Revision 1.95  2010/09/14 06:35:10  vfrolov
  * Implemented dial string terminated by a semicolon ("ATD<dialstring>;[...]")
@@ -3702,8 +3705,8 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             PWaitAndSignal mutexWait(Mutex);
             SetState(stCommand);
             timeout.Stop();
-            if (t38engine)
-              t38engine->ResetModemState();
+            if (currentClassEngine)
+              currentClassEngine->ResetModemState();
           }
           break;
         default:
@@ -3716,28 +3719,23 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             PWaitAndSignal mutexWait(Mutex);
             timeout.Stop();
 
+            if (state == stRecv && (dataCount || P.ModemClassId() == EngineBase::mcAudio)) {
+              PBYTEArray _bresp((const BYTE *)"\x10\x03", 2); // add <DLE><ETX>
+
+              myPTRACE(1, "<-- " << PRTHEX(_bresp));
+              bresp.Concatenate(_bresp);
+            }
+
+            SetState(stCommand);
+
             PString resp = RC_PREF();
 
-            if (P.ModemClassId() == EngineBase::mcAudio) {
-              if (state == stRecv) {
-                PBYTEArray _bresp((const BYTE *)"\x10\x03", 2); // add <DLE><ETX>
-
-                myPTRACE(1, "<-- " << PRTHEX(_bresp));
-                bresp.Concatenate(_bresp);
-              }
-
-              SetState(stCommand);
+            if (currentClassEngine || P.ModemClassId() == EngineBase::mcAudio) {
+              currentClassEngine->ResetModemState();
               resp += RC_OK();
             } else {
-              SetState(stCommand);
-
-              if (t38engine) {
-                t38engine->ResetModemState();
-                resp += RC_OK();
-              } else {
-                OnHook();
-                resp += RC_NO_CARRIER();
-              }
+              OnHook();
+              resp += RC_NO_CARRIER();
             }
 
             PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
@@ -3801,8 +3799,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       case stRecvBegWait:
         resp = RC_NO_CARRIER();
         SetState(stCommand);
-        if (t38engine)
-          t38engine->ResetModemState();
+        if (currentClassEngine)
+          currentClassEngine->ResetModemState();
         else
           OnHook();
         break;
