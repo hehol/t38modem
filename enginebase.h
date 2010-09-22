@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.9  2010-09-08 17:22:23  vfrolov
- * Redesigned modem engine (continue)
+ * Revision 1.10  2010-09-22 15:07:45  vfrolov
+ * Added ResetModemState() and OnResetModemState()
+ *
+ * Revision 1.10  2010/09/22 15:07:45  vfrolov
+ * Added ResetModemState() and OnResetModemState()
  *
  * Revision 1.9  2010/09/08 17:22:23  vfrolov
  * Redesigned modem engine (continue)
@@ -111,6 +114,7 @@ class EngineBase : public PObject
     PBoolean IsAttached() const;
     PBoolean Attach(const PNotifier &callback);
     void Detach(const PNotifier &callback);
+    void ResetModemState();
 
     void OpenIn();
     void OpenOut();
@@ -146,6 +150,7 @@ class EngineBase : public PObject
 
     virtual void OnAttach();
     virtual void OnDetach();
+    virtual void OnResetModemState();
     virtual void OnChangeModemClass();
     virtual void OnUserInput(const PString & value);
 

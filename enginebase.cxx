@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.cxx,v $
- * Revision 1.9  2010-09-08 17:22:23  vfrolov
- * Redesigned modem engine (continue)
+ * Revision 1.10  2010-09-22 15:07:45  vfrolov
+ * Added ResetModemState() and OnResetModemState()
+ *
+ * Revision 1.10  2010/09/22 15:07:45  vfrolov
+ * Added ResetModemState() and OnResetModemState()
  *
  * Revision 1.9  2010/09/08 17:22:23  vfrolov
  * Redesigned modem engine (continue)
@@ -152,6 +155,8 @@ PBoolean EngineBase::Attach(const PNotifier &callback)
 void EngineBase::OnAttach()
 {
   PTRACE(1, name << " OnAttach Attached");
+
+  OnResetModemState();
 }
 
 void EngineBase::Detach(const PNotifier &callback)
@@ -182,6 +187,20 @@ void EngineBase::Detach(const PNotifier &callback)
 void EngineBase::OnDetach()
 {
   myPTRACE(1, name << " OnDetach Detached");
+
+  OnResetModemState();
+}
+
+void EngineBase::ResetModemState() {
+  PWaitAndSignal mutexWaitModem(MutexModem);
+  PWaitAndSignal mutexWait(Mutex);
+
+  OnResetModemState();
+}
+
+void EngineBase::OnResetModemState()
+{
+  myPTRACE(1, name << " OnResetModemState");
 }
 
 void EngineBase::OpenIn()
