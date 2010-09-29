@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.10  2010-09-22 15:07:45  vfrolov
- * Added ResetModemState() and OnResetModemState()
+ * Revision 1.11  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.11  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.10  2010/09/22 15:07:45  vfrolov
  * Added ResetModemState() and OnResetModemState()
@@ -64,10 +67,38 @@
 
 ///////////////////////////////////////////////////////////////
 class DataStream;
-
-class EngineBase : public PObject
+///////////////////////////////////////////////////////////////
+class ReferenceObject : public PObject
 {
-  PCLASSINFO(EngineBase, PObject);
+  PCLASSINFO(ReferenceObject, PObject);
+
+  public:
+    ReferenceObject() : referenceCount(1) {}
+
+    void AddReference() {
+      PWaitAndSignal mutex(referenceCountMutex);
+      ++referenceCount;
+    }
+
+    static void DelPointer(ReferenceObject * object) {
+      PBoolean doDelele;
+
+      object->referenceCountMutex.Wait();
+      doDelele = (--object->referenceCount == 0);
+      object->referenceCountMutex.Signal();
+
+      if (doDelele)
+        delete object;
+    }
+
+  private:
+    PMutex referenceCountMutex;
+    unsigned referenceCount;
+};
+///////////////////////////////////////////////////////////////
+class EngineBase : public ReferenceObject
+{
+  PCLASSINFO(EngineBase, ReferenceObject);
 
   public:
 
@@ -111,7 +142,8 @@ class EngineBase : public PObject
 
   /**@name Modem API */
   //@{
-    PBoolean IsAttached() const;
+    const PString &Name() const { return name; }
+
     PBoolean Attach(const PNotifier &callback);
     void Detach(const PNotifier &callback);
     void ResetModemState();
@@ -137,6 +169,7 @@ class EngineBase : public PObject
     virtual int Send(const void *pBuf, PINDEX count) = 0;
     virtual PBoolean SendStop(PBoolean moreFrames, int _callbackParam) = 0;
     virtual PBoolean isOutBufFull() const = 0;
+    virtual PBoolean SendingNotCompleted() const { return FALSE; }
 
     virtual PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done) = 0;
     virtual PBoolean RecvStart(int _callbackParam) = 0;

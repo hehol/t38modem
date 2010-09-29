@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.54  2010-02-27 16:33:29  vfrolov
- * Implemented --bearer-capability option
+ * Revision 1.55  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.55  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.54  2010/02/27 16:33:29  vfrolov
  * Implemented --bearer-capability option
@@ -697,14 +700,6 @@ MyH323Connection::~MyH323Connection()
   cout << "Closing connection" << endl;
 
   if (pmodem != NULL) {
-    if (t38handler != NULL) {
-      PAssert(PIsDescendant(t38handler, T38Protocol), PInvalidCast);
-      pmodem->Detach((T38Protocol *)t38handler);
-    }
-
-    if (audioEngine != NULL)
-      pmodem->Detach(audioEngine);
-
     PStringToString request;
     request.SetAt("command", "clearcall");
     request.SetAt("calltoken", GetCallToken());
@@ -715,8 +710,8 @@ MyH323Connection::~MyH323Connection()
     ep.PMFree(pmodem);
   }
 
-  if (audioEngine != NULL)
-    delete audioEngine;
+  if (audioEngine)
+    ReferenceObject::DelPointer(audioEngine);
 }
 
 void MyH323Connection::OnEstablished()
@@ -740,11 +735,9 @@ PBoolean MyH323Connection::Attach(PseudoModem *_pmodem)
   pmodem = _pmodem;
 
   if (audioEngine == NULL)
-    audioEngine = new AudioEngine(pmodem->ptyName());
+    audioEngine = pmodem->NewPtrAudioEngine();
 
-  pmodem->Attach(audioEngine);
-
-  return TRUE;
+  return audioEngine != NULL;
 }
 
 OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler()
@@ -758,11 +751,19 @@ OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler()
    * we can't have more then one t38handler per connection
    * at the same time and we should delete it on connection clean
    */
-  if( t38handler == NULL ) {
+  if (t38handler == NULL) {
     PTRACE(2, "MyH323Connection::CreateT38ProtocolHandler create new one");
-    t38handler = new T38Protocol(pmodem->ptyName());
-    ep.SetOptions(*this, t38handler);
-    pmodem->Attach((T38Protocol *)t38handler);
+
+    T38Protocol *t38protocol = new T38Protocol(pmodem);
+
+    if (t38protocol && t38protocol->IsOK()) {
+      ep.SetOptions(*this, t38protocol);
+
+      t38handler = t38protocol;
+    } else {
+      delete t38protocol;
+      PTRACE(1, "MyH323Connection::CreateT38ProtocolHandler can't create");
+    }
   }
   return t38handler;
 }

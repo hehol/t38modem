@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.39  2010-09-22 15:39:19  vfrolov
- * Moved ResetModemState() to EngineBase
- * Replaced _ResetModemState() by OnResetModemState()
+ * Revision 1.40  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.40  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.39  2010/09/22 15:39:19  vfrolov
  * Moved ResetModemState() to EngineBase
@@ -205,9 +207,11 @@ class T38Engine : public EngineBase
 
   public:
 
+    enum { msPerOut = 30 };
+
   /**@name Construction */
   //@{
-    T38Engine(const PString &_name = "");
+    T38Engine(const PString &_name);
     ~T38Engine();
   //@}
 
@@ -218,14 +222,13 @@ class T38Engine : public EngineBase
     virtual int Send(const void *pBuf, PINDEX count);
     virtual PBoolean SendStop(PBoolean moreFrames, int _callbackParam);
     virtual PBoolean isOutBufFull() const;
+    virtual PBoolean SendingNotCompleted() const;
 
     virtual PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done);
     virtual PBoolean RecvStart(int _callbackParam);
     virtual int Recv(void *pBuf, PINDEX count);
     virtual void RecvStop();
     virtual int RecvDiag() const;
-
-    PBoolean SendingNotCompleted() const;
 
     void Close() { CloseIn(); CloseOut(); }
 
@@ -275,8 +278,6 @@ class T38Engine : public EngineBase
     virtual void OnOpenOut();
     virtual void OnCloseIn();
     virtual void OnCloseOut();
-
-    enum { msPerOut = 30 };
 
   private:
     void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }

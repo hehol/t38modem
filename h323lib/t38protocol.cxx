@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2009 Vyacheslav Frolov
+ * Copyright (c) 2009-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: t38protocol.cxx,v $
- * Revision 1.1  2009-07-27 16:09:24  vfrolov
- * Initial revision
+ * Revision 1.2  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.2  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.1  2009/07/27 16:09:24  vfrolov
  * Initial revision
@@ -37,10 +40,27 @@
 #include <transports.h>
 
 #include "t38protocol.h"
+#include "../t38engine.h"
+#include "../pmodem.h"
 
 #define new PNEW
 
 ///////////////////////////////////////////////////////////////
+T38Protocol::T38Protocol(PseudoModem * pmodem)
+  : t38engine(pmodem->NewPtrT38Engine())
+  , in_redundancy(0)
+  , ls_redundancy(0)
+  , hs_redundancy(0)
+  , re_interval(-1)
+{
+}
+
+T38Protocol::~T38Protocol()
+{
+  if (t38engine)
+    ReferenceObject::DelPointer(t38engine);
+}
+
 void T38Protocol::SetRedundancy(int indication, int low_speed, int high_speed, int repeat_interval)
 {
   if (indication >= 0)
@@ -52,7 +72,7 @@ void T38Protocol::SetRedundancy(int indication, int low_speed, int high_speed, i
 
   re_interval = repeat_interval;
 
-  myPTRACE(3, name << " T38Protocol::SetRedundancy indication=" << in_redundancy
+  myPTRACE(3, t38engine->Name() << " T38Protocol::SetRedundancy indication=" << in_redundancy
                                             << " low_speed=" << ls_redundancy
                                             << " high_speed=" << hs_redundancy
                                             << " repeat_interval=" << re_interval
@@ -71,9 +91,9 @@ void T38Protocol::SetRedundancy(int indication, int low_speed, int high_speed, i
   #define IS_EXTENDABLE            TRUE
 #endif
 
-void T38Protocol::EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFP &T38_ifp) const
+static void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFP &T38_ifp, PBoolean nativeASN)
 {
-  if (!IS_NATIVE_ASN && T38_ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
+  if (!nativeASN && T38_ifp.HasOptionalField(T38_IFPPacket::e_data_field)) {
     T38_IFP ifp = T38_ifp;
     PINDEX count = ifp.m_data_field.GetSize();
 
@@ -92,7 +112,7 @@ PBoolean T38Protocol::HandleRawIFP(const PASN_OctetString & pdu)
 
   if (IS_NATIVE_ASN) {
     if (pdu.DecodeSubType(ifp))
-      return T38Engine::HandlePacket(ifp);
+      return t38engine->HandlePacket(ifp);
 
     PTRACE(2, "T38\t" T38_IFP_NAME " decode failure:\n  " << setprecision(2) << ifp);
     return TRUE;
@@ -119,12 +139,12 @@ PBoolean T38Protocol::HandleRawIFP(const PASN_OctetString & pdu)
     }
   }
 
-  return T38Engine::HandlePacket(ifp);
+  return t38engine->HandlePacket(ifp);
 }
 
 PBoolean T38Protocol::Originate()
 {
-  RenameCurrentThread(name + "(tx)");
+  RenameCurrentThread(t38engine->Name() + "(tx)");
   PTRACE(2, "T38\tOriginate, transport=" << *transport);
 
   long seq = -1;
@@ -145,21 +165,21 @@ PBoolean T38Protocol::Originate()
     int res;
 
     if (seq < 0) {
-      SetPreparePacketTimeout(-1);
+      t38engine->SetPreparePacketTimeout(-1);
     } else {
       int timeout = (
 #ifdef REPEAT_INDICATOR_SENDING
         lastifp.m_type_of_msg.GetTag() == T38_Type_of_msg::e_t30_indicator ||
 #endif
-        maxRedundancy > 0) ? msPerOut * 3 : -1;
+        maxRedundancy > 0) ? t38engine->msPerOut * 3 : -1;
 
       if (re_interval > 0 && (timeout <= 0 || timeout > re_interval))
         timeout = re_interval;
 
-      SetPreparePacketTimeout(timeout);
+      t38engine->SetPreparePacketTimeout(timeout);
     }
 
-    res = PreparePacket(ifp);
+    res = t38engine->PreparePacket(ifp);
 
 #ifdef REPEAT_INDICATOR_SENDING
     if (res > 0)
@@ -195,7 +215,7 @@ PBoolean T38Protocol::Originate()
 
       udptl.m_seq_number = ++seq & 0xFFFF;
 
-      EncodeIFPPacket(udptl.m_primary_ifp_packet, ifp);
+      EncodeIFPPacket(udptl.m_primary_ifp_packet, ifp, IS_NATIVE_ASN);
 
       /*
        * Calculate maxRedundancy for current ifp packet
@@ -294,7 +314,7 @@ PBoolean T38Protocol::Originate()
 
 PBoolean T38Protocol::Answer()
 {
-  RenameCurrentThread(name + "(rx)");
+  RenameCurrentThread(t38engine->Name() + "(rx)");
   PTRACE(2, "T38\tAnswer, transport=" << *transport);
 
   // We can't get negotiated sender's address and port,
@@ -368,7 +388,7 @@ PBoolean T38Protocol::Answer()
         const T38_UDPTLPacket_error_recovery_secondary_ifp_packets &secondary = recovery;
         int nRedundancy = secondary.GetSize();
         if (lost > nRedundancy) {
-          if (!T38Engine::HandlePacketLost(lost - nRedundancy))
+          if (!t38engine->HandlePacketLost(lost - nRedundancy))
             break;
 #if PTRACING
           totallost += lost - nRedundancy;
@@ -399,7 +419,7 @@ PBoolean T38Protocol::Answer()
       }
 
       if (lost) {
-        if (!T38Engine::HandlePacketLost(lost))
+        if (!t38engine->HandlePacketLost(lost))
           break;
 #if PTRACING
         totallost += lost;
@@ -433,10 +453,10 @@ done:
 ///////////////////////////////////////////////////////////////
 void T38Protocol::CleanUpOnTermination()
 {
-  myPTRACE(1, name << " T38Protocol::CleanUpOnTermination");
+  myPTRACE(1, t38engine->Name() << " T38Protocol::CleanUpOnTermination");
 
   OpalT38Protocol::CleanUpOnTermination();
-  T38Engine::Close();
+  t38engine->Close();
 }
 ///////////////////////////////////////////////////////////////
 

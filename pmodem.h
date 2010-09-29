@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2009 Vyacheslav Frolov
+ * Copyright (c) 2001-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodem.h,v $
- * Revision 1.9  2009-07-08 18:43:44  vfrolov
- * Added PseudoModem::ttyName()
+ * Revision 1.10  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.10  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.9  2009/07/08 18:43:44  vfrolov
  * Added PseudoModem::ttyName()
@@ -83,10 +86,8 @@ class PseudoModem : public ModemThread
     virtual PBoolean IsReady() const = 0;
     virtual PBoolean CheckRoute(const PString &number) const = 0;
     virtual PBoolean Request(PStringToString &request) const = 0;
-    virtual PBoolean Attach(T38Engine *t38engine) const = 0;
-    virtual void Detach(T38Engine *t38engine) const = 0;
-    virtual PBoolean Attach(AudioEngine *audioEngine) const = 0;
-    virtual void Detach(AudioEngine *audioEngine) const = 0;
+    virtual T38Engine *NewPtrT38Engine() const = 0;
+    virtual AudioEngine *NewPtrAudioEngine() const = 0;
 
     const PString &ttyName() const { return ttyname; }
     const PString &ptyName() const { return ptyname; }

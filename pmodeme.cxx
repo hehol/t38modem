@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.96  2010-09-22 15:51:13  vfrolov
- * Moved ResetModemState() to EngineBase
+ * Revision 1.97  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.97  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.96  2010/09/22 15:51:13  vfrolov
  * Moved ResetModemState() to EngineBase
@@ -724,6 +727,25 @@ static ostream & operator<<(ostream & out, const StateAndSubState &stateAndSubSt
 }
 #endif
 ///////////////////////////////////////////////////////////////
+enum ModemClassEngine {
+  mceAudio,
+  mceT38,
+  mceNumberOfItems,
+};
+
+#if PTRACING
+static ostream & operator<<(ostream & out, ModemClassEngine mce)
+{
+  switch (mce) {
+    case mceAudio:           return out << "mceAudio";
+    case mceT38:             return out << "mceT38";
+    default:                 break;
+  }
+
+  return out << "mce" << INT(mce);
+}
+#endif
+///////////////////////////////////////////////////////////////
 #define DeclareResultCode(name, v0, v1)	\
   PString name() const { return P.asciiResultCodes() ? (v1) : (v0); }
 ///////////////////////////////////////////////////////////////
@@ -741,10 +763,7 @@ class ModemEngineBody : public PObject
   /**@name Operations */
   //@{
     PBoolean Request(PStringToString &request);
-    PBoolean Attach(T38Engine *_t38engine);
-    void Detach(T38Engine *_t38engine) { PWaitAndSignal mutexWait(Mutex); _Detach(_t38engine); }
-    PBoolean Attach(AudioEngine *_audioEngine);
-    void Detach(AudioEngine *_audioEngine) { PWaitAndSignal mutexWait(Mutex); _Detach(_audioEngine); }
+    EngineBase *NewPtrEngine(ModemClassEngine mce);
     void OnParentStop();
     void HandleData(const PBYTEArray &buf, PBYTEArray &bresp);
     void CheckState(PBYTEArray &bresp);
@@ -859,22 +878,13 @@ class ModemEngineBody : public PObject
       return TRUE;
     }
 
-    void _Detach(T38Engine *_t38engine);
-    void _Detach(AudioEngine *_audioEngine);
+    void _AttachEngine(ModemClassEngine mce);
+    void _DetachEngine(ModemClassEngine mce);
     void _ClearCall();
 
     int NextSeq() { return seq = ++seq & EngineBase::cbpUserDataMask; }
 
     ModemEngine &parent;
-
-    T38Engine *t38engine;
-    AudioEngine *audioEngine;
-
-    enum {
-      mceAudio,
-      mceFax,
-      mceNumberOfItems,
-    };
 
     EngineBase *activeEngines[mceNumberOfItems];
     EngineBase *currentClassEngine;
@@ -926,22 +936,7 @@ class ModemEngineBody : public PObject
       return FALSE;
     }
 
-    void OnHook() {
-      lastOnHookActivity = PTime();
-
-      if (off_hook) {
-        timerBusy.Stop();
-        timeout.Stop();
-        off_hook = FALSE;
-        callDirection = cdUndefined;
-        forceFaxMode = FALSE;
-        state = stCommand;
-        subState = 0;
-        TRACE_STATE(4, "ModemEngineBody::OnHook:");
-      }
-
-      _ClearCall();
-    }
+    void OnHook();
 
     void SetCallState(CallState newState) {
       if (callState != newState || callSubState != 0) {
@@ -984,7 +979,7 @@ class ModemEngineBody : public PObject
           currentClassEngine = activeEngines[mceAudio];
           break;
         case EngineBase::mcFax:
-          currentClassEngine = activeEngines[mceFax];
+          currentClassEngine = activeEngines[mceT38];
           break;
         default:
           currentClassEngine = NULL;
@@ -1062,26 +1057,28 @@ PBoolean ModemEngine::IsReady() const
   return body && body->IsReady();
 }
 
-PBoolean ModemEngine::Attach(T38Engine *t38engine) const
+T38Engine *ModemEngine::NewPtrT38Engine() const
 {
-  return body && body->Attach(t38engine);
+  if (!body)
+    return NULL;
+
+  EngineBase *engine = body->NewPtrEngine(mceT38);
+
+  PAssert(engine == NULL || PIsDescendant(engine, T38Engine), PInvalidCast);
+
+  return (T38Engine *)engine;
 }
 
-void ModemEngine::Detach(T38Engine *t38engine) const
+AudioEngine *ModemEngine::NewPtrAudioEngine() const
 {
-  if( body )
-    body->Detach(t38engine);
-}
+  if (!body)
+    return NULL;
 
-PBoolean ModemEngine::Attach(AudioEngine *audioEngine) const
-{
-  return body && body->Attach(audioEngine);
-}
+  EngineBase *engine = body->NewPtrEngine(mceAudio);
 
-void ModemEngine::Detach(AudioEngine *audioEngine) const
-{
-  if( body )
-    body->Detach(audioEngine);
+  PAssert(engine == NULL || PIsDescendant(engine, AudioEngine), PInvalidCast);
+
+  return (AudioEngine *)engine;
 }
 
 PBoolean ModemEngine::Request(PStringToString &request) const
@@ -1178,8 +1175,6 @@ Profile &Profile::SetVoiceProfile(const Profile &p) {
 ///////////////////////////////////////////////////////////////
 ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbackEndPoint)
   : parent(_parent),
-    t38engine(NULL),
-    audioEngine(NULL),
     currentClassEngine(NULL),
     callbackEndPoint(_callbackEndPoint),
 #ifdef _MSC_VER
@@ -1227,6 +1222,26 @@ void ModemEngineBody::OnParentStop()
   OnHook();
 }
 
+void ModemEngineBody::OnHook()
+{
+  lastOnHookActivity = PTime();
+
+  if (off_hook) {
+    timerBusy.Stop();
+    timeout.Stop();
+    off_hook = FALSE;
+    callDirection = cdUndefined;
+    forceFaxMode = FALSE;
+    state = stCommand;
+    subState = 0;
+    //_DetachEngine(mceT38);
+    //_DetachEngine(mceAudio);
+    TRACE_STATE(4, "ModemEngineBody::OnHook:");
+  }
+
+  _ClearCall();
+}
+
 void ModemEngineBody::_ClearCall()
 {
   if (callState == cstCleared)
@@ -1244,20 +1259,10 @@ void ModemEngineBody::_ClearCall()
       delete pPlayTone;
       pPlayTone = NULL;
     }
-
-    if (!CallToken().IsEmpty() && t38engine && t38engine->SendingNotCompleted()) {
-      Mutex.Signal();
-      myPTRACE(2, "ModemEngineBody::_ClearCall: T.38 sending is not completed");
-      PThread::Sleep(100);
-      Mutex.Wait();
-    }
   }
 
-  if (t38engine)
-    _Detach(t38engine);
-
-  if (audioEngine)
-    _Detach(audioEngine);
+  _DetachEngine(mceT38);
+  _DetachEngine(mceAudio);
 
   if (!CallToken().IsEmpty()) {
     PStringToString request;
@@ -1322,6 +1327,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       SetCallState(cstAlerted);
 
       if (state == stConnectWait && !pPlayTone && P.ModemClassId() == EngineBase::mcAudio) {
+        _AttachEngine(mceAudio);
         SetState(stConnectHandle, chConnected);
         timerRing.Start(5000);
         parent.SignalDataReady();
@@ -1394,189 +1400,142 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
   return TRUE;
 }
 
-PBoolean ModemEngineBody::Attach(T38Engine *_t38engine)
+EngineBase *ModemEngineBody::NewPtrEngine(ModemClassEngine mce)
 {
-  if (_t38engine == NULL) {
-    myPTRACE(1, "ModemEngineBody::Attach _t38engine==NULL");
-    return FALSE;
-  }
-
-  PTRACE(1, "ModemEngineBody::Attach t38engine " << state);
+  PAssert(mce == mceT38 || mce == mceAudio, "mce is not valid");
 
   PWaitAndSignal mutexWait(Mutex);
 
-  if (callState == cstCleared || callState == cstReleasing) {
-    myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
-    return FALSE;
+  _AttachEngine(mce);
+
+  if (activeEngines[mce]) {
+    activeEngines[mce]->AddReference();
+
+    myPTRACE(1, "ModemEngineBody::NewPtrEngine created pointer for engine " << mce);
   }
 
-  for (;;) {
-    if (t38engine != NULL) {
-      if (t38engine == _t38engine) {
-        myPTRACE(1, "ModemEngineBody::Attach t38engine already Attached");
-        return TRUE;
-      }
-
-      myPTRACE(1, "ModemEngineBody::Attach Other t38engine already Attached");
-      return FALSE;
-    }
-
-    if (_t38engine->TryLockModemCallback()) {
-      if (!_t38engine->Attach(engineCallback)) {
-        myPTRACE(1, "ModemEngineBody::Attach Can't Attach engineCallback to _t38engine");
-        _t38engine->UnlockModemCallback();
-        return FALSE;
-      }
-      _t38engine->UnlockModemCallback();
-      activeEngines[mceFax] = t38engine = _t38engine;
-      break;
-    }
-
-    Mutex.Signal();
-    PThread::Sleep(20);
-    Mutex.Wait();
-  }
-
-  t38engine->ChangeModemClass(P.ModemClassId());
-  t38engine->SendOnIdle(sendOnIdle);
-
-  if (P.ModemClassId() == EngineBase::mcFax)
-    currentClassEngine = t38engine;
-
-  if (state == stReqModeAckWait) {
-    SetState(stReqModeAckHandle);
-    timeout.Stop();
-    parent.SignalDataReady();
-  }
-
-  myPTRACE(1, "ModemEngineBody::Attach t38engine Attached");
-  return TRUE;
+  return activeEngines[mce];
 }
 
-void ModemEngineBody::_Detach(T38Engine *_t38engine)
+void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
 {
-  if (_t38engine == NULL) {
-    myPTRACE(1, "ModemEngineBody::_Detach _t38engine==NULL");
-    return;
-  }
+  PAssert(mce == mceT38 || mce == mceAudio, "mce is not valid");
 
-  for (;;) {
-    if (t38engine != _t38engine) {
-      myPTRACE(1, "ModemEngineBody::_Detach " << (t38engine  ? "Other" : "No") << " t38engine was Attached");
+  if (activeEngines[mce] == NULL) {
+    EngineBase *engine;
+
+    switch (mce) {
+      case mceT38:
+        engine = new T38Engine(parent.ptyName());
+        break;
+      case mceAudio:
+        engine = new AudioEngine(parent.ptyName());
+        break;
+      default:
+        myPTRACE(1, parent.ptyName() << " ModemEngineBody::_AttachEngine Invalid mce " << mce);
+        return;
+    }
+
+    if (engine->TryLockModemCallback()) {
+      if (!engine->Attach(engineCallback)) {
+        myPTRACE(1, parent.ptyName() << " ModemEngineBody::_AttachEngine Can't attach engineCallback to " << mce);
+        engine->UnlockModemCallback();
+        ReferenceObject::DelPointer(engine);
+        return;
+      }
+      engine->UnlockModemCallback();
+      activeEngines[mce] = engine;
+    } else {
+      myPTRACE(1, parent.ptyName() << " ModemEngineBody::_AttachEngine Can't lock ModemCallback for " << mce);
+      ReferenceObject::DelPointer(engine);
       return;
     }
+  }
 
-    if (_t38engine->TryLockModemCallback()) {
-      _t38engine->Detach(engineCallback);
-      _t38engine->UnlockModemCallback();
-      activeEngines[mceFax] = t38engine = NULL;
+  activeEngines[mce]->ChangeModemClass(P.ModemClassId());
+  activeEngines[mce]->SendOnIdle(sendOnIdle);
+
+  switch (mce) {
+    case mceT38:
+      if (P.ModemClassId() == EngineBase::mcFax)
+        currentClassEngine = activeEngines[mce];
+
+      if (state == stReqModeAckWait) {
+        SetState(stReqModeAckHandle);
+        timeout.Stop();
+        parent.SignalDataReady();
+      }
       break;
-    }
-
-    Mutex.Signal();
-    PThread::Sleep(20);
-    Mutex.Wait();
-  }
-
-  if (P.ModemClassId() == EngineBase::mcFax) {
-    currentClassEngine = NULL;
-    parent.SignalDataReady();
-  }
-
-  myPTRACE(1, "ModemEngineBody::_Detach t38engine Detached");
-}
-
-PBoolean ModemEngineBody::Attach(AudioEngine *_audioEngine)
-{
-  if (_audioEngine == NULL) {
-    myPTRACE(1, "ModemEngineBody::Attach _audioEngine==NULL");
-    return FALSE;
-  }
-
-  PTRACE(1, "ModemEngineBody::Attach audioEngine " << state);
-
-  PWaitAndSignal mutexWait(Mutex);
-
-  if (callState == cstCleared || callState == cstReleasing) {
-    myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
-    return FALSE;
-  }
-
-  for (;;) {
-    if (audioEngine != NULL) {
-      if (audioEngine == _audioEngine) {
-        myPTRACE(1, "ModemEngineBody::Attach audioEngine already Attached");
-        return TRUE;
+    case mceAudio:
+      if (P.ModemClassId() == EngineBase::mcAudio) {
+        currentClassEngine = activeEngines[mce];
       }
 
-      myPTRACE(1, "ModemEngineBody::Attach Other audioEngine already Attached");
-      return FALSE;
-    }
-
-    if (_audioEngine->TryLockModemCallback()) {
-      if (!_audioEngine->Attach(engineCallback)) {
-        myPTRACE(1, "ModemEngineBody::Attach Can't Attach engineCallback to _audioEngine");
-        _audioEngine->UnlockModemCallback();
-        return FALSE;
+      if (state == stConnectHandle && subState == chWaitAudioEngine) {
+        SetSubState(chAudioEngineAttached);
+        timeout.Stop();
+        parent.SignalDataReady();
       }
-      _audioEngine->UnlockModemCallback();
-      activeEngines[mceAudio] = audioEngine = _audioEngine;
       break;
-    }
-
-    Mutex.Signal();
-    PThread::Sleep(20);
-    Mutex.Wait();
+    default:
+      break;
   }
 
-  audioEngine->ChangeModemClass(P.ModemClassId());
-  audioEngine->SendOnIdle(sendOnIdle);
-
-  if (P.ModemClassId() == EngineBase::mcAudio) {
-    currentClassEngine = audioEngine;
-  }
-
-  if (state == stConnectHandle && subState == chWaitAudioEngine) {
-    SetSubState(chAudioEngineAttached);
-    timeout.Stop();
-    parent.SignalDataReady();
-  }
-
-  myPTRACE(1, "ModemEngineBody::Attach audioEngine Attached");
-  return TRUE;
+  myPTRACE(1, "ModemEngineBody::_AttachEngine Attached " << mce);
 }
 
-void ModemEngineBody::_Detach(AudioEngine *_audioEngine)
+void ModemEngineBody::_DetachEngine(ModemClassEngine mce)
 {
-  if (_audioEngine == NULL) {
-    myPTRACE(1, "ModemEngineBody::_Detach _audioEngine==NULL");
+  PAssert(mce == mceT38 || mce == mceAudio, "mce is not valid");
+
+  if (activeEngines[mce] == NULL)
     return;
+
+  if (!CallToken().IsEmpty() && activeEngines[mce]->SendingNotCompleted()) {
+    Mutex.Signal();
+    myPTRACE(2, "ModemEngineBody::_DetachEngine: sending is not completed for " << mce);
+    PThread::Sleep(100);
+    Mutex.Wait();
+
+    if (activeEngines[mce] == NULL)
+      return;
   }
 
   for (;;) {
-    if (audioEngine != _audioEngine) {
-      myPTRACE(1, "ModemEngineBody::_Detach " << (audioEngine  ? "Other" : "No") << " audioEngine was Attached");
-      return;
-    }
-
-    if (_audioEngine->TryLockModemCallback()) {
-      _audioEngine->Detach(engineCallback);
-      _audioEngine->UnlockModemCallback();
-      activeEngines[mceAudio] = audioEngine = NULL;
+    if (activeEngines[mce]->TryLockModemCallback()) {
+      activeEngines[mce]->Detach(engineCallback);
+      activeEngines[mce]->UnlockModemCallback();
+      ReferenceObject::DelPointer(activeEngines[mce]);
+      activeEngines[mce] = NULL;
       break;
     }
 
     Mutex.Signal();
     PThread::Sleep(20);
     Mutex.Wait();
+
+    if (activeEngines[mce] == NULL)
+      return;
   }
 
-  if (P.ModemClassId() == EngineBase::mcAudio) {
-    currentClassEngine = NULL;
-    parent.SignalDataReady();
+  switch (mce) {
+    case mceT38:
+      if (P.ModemClassId() == EngineBase::mcFax) {
+        currentClassEngine = NULL;
+        parent.SignalDataReady();
+      }
+      break;
+    case mceAudio:
+      if (P.ModemClassId() == EngineBase::mcAudio) {
+        currentClassEngine = NULL;
+        parent.SignalDataReady();
+      }
+      break;
+    default:
+      break;
   }
 
-  myPTRACE(1, "ModemEngineBody::_Detach audioEngine Detached");
+  myPTRACE(1, "ModemEngineBody::_DetachEngine Detached " << mce);
 }
 
 void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
@@ -3949,7 +3908,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     case stSendBufEmptyHandle:
       {
         SetState(stSendAckWait);
-        if( !t38engine || !t38engine->SendStop(moreFrames, NextSeq()) ) {
+        if( !activeEngines[mceT38] || !activeEngines[mceT38]->SendStop(moreFrames, NextSeq()) ) {
           SetState(stSendAckHandle);
           timeout.Stop();
           parent.SignalDataReady();  // try to SendAckHandle w/o delay
@@ -3960,7 +3919,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       {
         switch(subState) {
           case chConnected:
-            if (!audioEngine) {
+            if (!activeEngines[mceAudio]) {
               SetSubState(chWaitAudioEngine);
               timeout.Start(60000);
               break;
@@ -3968,26 +3927,26 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             SetSubState(chAudioEngineAttached);
           case chAudioEngineAttached:
             if (pPlayTone) {
-              if (!audioEngine) {
+              if (!activeEngines[mceAudio]) {
                 SetSubState(chWaitAudioEngine);
                 break;
               }
 
-              if (!audioEngine->IsOpenOut())
+              if (!activeEngines[mceAudio]->IsOpenOut())
                 break;
 
               PBoolean err = FALSE;
 
-              if (audioEngine && audioEngine->SendStart(EngineBase::dtRaw, 0)) {
+              if (activeEngines[mceAudio]->SendStart(EngineBase::dtRaw, 0)) {
                 PINDEX len = pPlayTone->GetSize();
 
                 if (len) {
                   const PInt16 *ps = pPlayTone->GetPointer();
-                  audioEngine->Send(ps, len*sizeof(*ps));
+                  activeEngines[mceAudio]->Send(ps, len*sizeof(*ps));
                 }
 
                 SetSubState(chWaitPlayTone);
-                if (audioEngine->SendStop(FALSE, NextSeq())) {
+                if (activeEngines[mceAudio]->SendStop(FALSE, NextSeq())) {
                   timeout.Start(60000);
                 } else {
                   SetSubState(chAudioEngineAttached);
@@ -4036,7 +3995,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               bresp.Concatenate(_bresp);
             }
             else
-            if (t38engine) {
+            if (activeEngines[mceT38]) {
               SetState(stReqModeAckHandle);
               timeout.Stop();
               parent.SignalDataReady();
@@ -4074,9 +4033,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           case cdIncoming:
             dataType = EngineBase::dtCed;
             SetState(stSend);
-            if (t38engine && t38engine->SendStart(dataType, 3000)) {
+            if (activeEngines[mceT38] && activeEngines[mceT38]->SendStart(dataType, 3000)) {
               SetState(stSendAckWait);
-              if (!t38engine->SendStop(FALSE, NextSeq())) {
+              if (!activeEngines[mceT38]->SendStop(FALSE, NextSeq())) {
                 resp = RC_ERROR();
                 SetState(stCommand);
               }

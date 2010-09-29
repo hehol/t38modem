@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2008 Vyacheslav Frolov
+ * Copyright (c) 2001-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.h,v $
- * Revision 1.6  2008-09-10 11:15:00  frolov
- * Ported to OPAL SVN trunk
+ * Revision 1.7  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.7  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.6  2008/09/10 11:15:00  frolov
  * Ported to OPAL SVN trunk
@@ -62,7 +65,7 @@ class ModemEngine : public ModemThreadChild
 {
     PCLASSINFO(ModemEngine, ModemThreadChild);
   public:
- 
+
   /**@name Construction */
   //@{
     ModemEngine(PseudoModemBody &_parent);
@@ -73,19 +76,17 @@ class ModemEngine : public ModemThreadChild
   //@{
     PBoolean IsReady() const;
     PBoolean Request(PStringToString &request) const;
-    PBoolean Attach(T38Engine *t38engine) const;
-    void Detach(T38Engine *t38engine) const;
-    PBoolean Attach(AudioEngine *audioEngine) const;
-    void Detach(AudioEngine *audioEngine) const;
+    virtual T38Engine *NewPtrT38Engine() const;
+    virtual AudioEngine *NewPtrAudioEngine() const;
+    const PString &ptyName() const { return Parent().ptyName(); }
     const PString &modemToken() const { return Parent().modemToken(); }
   //@}
 
   protected:
     PseudoModemBody &Parent() const { return (PseudoModemBody &)parent; }
     virtual void Main();
-    const PString &ptyName() const { return Parent().ptyName(); }
     void ToPtyQ(const void *buf, PINDEX count) const { Parent().ToOutPtyQ(buf, count); }
-    
+
     ModemEngineBody *body;
 };
 ///////////////////////////////////////////////////////////////

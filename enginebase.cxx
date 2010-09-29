@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.cxx,v $
- * Revision 1.10  2010-09-22 15:07:45  vfrolov
- * Added ResetModemState() and OnResetModemState()
+ * Revision 1.11  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.11  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.10  2010/09/22 15:07:45  vfrolov
  * Added ResetModemState() and OnResetModemState()
@@ -125,12 +128,6 @@ EngineBase::~EngineBase()
 {
   if (recvUserInput)
     delete recvUserInput;
-}
-
-PBoolean EngineBase::IsAttached() const
-{
-  PWaitAndSignal mutexWait(Mutex);
-  return !modemCallback.IsNULL();
 }
 
 PBoolean EngineBase::Attach(const PNotifier &callback)

@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.27  2010-07-09 13:18:13  vfrolov
- * Fixed help message
+ * Revision 1.28  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.28  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.27  2010/07/09 13:18:13  vfrolov
  * Fixed help message
@@ -188,7 +191,6 @@ class ModemConnection : public OpalConnection
 
   protected:
     bool UpdateMediaStreams(OpalConnection &other);
-    PBoolean Attach(PseudoModem *_pmodem);
 
     PDECLARE_NOTIFIER(PThread, ModemConnection, RequestMode);
     const PNotifier requestMode;
@@ -524,7 +526,7 @@ ModemConnection::ModemConnection(
 #ifdef _MSC_VER
 #pragma warning(default:4355)
 #endif
-  , pmodem(NULL)
+  , pmodem((PseudoModem *)userData)
   , audioEngine(NULL)
   , t38engine(NULL)
   , requestedMode(pmmAny)
@@ -538,9 +540,6 @@ ModemConnection::ModemConnection(
   myPTRACE(4, "ModemConnection::ModemConnection " << *this);
 
   phaseTimer.SetNotifier(PCREATE_NOTIFIER(OnPhaseTimeout));
-
-  if (userData)
-    Attach((PseudoModem *)userData);
 }
 
 ModemConnection::~ModemConnection()
@@ -548,12 +547,6 @@ ModemConnection::~ModemConnection()
   myPTRACE(4, "ModemConnection::~ModemConnection " << *this << " " << GetCallEndReason());
 
   if (pmodem != NULL) {
-    if (t38engine != NULL)
-      pmodem->Detach(t38engine);
-
-    if (audioEngine != NULL)
-      pmodem->Detach(audioEngine);
-
     PseudoModem *pmodemTmp = pmodem;
 
     ((ModemEndPoint &)GetEndPoint()).PMFree(pmodem);
@@ -599,10 +592,10 @@ ModemConnection::~ModemConnection()
   }
 
   if (t38engine != NULL)
-    delete t38engine;
+    ReferenceObject::DelPointer(t38engine);
 
   if (audioEngine != NULL)
-    delete audioEngine;
+    ReferenceObject::DelPointer(audioEngine);
 
   phaseTimer.Stop();
 }
@@ -627,25 +620,19 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
       " mediaFormat=" << mediaFormat << " sessionID=" << sessionID << " isSource=" << isSource);
 
   if (mediaFormat == OpalT38) {
-    PAssert(t38engine != NULL, "t38engine is NULL");
+    if (t38engine == NULL)
+      t38engine = pmodem->NewPtrT38Engine();
 
-    if (!t38engine->IsAttached()) {
-      PAssert(pmodem != NULL, "pmodem is NULL");
-      pmodem->Attach(t38engine);
-    }
-
-    return new T38ModemMediaStream(*this, sessionID, isSource, t38engine);
+    if (t38engine != NULL)
+      return new T38ModemMediaStream(*this, sessionID, isSource, t38engine);
   }
-
+  else
   if (mediaFormat == OpalPCM16) {
-    PAssert(audioEngine != NULL, "audioEngine is NULL");
+    if (audioEngine == NULL)
+      audioEngine = pmodem->NewPtrAudioEngine();
 
-    if (!audioEngine->IsAttached()) {
-      PAssert(pmodem != NULL, "pmodem is NULL");
-      pmodem->Attach(audioEngine);
-    }
-
-    return new AudioModemMediaStream(*this, mediaFormat, sessionID, isSource, audioEngine);
+    if (audioEngine != NULL)
+      return new AudioModemMediaStream(*this, mediaFormat, sessionID, isSource, audioEngine);
   }
 
   return OpalConnection::CreateMediaStream(mediaFormat, sessionID, isSource);
@@ -656,24 +643,6 @@ void ModemConnection::OnReleased()
   myPTRACE(1, "ModemConnection::OnReleased " << *this);
 
   OpalConnection::OnReleased();
-}
-
-PBoolean ModemConnection::Attach(PseudoModem *_pmodem)
-{
-  if (pmodem != NULL)
-    return FALSE;
-
-  pmodem = _pmodem;
-
-  PAssert(pmodem != NULL, "pmodem is NULL");
-
-  if (audioEngine == NULL)
-    audioEngine = new AudioEngine(pmodem->ptyName());
-
-  if (t38engine == NULL)
-    t38engine = new T38Engine(pmodem->ptyName());
-
-  return TRUE;
 }
 
 PBoolean ModemConnection::SetUpConnection()
@@ -741,12 +710,14 @@ PBoolean ModemConnection::SetUpConnection()
     return FALSE;
   }
 
-  if (!Attach(_pmodem)) {
+  if (pmodem != NULL) {
     myPTRACE(1, "... denied (internal error)");
     ep.PMFree(_pmodem);
     Release(EndedByLocalUser);
     return FALSE;
   }
+
+  pmodem = _pmodem;
 
   PStringToString request;
   request.SetAt("command", "call");
@@ -783,9 +754,6 @@ PBoolean ModemConnection::SetAlerting(
   SetPhase(AlertingPhase);
 
   PAssert(pmodem != NULL, "pmodem is NULL");
-  PAssert(audioEngine != NULL, "audioEngine is NULL");
-
-  pmodem->Attach(audioEngine);
 
   PStringToString request;
   request.SetAt("command", "alerting");

@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2009 Vyacheslav Frolov
+ * Copyright (c) 2001-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.15  2009-07-08 18:43:44  vfrolov
- * Added PseudoModem::ttyName()
+ * Revision 1.16  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.16  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.15  2009/07/08 18:43:44  vfrolov
  * Added PseudoModem::ttyName()
@@ -119,30 +122,22 @@ PBoolean PseudoModemBody::Request(PStringToString &request) const
   return engine && engine->Request(request);
 }
 
-PBoolean PseudoModemBody::Attach(T38Engine *t38engine) const
+T38Engine *PseudoModemBody::NewPtrT38Engine() const
 {
   PWaitAndSignal mutexWait(Mutex);
-  return engine && engine->Attach(t38engine);
+  if (engine == NULL)
+    return NULL;
+
+  return engine->NewPtrT38Engine();
 }
 
-void PseudoModemBody::Detach(T38Engine *t38engine) const
+AudioEngine *PseudoModemBody::NewPtrAudioEngine() const
 {
   PWaitAndSignal mutexWait(Mutex);
-  if( engine )
-    engine->Detach(t38engine);
-}
+  if (engine == NULL)
+    return NULL;
 
-PBoolean PseudoModemBody::Attach(AudioEngine *audioEngine) const
-{
-  PWaitAndSignal mutexWait(Mutex);
-  return engine && engine->Attach(audioEngine);
-}
-
-void PseudoModemBody::Detach(AudioEngine *audioEngine) const
-{
-  PWaitAndSignal mutexWait(Mutex);
-  if (engine)
-    engine->Detach(audioEngine);
+  return engine->NewPtrAudioEngine();
 }
 
 void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, PBoolean OutQ)

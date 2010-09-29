@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2009 Vyacheslav Frolov
+ * Copyright (c) 2009-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: t38protocol.h,v $
- * Revision 1.1  2009-07-27 16:09:24  vfrolov
- * Initial revision
+ * Revision 1.2  2010-09-29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
+ *
+ * Revision 1.2  2010/09/29 11:52:59  vfrolov
+ * Redesigned engine attaching/detaching
  *
  * Revision 1.1  2009/07/27 16:09:24  vfrolov
  * Initial revision
@@ -36,12 +39,13 @@
 #define _T38PROTOCOL_H
 
 #include <t38proto.h>
-#include "../t38engine.h"
 
 ///////////////////////////////////////////////////////////////
 class PASN_OctetString;
-
-class T38Protocol : public OpalT38Protocol, public T38Engine
+class T38Engine;
+class PseudoModem;
+///////////////////////////////////////////////////////////////
+class T38Protocol : public OpalT38Protocol
 {
   PCLASSINFO(T38Protocol, OpalT38Protocol);
 
@@ -49,16 +53,14 @@ class T38Protocol : public OpalT38Protocol, public T38Engine
 
   /**@name Construction */
   //@{
-    T38Protocol(const PString &_name = "")
-      : T38Engine(_name),
-        in_redundancy(0),
-        ls_redundancy(0),
-        hs_redundancy(0),
-        re_interval(-1) {}
+    T38Protocol(PseudoModem * pmodem);
+    ~T38Protocol();
   //@}
 
   /**@name Operations */
   //@{
+    PBoolean IsOK() const { return t38engine != NULL; }
+
     void SetRedundancy(
       int indication,
       int low_speed,
@@ -75,7 +77,6 @@ class T38Protocol : public OpalT38Protocol, public T38Engine
     void SetOldASN() { corrigendumASN = FALSE; }
   //@}
 
-    void EncodeIFPPacket(PASN_OctetString &ifp_packet, const T38_IFP &T38_ifp) const;
     PBoolean HandleRawIFP(const PASN_OctetString & pdu);
     PBoolean Originate();
     PBoolean Answer();
@@ -83,6 +84,8 @@ class T38Protocol : public OpalT38Protocol, public T38Engine
     void CleanUpOnTermination();
 
   private:
+    T38Engine *t38engine;
+
     int in_redundancy;
     int ls_redundancy;
     int hs_redundancy;
