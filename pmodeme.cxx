@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.97  2010-09-29 11:52:59  vfrolov
- * Redesigned engine attaching/detaching
+ * Revision 1.98  2010-10-06 09:06:48  vfrolov
+ * Fixed crash at dialing reset (reported by gorod225)
+ *
+ * Revision 1.98  2010/10/06 09:06:48  vfrolov
+ * Fixed crash at dialing reset (reported by gorod225)
  *
  * Revision 1.97  2010/09/29 11:52:59  vfrolov
  * Redesigned engine attaching/detaching
@@ -3689,7 +3692,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 
             PString resp = RC_PREF();
 
-            if (currentClassEngine || P.ModemClassId() == EngineBase::mcAudio) {
+            if (currentClassEngine && P.ModemClassId() == EngineBase::mcAudio) {
               currentClassEngine->ResetModemState();
               resp += RC_OK();
             } else {
