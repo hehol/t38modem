@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.h,v $
- * Revision 1.7  2010-09-29 11:52:59  vfrolov
- * Redesigned engine attaching/detaching
+ * Revision 1.8  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.8  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.7  2010/09/29 11:52:59  vfrolov
  * Redesigned engine attaching/detaching
@@ -58,8 +61,6 @@
 ///////////////////////////////////////////////////////////////
 class ModemEngineBody;
 class PseudoModemBody;
-class T38Engine;
-class AudioEngine;
 
 class ModemEngine : public ModemThreadChild
 {
@@ -78,6 +79,7 @@ class ModemEngine : public ModemThreadChild
     PBoolean Request(PStringToString &request) const;
     virtual T38Engine *NewPtrT38Engine() const;
     virtual AudioEngine *NewPtrAudioEngine() const;
+    virtual EngineBase *NewPtrUserInputEngine() const;
     const PString &ptyName() const { return Parent().ptyName(); }
     const PString &modemToken() const { return Parent().modemToken(); }
   //@}

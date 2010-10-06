@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.28  2010-09-29 11:52:59  vfrolov
- * Redesigned engine attaching/detaching
+ * Revision 1.29  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.29  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.28  2010/09/29 11:52:59  vfrolov
  * Redesigned engine attaching/detaching
@@ -122,8 +125,7 @@
 #include <opal/buildopts.h>
 #include <opal/patch.h>
 
-#include "../t38engine.h"
-#include "../audio.h"
+#include "../enginebase.h"
 #include "../pmodem.h"
 #include "../drivers.h"
 #include "modemstrm.h"
@@ -196,8 +198,7 @@ class ModemConnection : public OpalConnection
     const PNotifier requestMode;
 
     PseudoModem *pmodem;
-    AudioEngine * audioEngine;
-    T38Engine * t38engine;
+    EngineBase *userInputEngine;
     PseudoModemMode requestedMode;
     bool isPartyA;
 
@@ -527,8 +528,7 @@ ModemConnection::ModemConnection(
 #pragma warning(default:4355)
 #endif
   , pmodem((PseudoModem *)userData)
-  , audioEngine(NULL)
-  , t38engine(NULL)
+  , userInputEngine(NULL)
   , requestedMode(pmmAny)
   , isPartyA(userData != NULL)
   , phaseTimerPhase(NumPhases)
@@ -591,11 +591,8 @@ ModemConnection::~ModemConnection()
     }
   }
 
-  if (t38engine != NULL)
-    ReferenceObject::DelPointer(t38engine);
-
-  if (audioEngine != NULL)
-    ReferenceObject::DelPointer(audioEngine);
+  if (userInputEngine != NULL)
+    ReferenceObject::DelPointer(userInputEngine);
 
   phaseTimer.Stop();
 }
@@ -620,19 +617,21 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
       " mediaFormat=" << mediaFormat << " sessionID=" << sessionID << " isSource=" << isSource);
 
   if (mediaFormat == OpalT38) {
-    if (t38engine == NULL)
-      t38engine = pmodem->NewPtrT38Engine();
+    if (pmodem != NULL) {
+      T38Engine *t38engine = pmodem->NewPtrT38Engine();
 
-    if (t38engine != NULL)
-      return new T38ModemMediaStream(*this, sessionID, isSource, t38engine);
+      if (t38engine != NULL)
+        return new T38ModemMediaStream(*this, sessionID, isSource, t38engine);
+    }
   }
   else
   if (mediaFormat == OpalPCM16) {
-    if (audioEngine == NULL)
-      audioEngine = pmodem->NewPtrAudioEngine();
+    if (pmodem != NULL) {
+      AudioEngine *audioEngine = pmodem->NewPtrAudioEngine();
 
-    if (audioEngine != NULL)
-      return new AudioModemMediaStream(*this, mediaFormat, sessionID, isSource, audioEngine);
+      if (audioEngine != NULL)
+        return new AudioModemMediaStream(*this, sessionID, isSource, audioEngine);
+    }
   }
 
   return OpalConnection::CreateMediaStream(mediaFormat, sessionID, isSource);
@@ -830,10 +829,18 @@ PBoolean ModemConnection::SendUserInputTone(char tone, unsigned PTRACE_PARAM(dur
 {
   PTRACE(4, "ModemConnection::SendUserInputTone " << tone << " " << duration);
 
-  if (audioEngine == NULL || tone == ' ')
+  if (tone == ' ')
     return false;
 
-  audioEngine->WriteUserInput(tone);
+  if (userInputEngine == NULL) {
+    if (pmodem != NULL)
+      userInputEngine = pmodem->NewPtrUserInputEngine();
+
+    if (userInputEngine == NULL)
+      return false;
+  }
+
+  userInputEngine->WriteUserInput(tone);
 
   return true;
 }

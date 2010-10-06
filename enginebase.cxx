@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.cxx,v $
- * Revision 1.11  2010-09-29 11:52:59  vfrolov
- * Redesigned engine attaching/detaching
+ * Revision 1.12  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.12  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.11  2010/09/29 11:52:59  vfrolov
  * Redesigned engine attaching/detaching
@@ -114,13 +117,10 @@ EngineBase::EngineBase(const PString &_name)
   : name(_name)
   , recvUserInput(NULL)
   , modemClass(mcUndefined)
-#ifdef USE_OPAL
-  , isOpenIn(FALSE)
-  , isOpenOut(FALSE)
-#else
-  , isOpenIn(TRUE)
-  , isOpenOut(TRUE)
-#endif
+  , hOwnerIn(NULL)
+  , hOwnerOut(NULL)
+  , firstIn(TRUE)
+  , firstOut(TRUE)
 {
 }
 
@@ -128,6 +128,15 @@ EngineBase::~EngineBase()
 {
   if (recvUserInput)
     delete recvUserInput;
+
+  if (hOwnerIn != NULL)
+    myPTRACE(1, name << " ~EngineBase WARNING: (In) still open by " << hOwnerIn);
+
+  if (hOwnerOut != NULL)
+    myPTRACE(1, name << " ~EngineBase WARNING: (Out) still open by " << hOwnerOut);
+
+  if (!modemCallback.IsNULL())
+    myPTRACE(1, name << " ~EngineBase WARNING: !modemCallback.IsNULL()");
 }
 
 PBoolean EngineBase::Attach(const PNotifier &callback)
@@ -200,67 +209,97 @@ void EngineBase::OnResetModemState()
   myPTRACE(1, name << " OnResetModemState");
 }
 
-void EngineBase::OpenIn()
+void EngineBase::OpenIn(HOWNERIN hOwner)
 {
-  myPTRACE(1, name << " OpenIn: " << (isOpenIn ? "re-open" : "open"));
-
   PWaitAndSignal mutexWait(Mutex);
 
-  if (isOpenIn)
-    return;
+  while (hOwnerIn != NULL) {
+    if (hOwnerIn == hOwner) {
+      myPTRACE(1, name << " OpenIn: re-open " << hOwner);
+      return;
+    }
 
-  isOpenIn = TRUE;
+    myPTRACE(1, name << " OpenIn WARNING: close " << hOwnerIn << " by " << hOwner);
 
+    hOwnerIn = NULL;
+    OnCloseIn();
+  }
+
+  myPTRACE(1, name << " OpenIn: open " << hOwner);
+
+  hOwnerIn = hOwner;
   OnOpenIn();
-
-  ModemCallbackWithUnlock(cbpUpdateState);
 }
 
-void EngineBase::OpenOut()
+void EngineBase::OpenOut(HOWNEROUT hOwner)
 {
-  myPTRACE(1, name << " OpenOut: " << (isOpenOut ? "re-open" : "open"));
-
   PWaitAndSignal mutexWait(Mutex);
 
-  if (isOpenOut)
-    return;
+  while (hOwnerOut != NULL) {
+    if (hOwnerOut == hOwner) {
+      myPTRACE(1, name << " OpenOut: re-open " << hOwner);
+      return;
+    }
 
-  isOpenOut = TRUE;
+    myPTRACE(1, name << " OpenOut WARNING: close " << hOwnerOut << " by " << hOwner);
 
+    hOwnerOut = NULL;
+    OnCloseOut();
+  }
+
+  myPTRACE(1, name << " OpenOut: open " << hOwner);
+
+  hOwnerOut = hOwner;
   OnOpenOut();
+}
 
+void EngineBase::OnOpenIn()
+{
+  firstIn = TRUE;
   ModemCallbackWithUnlock(cbpUpdateState);
 }
 
-void EngineBase::CloseIn()
+void EngineBase::OnOpenOut()
 {
-  myPTRACE(1, name << " CloseIn: " << (isOpenIn ? "close" : "re-close"));
-
-  PWaitAndSignal mutexWait(Mutex);
-
-  if (!isOpenIn)
-    return;
-
-  isOpenIn = FALSE;
-
-  OnCloseIn();
-
+  firstOut = TRUE;
   ModemCallbackWithUnlock(cbpUpdateState);
 }
 
-void EngineBase::CloseOut()
+void EngineBase::CloseIn(HOWNERIN hOwner)
 {
-  myPTRACE(1, name << " CloseOut: " << (isOpenOut ? "close" : "re-close"));
-
   PWaitAndSignal mutexWait(Mutex);
 
-  if (!isOpenOut)
-    return;
+  if (hOwnerIn == hOwner) {
+    myPTRACE(1, name << " CloseIn: close " << hOwner);
 
-  isOpenOut = FALSE;
+    hOwnerIn = NULL;
+    OnCloseIn();
+  } else {
+    myPTRACE(1, name << " CloseIn: re-close " << hOwner);
+  }
+}
 
-  OnCloseOut();
+void EngineBase::CloseOut(HOWNEROUT hOwner)
+{
+  PWaitAndSignal mutexWait(Mutex);
 
+  if (hOwnerOut == hOwner) {
+    myPTRACE(1, name << " CloseOut: close " << hOwner);
+
+    hOwnerOut = NULL;
+    OnCloseOut();
+  } else {
+    myPTRACE(1, name << " CloseOut: re-close " << hOwner);
+  }
+}
+
+void EngineBase::OnCloseIn()
+{
+  ModemCallbackWithUnlock(cbpUpdateState);
+}
+
+void EngineBase::OnCloseOut()
+{
   ModemCallbackWithUnlock(cbpUpdateState);
 }
 

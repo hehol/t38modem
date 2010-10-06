@@ -777,6 +777,10 @@
 				Name="h323lib"
 				>
 				<File
+					RelativePath=".\audio_chan.cxx"
+					>
+				</File>
+				<File
 					RelativePath=".\g7231_fake.cxx"
 					>
 					<FileConfiguration
@@ -909,6 +913,10 @@
 			<Filter
 				Name="h323lib"
 				>
+				<File
+					RelativePath=".\audio_chan.h"
+					>
+				</File>
 				<File
 					RelativePath=".\g7231_fake.h"
 					>

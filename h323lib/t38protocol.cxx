@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: t38protocol.cxx,v $
- * Revision 1.2  2010-09-29 11:52:59  vfrolov
- * Redesigned engine attaching/detaching
+ * Revision 1.3  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.3  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.2  2010/09/29 11:52:59  vfrolov
  * Redesigned engine attaching/detaching
@@ -57,7 +60,7 @@ T38Protocol::T38Protocol(PseudoModem * pmodem)
 
 T38Protocol::~T38Protocol()
 {
-  if (t38engine)
+  if (t38engine != NULL)
     ReferenceObject::DelPointer(t38engine);
 }
 
@@ -112,7 +115,7 @@ PBoolean T38Protocol::HandleRawIFP(const PASN_OctetString & pdu)
 
   if (IS_NATIVE_ASN) {
     if (pdu.DecodeSubType(ifp))
-      return t38engine->HandlePacket(ifp);
+      return t38engine->HandlePacket(EngineBase::HOWNERIN(this), ifp);
 
     PTRACE(2, "T38\t" T38_IFP_NAME " decode failure:\n  " << setprecision(2) << ifp);
     return TRUE;
@@ -139,7 +142,7 @@ PBoolean T38Protocol::HandleRawIFP(const PASN_OctetString & pdu)
     }
   }
 
-  return t38engine->HandlePacket(ifp);
+  return t38engine->HandlePacket(EngineBase::HOWNERIN(this), ifp);
 }
 
 PBoolean T38Protocol::Originate()
@@ -160,12 +163,14 @@ PBoolean T38Protocol::Originate()
   T38_IFP lastifp;
 #endif
 
+  t38engine->OpenOut(EngineBase::HOWNEROUT(this));
+
   for (;;) {
     T38_IFP ifp;
     int res;
 
     if (seq < 0) {
-      t38engine->SetPreparePacketTimeout(-1);
+      t38engine->SetPreparePacketTimeout(EngineBase::HOWNEROUT(this), -1);
     } else {
       int timeout = (
 #ifdef REPEAT_INDICATOR_SENDING
@@ -176,10 +181,10 @@ PBoolean T38Protocol::Originate()
       if (re_interval > 0 && (timeout <= 0 || timeout > re_interval))
         timeout = re_interval;
 
-      t38engine->SetPreparePacketTimeout(timeout);
+      t38engine->SetPreparePacketTimeout(EngineBase::HOWNEROUT(this), timeout);
     }
 
-    res = t38engine->PreparePacket(ifp);
+    res = t38engine->PreparePacket(EngineBase::HOWNEROUT(this), ifp);
 
 #ifdef REPEAT_INDICATOR_SENDING
     if (res > 0)
@@ -329,6 +334,8 @@ PBoolean T38Protocol::Answer()
   int repeated = 0;
 #endif
 
+  t38engine->OpenIn(EngineBase::HOWNERIN(this));
+
   for (;;) {
     PPER_Stream rawData;
     if (!transport->ReadPDU(rawData)) {
@@ -388,7 +395,7 @@ PBoolean T38Protocol::Answer()
         const T38_UDPTLPacket_error_recovery_secondary_ifp_packets &secondary = recovery;
         int nRedundancy = secondary.GetSize();
         if (lost > nRedundancy) {
-          if (!t38engine->HandlePacketLost(lost - nRedundancy))
+          if (!t38engine->HandlePacketLost(EngineBase::HOWNERIN(this), lost - nRedundancy))
             break;
 #if PTRACING
           totallost += lost - nRedundancy;
@@ -419,7 +426,7 @@ PBoolean T38Protocol::Answer()
       }
 
       if (lost) {
-        if (!t38engine->HandlePacketLost(lost))
+        if (!t38engine->HandlePacketLost(EngineBase::HOWNERIN(this), lost))
           break;
 #if PTRACING
         totallost += lost;
@@ -456,7 +463,8 @@ void T38Protocol::CleanUpOnTermination()
   myPTRACE(1, t38engine->Name() << " T38Protocol::CleanUpOnTermination");
 
   OpalT38Protocol::CleanUpOnTermination();
-  t38engine->Close();
+  t38engine->CloseIn(EngineBase::HOWNERIN(this));
+  t38engine->CloseOut(EngineBase::HOWNEROUT(this));
 }
 ///////////////////////////////////////////////////////////////
 

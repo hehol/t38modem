@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2009 Vyacheslav Frolov
+ * Copyright (c) 2007-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemstrm.h,v $
- * Revision 1.5  2009-12-08 15:06:22  vfrolov
- * Fixed incompatibility with OPAL trunk
+ * Revision 1.6  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.6  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.5  2009/12/08 15:06:22  vfrolov
  * Fixed incompatibility with OPAL trunk
@@ -53,22 +56,40 @@
 /////////////////////////////////////////////////////////////////////////////
 class AudioEngine;
 
-class AudioModemMediaStream : public OpalRawMediaStream
+class AudioModemMediaStream : public OpalMediaStream
 {
-    PCLASSINFO(AudioModemMediaStream, OpalRawMediaStream);
+    PCLASSINFO(AudioModemMediaStream, OpalMediaStream);
   public:
+  /**@name Construction */
+  //@{
+    /**Construct a new media stream.
+      */
     AudioModemMediaStream(
       OpalConnection & conn,
-      const OpalMediaFormat & mediaFormat, ///<  Media format for stream
       unsigned sessionID,                  ///<  Session number for stream
       PBoolean isSource,                   ///<  Is a source stream
-      AudioEngine *_audioEngine            ///<  I/O channel to stream to/from
+      AudioEngine *engine
     );
+
+    ~AudioModemMediaStream();
+  //@}
 
   /**@name Overrides of OpalRawMediaStream class */
   //@{
     virtual PBoolean Open();
     virtual PBoolean Close();
+
+    virtual PBoolean ReadData(
+      BYTE * data,                         ///<  Data buffer to read to
+      PINDEX size,                         ///<  Size of buffer
+      PINDEX & length                      ///<  Length of data actually read
+    );
+
+    virtual PBoolean WriteData(
+      const BYTE * data,                   ///<  Data to write
+      PINDEX length,                       ///<  Length of data to read.
+      PINDEX & written                     ///<  Length of data actually written
+    );
 
     virtual PBoolean IsSynchronous() const { return FALSE; }
   //@}
@@ -91,8 +112,10 @@ class T38ModemMediaStream : public OpalMediaStream
       OpalConnection & conn,
       unsigned sessionID,                  ///<  Session number for stream
       PBoolean isSource,                   ///<  Is a source stream
-      T38Engine *_t38engine
+      T38Engine *engine
     );
+
+    ~T38ModemMediaStream();
   //@}
 
   /**@name Overrides of OpalMediaStream class */

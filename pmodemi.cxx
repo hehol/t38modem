@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.cxx,v $
- * Revision 1.16  2010-09-29 11:52:59  vfrolov
- * Redesigned engine attaching/detaching
+ * Revision 1.17  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.17  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.16  2010/09/29 11:52:59  vfrolov
  * Redesigned engine attaching/detaching
@@ -138,6 +141,15 @@ AudioEngine *PseudoModemBody::NewPtrAudioEngine() const
     return NULL;
 
   return engine->NewPtrAudioEngine();
+}
+
+EngineBase *PseudoModemBody::NewPtrUserInputEngine() const
+{
+  PWaitAndSignal mutexWait(Mutex);
+  if (engine == NULL)
+    return NULL;
+
+  return engine->NewPtrUserInputEngine();
 }
 
 void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, PBoolean OutQ)

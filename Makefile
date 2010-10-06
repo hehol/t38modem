@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.26  2010-02-12 08:35:51  vfrolov
-# Added fake_codecs.cxx
+# Revision 1.27  2010-10-06 16:54:19  vfrolov
+# Redesigned engine opening/closing
+#
+# Revision 1.27  2010/10/06 16:54:19  vfrolov
+# Redesigned engine opening/closing
 #
 # Revision 1.26  2010/02/12 08:35:51  vfrolov
 # Added fake_codecs.cxx
@@ -138,7 +141,7 @@ ifdef USE_OPAL
 else
   VPATH_CXX := h323lib
 
-  SOURCES += t38protocol.cxx g7231_fake.cxx h323ep.cxx
+  SOURCES += t38protocol.cxx audio_chan.cxx g7231_fake.cxx h323ep.cxx
 
   ifndef OPENH323DIR
     OPENH323DIR=$(HOME)/openh323

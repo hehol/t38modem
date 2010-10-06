@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.99  2010-10-06 10:13:23  vfrolov
- * Fixed previous fix
+ * Revision 1.100  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.100  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.99  2010/10/06 10:13:23  vfrolov
  * Fixed previous fix
@@ -1087,6 +1090,14 @@ AudioEngine *ModemEngine::NewPtrAudioEngine() const
   return (AudioEngine *)engine;
 }
 
+EngineBase *ModemEngine::NewPtrUserInputEngine() const
+{
+  if (!body)
+    return NULL;
+
+  return body->NewPtrEngine(mceAudio);
+}
+
 PBoolean ModemEngine::Request(PStringToString &request) const
 {
   return body && body->Request(request);
@@ -1329,7 +1340,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       myPTRACE(1, "ModemEngineBody::Request: line already in on-hook state");
     }
     else
-    if (CallToken() == request("calltoken")) {
+    if (CallToken().IsEmpty() || CallToken() == request("calltoken")) {
       SetCallState(cstAlerted);
 
       if (state == stConnectWait && !pPlayTone && P.ModemClassId() == EngineBase::mcAudio) {
@@ -1356,7 +1367,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       myPTRACE(1, "ModemEngineBody::Request: line already in on-hook state");
     }
     else
-    if (CallToken() == request("calltoken")) {
+    if (CallToken().IsEmpty() || CallToken() == request("calltoken")) {
       timerRing.Stop();
       SetCallState(cstEstablished);
 
@@ -1378,7 +1389,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
     }
     else
-    if (CallToken() == request("calltoken")) {
+    if (CallToken().IsEmpty() || CallToken() == request("calltoken")) {
       CallToken("");
 
       if (callState == cstDialing && state == stConnectWait && request("trynextcommand") == "dial") {

@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodemi.h,v $
- * Revision 1.9  2010-09-29 11:52:59  vfrolov
- * Redesigned engine attaching/detaching
+ * Revision 1.10  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.10  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.9  2010/09/29 11:52:59  vfrolov
  * Redesigned engine attaching/detaching
@@ -90,6 +93,7 @@ class PseudoModemBody : public PseudoModem
     PBoolean Request(PStringToString &request) const;
     virtual T38Engine *NewPtrT38Engine() const;
     virtual AudioEngine *NewPtrAudioEngine() const;
+    virtual EngineBase *NewPtrUserInputEngine() const;
 
     const PNotifier &GetCallbackEndPoint() const { return callbackEndPoint; }
 

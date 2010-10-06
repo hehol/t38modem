@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.40  2010-09-29 11:52:59  vfrolov
- * Redesigned engine attaching/detaching
+ * Revision 1.41  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.41  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.40  2010/09/29 11:52:59  vfrolov
  * Redesigned engine attaching/detaching
@@ -230,32 +233,31 @@ class T38Engine : public EngineBase
     virtual void RecvStop();
     virtual int RecvDiag() const;
 
-    void Close() { CloseIn(); CloseOut(); }
-
     /**Prepare outgoing T.38 packet.
 
        If returns  0, then the writing loop should be terminated.
        If returns >0, then the ifp packet is correct and should be sent.
        If returns <0, then the ifp packet is not correct (timeout).
       */
-    int PreparePacket(T38_IFP & ifp);
+    int PreparePacket(
+      HOWNEROUT hOwner,
+      T38_IFP & ifp
+    );
 
-    void SetPreparePacketTimeout(int timeout, int period = -1) {
-      if (timeout == 0 && period == -1)
-        period = 20;
-
-      preparePacketTimeout = timeout;
-      preparePacketPeriod = period;
-
-      if (preparePacketPeriod > 0)
-        preparePacketDelay.Restart();
-    }
+    /**Set outgoing T.38 packet prepare timeout.
+      */
+    void SetPreparePacketTimeout(
+      HOWNEROUT hOwner,
+      int timeout,
+      int period = -1
+    );
 
     /**Handle incoming T.38 packet.
 
        If returns FALSE, then the reading loop should be terminated.
       */
     PBoolean HandlePacket(
+      HOWNERIN hOwner,
       const T38_IFP & ifp
     );
 
@@ -264,6 +266,7 @@ class T38Engine : public EngineBase
        If returns FALSE, then the reading loop should be terminated.
       */
     PBoolean HandlePacketLost(
+      HOWNERIN hOwner,
       unsigned nLost
     );
   //@}
@@ -313,7 +316,6 @@ class T38Engine : public EngineBase
     PTime timeBeginIn;
 #endif
     PINDEX countIn;
-    PBoolean firstIn;
 
     T30 t30;
 

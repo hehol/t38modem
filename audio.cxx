@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.15  2010-09-22 15:23:48  vfrolov
- * Added OnResetModemState()
+ * Revision 1.16  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.16  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.15  2010/09/22 15:23:48  vfrolov
  * Added OnResetModemState()
@@ -104,10 +107,14 @@ AudioEngine::AudioEngine(const PString &_name)
   , t30ToneDetect(NULL)
 {
   timerFakeOut.SetNotifier(timerFakeOutCallback);
+
+  PTRACE(2, name << " AudioEngine");
 }
 
 AudioEngine::~AudioEngine()
 {
+  PTRACE(2, name << " ~AudioEngine");
+
   timerFakeOut = 0;
 
   if (sendAudio)
@@ -126,9 +133,6 @@ AudioEngine::~AudioEngine()
 void AudioEngine::OnAttach()
 {
   EngineBase::OnAttach();
-
-  readDelay.Restart();
-  writeDelay.Restart();
 }
 
 void AudioEngine::OnDetach()
@@ -141,7 +145,7 @@ void AudioEngine::OnResetModemState()
   EngineBase::OnResetModemState();
 
   if (sendAudio) {
-    if (isOpenOut) {
+    if (hOwnerOut != NULL) {
       sendAudio->PutEof();
     } else {
       delete sendAudio;
@@ -178,7 +182,6 @@ void AudioEngine::OnChangeModemClass()
 void AudioEngine::OnOpenOut()
 {
   EngineBase::OnOpenOut();
-  readDelay.Restart();
   timerFakeOut = 0;
 
   if (sendAudio && !sendAudio->isFull())
@@ -221,9 +224,42 @@ void AudioEngine::OnCloseOut()
   }
 }
 
-PBoolean AudioEngine::Read(void * buffer, PINDEX amount)
+PBoolean AudioEngine::Read(HOWNEROUT hOwner, void * buffer, PINDEX amount)
 {
-  Mutex.Wait();
+  if (hOwnerOut != hOwner || !IsModemOpen())
+    return FALSE;
+
+  PWaitAndSignal mutexOutWait(MutexOut);
+
+  if (hOwnerOut != hOwner || !IsModemOpen())
+    return FALSE;
+
+  {
+    PWaitAndSignal mutexWait(Mutex);
+
+    if (hOwnerOut != hOwner || !IsModemOpen())
+      return 0;
+
+    if (firstOut) {
+      firstOut = FALSE;
+      ModemCallbackWithUnlock(cbpUpdateState);
+
+      if (hOwnerOut != hOwner || !IsModemOpen())
+        return FALSE;
+
+      readDelay.Restart();
+    }
+  }
+
+  readDelay.Delay(amount/BYTES_PER_MSEC);
+
+  if (hOwnerOut != hOwner || !IsModemOpen())
+    return FALSE;
+
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (hOwnerOut != hOwner || !IsModemOpen())
+    return FALSE;
 
   if (sendAudio) {
     PBoolean wasFull = sendAudio->isFull();
@@ -231,13 +267,20 @@ PBoolean AudioEngine::Read(void * buffer, PINDEX amount)
     int count = sendAudio->GetData(buffer, amount);
 
     if (count < 0) {
+      count = 0;
       delete sendAudio;
       sendAudio = NULL;
       ModemCallbackWithUnlock(callbackParam);
-      count = 0;
+
+      if (hOwnerOut != hOwner || !IsModemOpen())
+        return FALSE;
     } else {
-      if (wasFull && !sendAudio->isFull())
+      if (wasFull && !sendAudio->isFull()) {
         ModemCallbackWithUnlock(cbpOutBufNoFull);
+
+        if (hOwnerOut != hOwner || !IsModemOpen())
+          return FALSE;
+      }
     }
 
     if (amount > count)
@@ -248,12 +291,6 @@ PBoolean AudioEngine::Read(void * buffer, PINDEX amount)
     else
       memset(buffer, 0, amount);
   }
-
-  Mutex.Signal();
-
-  lastReadCount = amount;
-
-  readDelay.Delay(amount/BYTES_PER_MSEC);
 
   return TRUE;
 }
@@ -294,7 +331,7 @@ PBoolean AudioEngine::SendStart(DataType PTRACE_PARAM(_dataType), int PTRACE_PAR
   PTRACE(3, name << " SendStart _dataType=" << _dataType
                  << " param=" << param);
 
-  if (!isOpenOut)
+  if (hOwnerOut == NULL)
     targetTimeFakeOut = PTime();
 
   return TRUE;
@@ -306,7 +343,7 @@ int AudioEngine::Send(const void *pBuf, PINDEX count)
   PWaitAndSignal mutexWait(Mutex);
 
   if (sendAudio) {
-    if (isOpenOut)
+    if (hOwnerOut != NULL)
       sendAudio->PutData(pBuf, count);
     else
       targetTimeFakeOut += count/BYTES_PER_MSEC;
@@ -323,7 +360,7 @@ PBoolean AudioEngine::SendStop(PBoolean PTRACE_PARAM(moreFrames), int _callbackP
   callbackParam = _callbackParam;
 
   if (sendAudio) {
-    if (isOpenOut) {
+    if (hOwnerOut != NULL) {
       sendAudio->PutEof();
     } else {
       delete sendAudio;
@@ -349,7 +386,7 @@ PBoolean AudioEngine::isOutBufFull() const
   if (!sendAudio)
     return FALSE;
 
-  if (!isOpenOut) {
+  if (hOwnerOut == NULL) {
     PTimeInterval delay = targetTimeFakeOut - PTime();
     int sleep_time = (int)delay.GetMilliSeconds();
 
@@ -380,7 +417,6 @@ void AudioEngine::OnTimerFakeOutCallback(PTimer & PTRACE_PARAM(from), INT PTRACE
 void AudioEngine::OnOpenIn()
 {
   EngineBase::OnOpenIn();
-  writeDelay.Restart();
 }
 
 void AudioEngine::OnCloseIn()
@@ -388,25 +424,61 @@ void AudioEngine::OnCloseIn()
   EngineBase::OnCloseIn();
 }
 
-PBoolean AudioEngine::Write(const void * buffer, PINDEX len)
+PBoolean AudioEngine::Write(HOWNERIN hOwner, const void * buffer, PINDEX len)
 {
+  if (hOwnerIn != hOwner || !IsModemOpen())
+    return FALSE;
+
+  PWaitAndSignal mutexInWait(MutexIn);
+
+  if (hOwnerIn != hOwner || !IsModemOpen())
+    return FALSE;
+
+  {
+    PWaitAndSignal mutexWait(Mutex);
+
+    if (hOwnerIn != hOwner || !IsModemOpen())
+      return 0;
+
+    if (firstIn) {
+      firstIn = FALSE;
+      ModemCallbackWithUnlock(cbpUpdateState);
+
+      if (hOwnerIn != hOwner || !IsModemOpen())
+        return FALSE;
+
+      writeDelay.Restart();
+    }
+  }
+
   Mutex.Wait();
+
+  if (hOwnerIn != hOwner || !IsModemOpen())
+    return FALSE;
 
   if (recvAudio && !recvAudio->isFull()) {
     recvAudio->PutData(buffer, len);
     ModemCallbackWithUnlock(callbackParam);
+
+    if (hOwnerIn != hOwner || !IsModemOpen())
+      return FALSE;
   }
 
   PBoolean cng = t30ToneDetect && t30ToneDetect->Write(buffer, len);
 
-  if (cng)
+  if (cng) {
     OnUserInput('c');
+
+    if (hOwnerIn != hOwner || !IsModemOpen())
+      return FALSE;
+  }
 
   Mutex.Signal();
 
-  lastWriteCount = len;
-
   writeDelay.Delay(len/BYTES_PER_MSEC);
+
+  if (hOwnerIn != hOwner || !IsModemOpen())
+    return FALSE;
 
   return TRUE;
 }

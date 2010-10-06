@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.11  2010-09-29 11:52:59  vfrolov
- * Redesigned engine attaching/detaching
+ * Revision 1.12  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.12  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.11  2010/09/29 11:52:59  vfrolov
  * Redesigned engine attaching/detaching
@@ -100,6 +103,14 @@ class EngineBase : public ReferenceObject
 {
   PCLASSINFO(EngineBase, ReferenceObject);
 
+  private:
+    class OWNERIN  { int unused; };
+    class OWNEROUT { int unused; };
+
+  public:
+    typedef const OWNERIN  *HOWNERIN;
+    typedef const OWNEROUT *HOWNEROUT;
+
   public:
 
   /**@name Construction */
@@ -148,13 +159,13 @@ class EngineBase : public ReferenceObject
     void Detach(const PNotifier &callback);
     void ResetModemState();
 
-    void OpenIn();
-    void OpenOut();
-    void CloseIn();
-    void CloseOut();
+    void OpenIn(HOWNERIN hOwner);
+    void OpenOut(HOWNEROUT hOwner);
+    void CloseIn(HOWNERIN hOwner);
+    void CloseOut(HOWNEROUT hOwner);
 
-    PBoolean IsOpenIn() const { return isOpenIn && IsModemOpen(); }
-    PBoolean IsOpenOut() const { return isOpenOut && IsModemOpen(); }
+    PBoolean IsOpenIn() const { return hOwnerIn != NULL; }
+    PBoolean IsOpenOut() const { return hOwnerOut != NULL; }
 
     PBoolean TryLockModemCallback();
     void UnlockModemCallback();
@@ -187,16 +198,18 @@ class EngineBase : public ReferenceObject
     virtual void OnChangeModemClass();
     virtual void OnUserInput(const PString & value);
 
-    virtual void OnOpenIn() {}
-    virtual void OnOpenOut() {}
-    virtual void OnCloseIn() {}
-    virtual void OnCloseOut() {}
+    virtual void OnOpenIn();
+    virtual void OnOpenOut();
+    virtual void OnCloseIn();
+    virtual void OnCloseOut();
 
     const PString name;
     DataStream *volatile recvUserInput;
     ModemClass modemClass;
-    volatile PBoolean isOpenIn;
-    volatile PBoolean isOpenOut;
+    volatile HOWNERIN hOwnerIn;
+    volatile HOWNEROUT hOwnerOut;
+    PBoolean firstIn;
+    PBoolean firstOut;
 
     void ModemCallbackWithUnlock(INT extra);
 
@@ -204,6 +217,8 @@ class EngineBase : public ReferenceObject
     PTimedMutex MutexModemCallback;
 
     PMutex MutexModem;
+    PMutex MutexIn;
+    PMutex MutexOut;
     PMutex Mutex;
 };
 

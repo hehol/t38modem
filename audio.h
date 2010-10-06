@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.h,v $
- * Revision 1.7  2010-09-22 15:23:48  vfrolov
- * Added OnResetModemState()
+ * Revision 1.8  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.8  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.7  2010/09/22 15:23:48  vfrolov
  * Added OnResetModemState()
@@ -61,28 +64,28 @@ class DataStream;
 class T30Tone;
 class T30ToneDetect;
 ///////////////////////////////////////////////////////////////
-class AudioEngine : public PChannel, public EngineBase
+class AudioEngine : public EngineBase
 {
-  PCLASSINFO(AudioEngine, PChannel);
+  PCLASSINFO(AudioEngine, EngineBase);
 
   public:
 
   /**@name Construction */
   //@{
-    AudioEngine(const PString &_name = "");
+    AudioEngine(const PString &_name);
     ~AudioEngine();
   //@}
 
   /**@name Modem API */
   //@{
-    PBoolean Read(void * buffer, PINDEX amount);
+    PBoolean Read(HOWNEROUT hOwner, void * buffer, PINDEX amount);
     virtual void SendOnIdle(DataType _dataType);
     virtual PBoolean SendStart(DataType _dataType, int param);
     virtual int Send(const void *pBuf, PINDEX count);
     virtual PBoolean SendStop(PBoolean moreFrames, int _callbackParam);
     virtual PBoolean isOutBufFull() const;
 
-    PBoolean Write(const void * buffer, PINDEX len);
+    PBoolean Write(HOWNERIN hOwner, const void * buffer, PINDEX len);
     virtual PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done);
     virtual PBoolean RecvStart(int _callbackParam);
     virtual int Recv(void *pBuf, PINDEX count);

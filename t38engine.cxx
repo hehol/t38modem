@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.70  2010-09-22 15:39:19  vfrolov
- * Moved ResetModemState() to EngineBase
- * Replaced _ResetModemState() by OnResetModemState()
+ * Revision 1.71  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.71  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.70  2010/09/22 15:39:19  vfrolov
  * Moved ResetModemState() to EngineBase
@@ -567,7 +569,6 @@ T38Engine::T38Engine(const PString &_name)
   , timeBeginIn()
 #endif
   , countIn(0)
-  , firstIn(TRUE)
   , t30()
   , modStreamIn(NULL)
   , modStreamInSaved(NULL)
@@ -578,34 +579,23 @@ T38Engine::T38Engine(const PString &_name)
 
 T38Engine::~T38Engine()
 {
-  PTRACE(1, name << " ~T38Engine ");
+  PTRACE(1, name << " ~T38Engine");
 
   if( modStreamIn != NULL )
     delete modStreamIn;
 
   if( modStreamInSaved != NULL )
     delete modStreamInSaved;
-
-  if (isOpenIn)
-    myPTRACE(1, name << " ~T38Engine isOpenIn");
-
-  if (isOpenOut)
-    myPTRACE(1, name << " ~T38Engine isOpenOut");
-
-  if( !modemCallback.IsNULL() )
-    myPTRACE(1, name << " ~T38Engine !modemCallback.IsNULL()");
 }
 
 void T38Engine::OnOpenIn()
 {
   EngineBase::OnOpenIn();
-  firstIn = TRUE;
 }
 
 void T38Engine::OnOpenOut()
 {
   EngineBase::OnOpenOut();
-  preparePacketDelay.Restart();
 }
 
 void T38Engine::OnCloseIn()
@@ -975,7 +965,7 @@ PBoolean T38Engine::SendingNotCompleted() const
 {
   PWaitAndSignal mutexWait(Mutex);
 
-  if (!IsOpenOut())
+  if (hOwnerOut == NULL)
     return FALSE;
 
   if (stateOut != stOutIdle)
@@ -987,10 +977,52 @@ PBoolean T38Engine::SendingNotCompleted() const
   return FALSE;
 }
 ///////////////////////////////////////////////////////////////
-int T38Engine::PreparePacket(T38_IFP & ifp)
+void T38Engine::SetPreparePacketTimeout(HOWNEROUT hOwner, int timeout, int period)
 {
-  if (!IsOpenOut())
+  if (hOwnerOut != hOwner)
+    return;
+
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (hOwnerOut != hOwner)
+    return;
+
+  if (timeout == 0 && period == -1)
+    period = 20;
+
+  preparePacketTimeout = timeout;
+  preparePacketPeriod = period;
+
+  if (preparePacketPeriod > 0)
+    preparePacketDelay.Restart();
+}
+///////////////////////////////////////////////////////////////
+int T38Engine::PreparePacket(HOWNEROUT hOwner, T38_IFP & ifp)
+{
+  if (hOwnerOut != hOwner || !IsModemOpen())
     return 0;
+
+  PWaitAndSignal mutexWait(MutexOut);
+
+  if (hOwnerOut != hOwner || !IsModemOpen())
+    return 0;
+
+  {
+    PWaitAndSignal mutexWait(Mutex);
+
+    if (hOwnerOut != hOwner || !IsModemOpen())
+      return 0;
+
+    if (firstOut) {
+      firstOut = FALSE;
+      ModemCallbackWithUnlock(cbpUpdateState);
+
+      if (hOwnerOut != hOwner || !IsModemOpen())
+        return FALSE;
+
+      preparePacketDelay.Restart();
+    }
+  }
 
   //myPTRACE(1, name << " PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
 
@@ -1001,7 +1033,7 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
   if (preparePacketPeriod > 0) {
     preparePacketDelay.Delay(preparePacketPeriod);
 
-    if (!IsOpenOut())
+    if (hOwnerOut != hOwner || !IsModemOpen())
       return 0;
   }
 
@@ -1036,20 +1068,24 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
 
         mySleep(delay.GetMilliSeconds());
 
-        if (!IsOpenOut())
+        if (hOwnerOut != hOwner || !IsModemOpen())
           return 0;
       }
     } else {
       doDalay = TRUE;
     }
 
-    if (!IsOpenOut())
+    if (hOwnerOut != hOwner || !IsModemOpen())
       return 0;
 
     for(;;) {
       PBoolean waitData = FALSE;
       {
         PWaitAndSignal mutexWait(Mutex);
+
+        if (hOwnerOut != hOwner || !IsModemOpen())
+          return 0;
+
         if (isStateModemOut() || stateOut != stOutIdle) {
           switch (stateOut) {
             case stOutIdle:
@@ -1123,6 +1159,10 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
               stateOut = stOutNoSig;
               stateModem = stmIdle;
               ModemCallbackWithUnlock(callbackParamOut);
+
+              if (hOwnerOut != hOwner || !IsModemOpen())
+                return 0;
+
               redo = TRUE;
               break;
             ////////////////////////////////////////////////////
@@ -1130,6 +1170,10 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
               stateOut = stOutIdle;
               stateModem = stmIdle;
               ModemCallbackWithUnlock(callbackParamOut);
+
+              if (hOwnerOut != hOwner || !IsModemOpen())
+                return 0;
+
               doDalay = FALSE;
               redo = TRUE;
               break;
@@ -1182,8 +1226,12 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                   len = sizeof(b);
                 PBoolean wasFull = bufOut.isFull();
                 int count = hdlcOut.GetData(b, len);
-                if (wasFull && !bufOut.isFull())
+                if (wasFull && !bufOut.isFull()) {
                   ModemCallbackWithUnlock(cbpOutBufNoFull);
+
+                  if (hOwnerOut != hOwner || !IsModemOpen())
+                    return 0;
+                }
 
                 switch( count ) {
                   case -1:
@@ -1208,6 +1256,9 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                         (ModParsOut.dataType == dtHdlc || hdlcOut.getLastChar() != 0))
                     {
                       ModemCallbackWithUnlock(cbpOutBufEmpty);
+
+                      if (hOwnerOut != hOwner || !IsModemOpen())
+                        return 0;
                     }
                     else
                     if (!startedTimeOutBufEmpty) {
@@ -1217,6 +1268,9 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                     else
                     if (timeOutBufEmpty <= PTime()) {
                       ModemCallbackWithUnlock(cbpOutBufEmpty);
+
+                      if (hOwnerOut != hOwner || !IsModemOpen())
+                        return 0;
                     }
                     waitData = TRUE;
                     break;
@@ -1265,8 +1319,12 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                 else
                   stateOut = stOutDataNoSig;
 
-                if (wasFull && !bufOut.isFull())
+                if (wasFull && !bufOut.isFull()) {
                   ModemCallbackWithUnlock(cbpOutBufNoFull);
+
+                  if (hOwnerOut != hOwner || !IsModemOpen())
+                    return 0;
+                }
               } else {
                 if( stateModem != stmOutNoMoreData ) {
                   myPTRACE(1, name << " PreparePacket stOutHdlcFcs stateModem("
@@ -1287,6 +1345,9 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
                   stateOut = stOutData;
                   stateModem = stmOutMoreData;
                   ModemCallbackWithUnlock(callbackParamOut);
+
+                  if (hOwnerOut != hOwner || !IsModemOpen())
+                    return 0;
                 } else {
                   stateOut = stOutDataNoSig;
                 }
@@ -1321,6 +1382,10 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
               stateOut = stOutNoSig;
               stateModem = stmIdle;
               ModemCallbackWithUnlock(callbackParamOut);
+
+              if (hOwnerOut != hOwner || !IsModemOpen())
+                return 0;
+
               break;
             ////////////////////////////////////////////////////
             case stOutNoSig:
@@ -1369,11 +1434,15 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
         }
       }
 
-      if (!IsOpenOut())
+      if (hOwnerOut != hOwner || !IsModemOpen())
         return 0;
 
       {
         PWaitAndSignal mutexWait(Mutex);
+
+        if (hOwnerOut != hOwner || !IsModemOpen())
+          return 0;
+
         if (stateOut == stOutData) {
 #if PTRACING
           if (myCanTrace(3) || (myCanTrace(2) && ModParsOut.dataType == dtRaw)) {
@@ -1411,12 +1480,16 @@ int T38Engine::PreparePacket(T38_IFP & ifp)
   return 1;
 }
 ///////////////////////////////////////////////////////////////
-PBoolean T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
+PBoolean T38Engine::HandlePacketLost(HOWNERIN hOwner, unsigned myPTRACE_PARAM(nLost))
 {
   myPTRACE(1, name << " HandlePacketLost " << nLost);
+
+  if (hOwnerIn != hOwner || !IsModemOpen())
+    return FALSE;
+
   PWaitAndSignal mutexWait(Mutex);
 
-  if (!IsOpenIn())
+  if (hOwnerIn != hOwner || !IsModemOpen())
     return FALSE;
 
   ModStream *modStream = modStreamIn;
@@ -1424,6 +1497,7 @@ PBoolean T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
   if( modStream == NULL || modStream->lastBuf == NULL ) {
     modStream = modStreamInSaved;
   }
+
   if( !(modStream == NULL || modStream->lastBuf == NULL) ) {
     if( modStream->ModPars.msgType == T38D(e_v21) ) {
       modStream->SetDiag(diagBadFcs);
@@ -1432,7 +1506,7 @@ PBoolean T38Engine::HandlePacketLost(unsigned myPTRACE_PARAM(nLost))
   return TRUE;
 }
 ///////////////////////////////////////////////////////////////
-PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
+PBoolean T38Engine::HandlePacket(HOWNERIN hOwner, const T38_IFP & ifp)
 {
 #if PTRACING
   if (PTrace::CanTrace(3)) {
@@ -1444,9 +1518,12 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
   }
 #endif
 
+  if (hOwnerIn != hOwner || !IsModemOpen())
+    return FALSE;
+
   PWaitAndSignal mutexWait(Mutex);
 
-  if (!IsOpenIn())
+  if (hOwnerIn != hOwner || !IsModemOpen())
     return FALSE;
 
   switch (ifp.m_type_of_msg.GetTag()) {
@@ -1487,6 +1564,9 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
           if (stateModem == stmInWaitSilence) {
             stateModem = stmIdle;
             ModemCallbackWithUnlock(callbackParamIn);
+
+            if (hOwnerIn != hOwner || !IsModemOpen())
+              return FALSE;
           }
           break;
         case T38I(e_ced):
@@ -1496,6 +1576,9 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
           if (stateModem == stmInWaitSilence) {
             stateModem = stmIdle;
             ModemCallbackWithUnlock(callbackParamIn);
+
+            if (hOwnerIn != hOwner || !IsModemOpen())
+              return FALSE;
           }
           break;
         case T38I(e_cng):
@@ -1505,6 +1588,9 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
           if (stateModem == stmInWaitSilence) {
             stateModem = stmIdle;
             ModemCallbackWithUnlock(callbackParamIn);
+
+            if (hOwnerIn != hOwner || !IsModemOpen())
+              return FALSE;
           }
           break;
         case T38I(e_v21_preamble):
@@ -1528,6 +1614,9 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
           if (stateModem == stmInWaitSilence) {
             stateModem = stmIdle;
             ModemCallbackWithUnlock(callbackParamIn);
+
+            if (hOwnerIn != hOwner || !IsModemOpen())
+              return FALSE;
           }
           else
           if (stateModem == stmInWaitData) {
@@ -1550,6 +1639,9 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
             }
             stateModem = stmInReadyData;
             ModemCallbackWithUnlock(callbackParamIn);
+
+            if (hOwnerIn != hOwner || !IsModemOpen())
+              return FALSE;
           }
           break;
         default:
@@ -1643,21 +1735,35 @@ PBoolean T38Engine::HandlePacket(const T38_IFP & ifp)
                     if (stateModem == stmInWaitSilence) {
                       stateModem = stmIdle;
                       ModemCallbackWithUnlock(callbackParamIn);
+
+                      if (hOwnerIn != hOwner || !IsModemOpen())
+                        return FALSE;
                     }
                     break;
                 }
           }
         }
 
-        if (stateModem == stmInRecvData)
+        if (stateModem == stmInRecvData) {
           ModemCallbackWithUnlock(callbackParamIn);
+
+          if (hOwnerIn != hOwner || !IsModemOpen())
+            return FALSE;
+        }
+
         break;
     }
     default:
       myPTRACE(1, name << " HandlePacket Tag is bad !!! " << setprecision(2) << ifp);
   }
 
-  firstIn = FALSE;
+  if (!firstIn) {
+    firstIn = FALSE;
+    ModemCallbackWithUnlock(cbpUpdateState);
+
+    if (hOwnerIn != hOwner || !IsModemOpen())
+      return FALSE;
+  }
 
   return TRUE;
 }

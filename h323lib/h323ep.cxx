@@ -24,8 +24,11 @@
  * Contributor(s): Vyacheslav Frolov
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.55  2010-09-29 11:52:59  vfrolov
- * Redesigned engine attaching/detaching
+ * Revision 1.56  2010-10-06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
+ *
+ * Revision 1.56  2010/10/06 16:54:19  vfrolov
+ * Redesigned engine opening/closing
  *
  * Revision 1.55  2010/09/29 11:52:59  vfrolov
  * Redesigned engine attaching/detaching
@@ -189,7 +192,8 @@
 #include "h323ep.h"
 #include "g7231_fake.h"
 #include "t38protocol.h"
-#include "../audio.h"
+#include "audio_chan.h"
+#include "../enginebase.h"
 #include "../pmodem.h"
 #include "../drivers.h"
 
@@ -222,7 +226,7 @@ class MyH323Connection : public H323Connection
 
     PMutex        connMutex;
     PseudoModem * pmodem;
-    AudioEngine * audioEngine;
+    EngineBase  * userInputEngine;
 };
 ///////////////////////////////////////////////////////////////
 PString MyH323EndPoint::ArgSpec()
@@ -690,8 +694,9 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs &args)
 ///////////////////////////////////////////////////////////////
 
 MyH323Connection::MyH323Connection(MyH323EndPoint & _ep, unsigned callReference)
-  : H323Connection(_ep, callReference), ep(_ep),
-    pmodem(NULL), audioEngine(NULL)
+  : H323Connection(_ep, callReference), ep(_ep)
+  , pmodem(NULL)
+  , userInputEngine(NULL)
 {
 }
 
@@ -710,8 +715,8 @@ MyH323Connection::~MyH323Connection()
     ep.PMFree(pmodem);
   }
 
-  if (audioEngine)
-    ReferenceObject::DelPointer(audioEngine);
+  if (userInputEngine != NULL)
+    ReferenceObject::DelPointer(userInputEngine);
 }
 
 void MyH323Connection::OnEstablished()
@@ -734,10 +739,7 @@ PBoolean MyH323Connection::Attach(PseudoModem *_pmodem)
 
   pmodem = _pmodem;
 
-  if (audioEngine == NULL)
-    audioEngine = pmodem->NewPtrAudioEngine();
-
-  return audioEngine != NULL;
+  return TRUE;
 }
 
 OpalT38Protocol * MyH323Connection::CreateT38ProtocolHandler()
@@ -881,23 +883,38 @@ void MyH323Connection::OnClosedLogicalChannel(const H323Channel & channel)
   myPTRACE(1, "MyH323Connection::OnClosedLogicalChannel ch=" << channel << " cp=" << channel.GetCapability() << " sid=" << channel.GetSessionID() << " " << channel.GetDirection());
 }
 
-PBoolean MyH323Connection::OpenAudioChannel(PBoolean isEncoding, unsigned /* bufferSize */, H323AudioCodec & codec)
+PBoolean MyH323Connection::OpenAudioChannel(PBoolean isEncoding, unsigned /*bufferSize*/, H323AudioCodec & codec)
 {
-  PTRACE(2, "MyH323Connection::OpenAudioChannel " << codec);
+  PTRACE(2, "MyH323Connection::OpenAudioChannel " << codec << (isEncoding ? " encoding" : " decoding"));
 
-  PAssert(audioEngine != NULL, "audioEngine is NULL");
+  if (pmodem == NULL)
+    return FALSE;
 
-  codec.AttachChannel(audioEngine, FALSE);
+  ModemAudioChannel *audioChannel = new ModemAudioChannel(isEncoding, pmodem);
+
+  if (!audioChannel || !audioChannel->IsOK()) {
+    delete audioChannel;
+    PTRACE(1, "MyH323Connection::OpenAudioChannel can't create ModemAudioChannel");
+  }
+
+  codec.AttachChannel(audioChannel, TRUE);
 
   return TRUE;
 }
 
 void MyH323Connection::OnUserInputString(const PString & value)
 {
-  PAssert(audioEngine != NULL, "audioEngine is NULL");
+  if (userInputEngine == NULL) {
+    if (pmodem == NULL)
+      return;
 
-  audioEngine->WriteUserInput(value);
+    userInputEngine = pmodem->NewPtrUserInputEngine();
+
+    if (userInputEngine == NULL)
+      return;
+  }
+
+  userInputEngine->WriteUserInput(value);
 }
-
-// End of File ///////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 
