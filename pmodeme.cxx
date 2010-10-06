@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.98  2010-10-06 09:06:48  vfrolov
- * Fixed crash at dialing reset (reported by gorod225)
+ * Revision 1.99  2010-10-06 10:13:23  vfrolov
+ * Fixed previous fix
+ *
+ * Revision 1.99  2010/10/06 10:13:23  vfrolov
+ * Fixed previous fix
  *
  * Revision 1.98  2010/10/06 09:06:48  vfrolov
  * Fixed crash at dialing reset (reported by gorod225)
@@ -3692,8 +3695,10 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 
             PString resp = RC_PREF();
 
-            if (currentClassEngine && P.ModemClassId() == EngineBase::mcAudio) {
-              currentClassEngine->ResetModemState();
+            if (currentClassEngine || P.ModemClassId() == EngineBase::mcAudio) {
+              if (currentClassEngine)
+                currentClassEngine->ResetModemState();
+
               resp += RC_OK();
             } else {
               OnHook();
