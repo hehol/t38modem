@@ -1,0 +1,22 @@
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual C++ Express 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "t38modem", "t38modem_openh323_2005.vcproj", "{5684EA1E-9DEC-4701-A81E-FBF8133A77B5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		No Trace|Win32 = No Trace|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5684EA1E-9DEC-4701-A81E-FBF8133A77B5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5684EA1E-9DEC-4701-A81E-FBF8133A77B5}.Debug|Win32.Build.0 = Debug|Win32
+		{5684EA1E-9DEC-4701-A81E-FBF8133A77B5}.No Trace|Win32.ActiveCfg = No Trace|Win32
+		{5684EA1E-9DEC-4701-A81E-FBF8133A77B5}.No Trace|Win32.Build.0 = No Trace|Win32
+		{5684EA1E-9DEC-4701-A81E-FBF8133A77B5}.Release|Win32.ActiveCfg = Release|Win32
+		{5684EA1E-9DEC-4701-A81E-FBF8133A77B5}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
