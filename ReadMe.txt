@@ -47,14 +47,8 @@ Building with Open Phone Abstraction Library (OPAL):
 
 Building with Open H323 Library:
 
-  Start Microsoft Visual C++ 2005 with h323lib\t38modem_2005.vcproj file.
+  Start Microsoft Visual C++ 2005 with h323lib\t38modem_openh323_2005.vcproj file.
   Set Active Configuration to "t38modem - Win32 Release".
-  Add "PBoolean=BOOL" to
-  [Project]->[t38modem Properties]->[Configuration Properties]->
-  [C/C++]->[Preprocessor]->[Preprocessor Definitions].
-  Change "h323plus.lib" to "openh323.lib" in
-  [Project]->[t38modem Properties]->[Configuration Properties]->
-  [Linker]->[Input]->[Additional Dependensies].
   Build t38modem.exe.
 
 Building with H323 Plus Library:
