@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.71  2010-10-06 16:54:19  vfrolov
- * Redesigned engine opening/closing
+ * Revision 1.72  2010-10-08 06:09:53  vfrolov
+ * Added parameter assert to SetPreparePacketTimeout()
+ *
+ * Revision 1.72  2010/10/08 06:09:53  vfrolov
+ * Added parameter assert to SetPreparePacketTimeout()
  *
  * Revision 1.71  2010/10/06 16:54:19  vfrolov
  * Redesigned engine opening/closing
@@ -295,7 +298,6 @@ enum StateOut {
 ///////////////////////////////////////////////////////////////
 enum StateModem {
   stmIdle,
-  stmError,
 
   stmOutMoreData,
   stmOutNoMoreData,
@@ -581,10 +583,10 @@ T38Engine::~T38Engine()
 {
   PTRACE(1, name << " ~T38Engine");
 
-  if( modStreamIn != NULL )
+  if (modStreamIn != NULL)
     delete modStreamIn;
 
-  if( modStreamInSaved != NULL )
+  if (modStreamInSaved != NULL)
     delete modStreamInSaved;
 }
 
@@ -979,6 +981,8 @@ PBoolean T38Engine::SendingNotCompleted() const
 ///////////////////////////////////////////////////////////////
 void T38Engine::SetPreparePacketTimeout(HOWNEROUT hOwner, int timeout, int period)
 {
+  PAssert((timeout == 0 && period > 0) || (timeout != 0 && period < 0), "Invalid timeout/period");
+
   if (hOwnerOut != hOwner)
     return;
 
@@ -986,9 +990,6 @@ void T38Engine::SetPreparePacketTimeout(HOWNEROUT hOwner, int timeout, int perio
 
   if (hOwnerOut != hOwner)
     return;
-
-  if (timeout == 0 && period == -1)
-    period = 20;
 
   preparePacketTimeout = timeout;
   preparePacketPeriod = period;
@@ -1546,7 +1547,7 @@ PBoolean T38Engine::HandlePacket(HOWNERIN hOwner, const T38_IFP & ifp)
           myPTRACE(1, name << " HandlePacket ignored first indicator " << type_of_msg);
           break;
         } else {
-          modStreamIn->PutEof(diagOutOfOrder);
+          modStreamIn->PutEof(diagOutOfOrder | diagNoCarrier);
           myPTRACE(1, name << " HandlePacket out of order " << type_of_msg);
         }
       }
@@ -1664,7 +1665,7 @@ PBoolean T38Engine::HandlePacket(HOWNERIN hOwner, const T38_IFP & ifp)
         if (modStream->ModPars.msgType != type_of_msg) {
           myPTRACE(1, name << " HandlePacket modStream->ModPars.msgType("
               << modStream->ModPars.msgType << ") != type_of_msg(" << type_of_msg << ")");
-          modStream->PutEof(diagOutOfOrder);
+          modStream->PutEof(diagOutOfOrder | diagNoCarrier);
           modStream = NULL;
         }
 
