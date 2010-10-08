@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.100  2010-10-06 16:54:19  vfrolov
- * Redesigned engine opening/closing
+ * Revision 1.101  2010-10-08 06:06:39  vfrolov
+ * Added diagErrorMask
+ *
+ * Revision 1.101  2010/10/08 06:06:39  vfrolov
+ * Added diagErrorMask
  *
  * Revision 1.100  2010/10/06 16:54:19  vfrolov
  * Redesigned engine opening/closing
@@ -3610,7 +3613,8 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
               int count = dleData.GetData(Buf, sizeof(Buf));
 
               PWaitAndSignal mutexWait(Mutex);
-              switch( count ) {
+
+              switch (count) {
                 case -1:
                   SetState(stSendAckWait);
                   if (!currentClassEngine || !currentClassEngine->SendStop(moreFrames, NextSeq())) {
@@ -3927,7 +3931,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     case stSendBufEmptyHandle:
       {
         SetState(stSendAckWait);
-        if( !activeEngines[mceT38] || !activeEngines[mceT38]->SendStop(moreFrames, NextSeq()) ) {
+        if (!currentClassEngine || !currentClassEngine->SendStop(moreFrames, NextSeq())) {
           SetState(stSendAckHandle);
           timeout.Stop();
           parent.SignalDataReady();  // try to SendAckHandle w/o delay
@@ -4169,7 +4173,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                 if (dataType == EngineBase::dtHdlc) {
                   Buf[0] = BYTE(fcs >> 8);
                   Buf[1] = BYTE(fcs);
-                  if (diag & EngineBase::diagBadFcs)
+                  if (diag & EngineBase::diagErrorMask)
                      Buf[0]++;
                   dleData.PutData(Buf, 2);
                 }
@@ -4280,7 +4284,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                   if (diag == 0)
                     resp = RC_OK();
                   else
-                  if (dataCount == 0 && (diag & ~EngineBase::diagNoCarrier) == 0)
+                  if (dataCount == 0 && (diag & EngineBase::diagErrorMask) == 0)
                     resp = RC_NO_CARRIER();
                   else
                     resp = RC_ERROR();

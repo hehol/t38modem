@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2003-2009 Vyacheslav Frolov
+ * Copyright (c) 2003-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: hdlc.cxx,v $
- * Revision 1.7  2009-11-09 19:12:57  vfrolov
- * Changed T38Engine to EngineBase
+ * Revision 1.8  2010-10-08 06:06:39  vfrolov
+ * Added diagErrorMask
+ *
+ * Revision 1.8  2010/10/08 06:06:39  vfrolov
+ * Added diagErrorMask
  *
  * Revision 1.7  2009/11/09 19:12:57  vfrolov
  * Changed T38Engine to EngineBase
@@ -223,7 +226,7 @@ int HDLC::GetRawData(void *_pBuf, PINDEX count)
       if (inLen < 0) {
         Buf[0] = BYTE(fcs >> 8);
         Buf[1] = BYTE(fcs & 0xFF);
-        if (inData->GetDiag() & EngineBase::diagBadFcs)
+        if (inData->GetDiag() & EngineBase::diagErrorMask)
           Buf[0]++;
         pack(Buf, 2);
         pack("\x7e\x7e", 2, TRUE);

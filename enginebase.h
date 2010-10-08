@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.12  2010-10-06 16:54:19  vfrolov
- * Redesigned engine opening/closing
+ * Revision 1.13  2010-10-08 06:04:59  vfrolov
+ * Added diagErrorMask
+ *
+ * Revision 1.13  2010/10/08 06:04:59  vfrolov
+ * Added diagErrorMask
  *
  * Revision 1.12  2010/10/06 16:54:19  vfrolov
  * Redesigned engine opening/closing
@@ -120,11 +123,13 @@ class EngineBase : public ReferenceObject
   //@}
 
     enum {
-      diagOutOfOrder	= 0x01,
-      diagDiffSig	= 0x04,	// a different signal is detected
-      diagBadFcs	= 0x08,
-      diagNoCarrier	= 0x10,
-      diagError		= 0x80,	// bad usage
+      diagNoCarrier    = 0x0001,
+      diagOutOfOrder   = 0x0100,
+      diagDiffSig      = 0x0400,    // a different signal is detected
+      diagBadFcs       = 0x0800,
+      diagError        = 0x8000,    // bad usage
+
+      diagErrorMask    = 0xFF00,
     };
 
     enum DataType {
