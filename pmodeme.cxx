@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.101  2010-10-08 06:06:39  vfrolov
- * Added diagErrorMask
+ * Revision 1.102  2010-10-08 12:31:03  vfrolov
+ * Optimized Mutex usage
+ *
+ * Revision 1.102  2010/10/08 12:31:03  vfrolov
+ * Optimized Mutex usage
  *
  * Revision 1.101  2010/10/08 06:06:39  vfrolov
  * Added diagErrorMask
@@ -1487,9 +1490,8 @@ void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
       }
       break;
     case mceAudio:
-      if (P.ModemClassId() == EngineBase::mcAudio) {
+      if (P.ModemClassId() == EngineBase::mcAudio)
         currentClassEngine = activeEngines[mce];
-      }
 
       if (state == stConnectHandle && subState == chWaitAudioEngine) {
         SetSubState(chAudioEngineAttached);
@@ -1564,31 +1566,10 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
       << from.GetClass() << " " << EngineBase::ModemCallbackParam(extra)
       << " (" << seq << ", " << state << ")");
 
-  PWaitAndSignal mutexWait(Mutex);
-
-  if (extra == seq) {
-    switch (state) {
-      case stSendAckWait:
-        SetState(stSendAckHandle);
-        timeout.Stop();
-        break;
-      case stRecvBegWait:
-        SetState(stRecvBegHandle);
-        timeout.Stop();
-        break;
-      case stConnectHandle:
-        if (subState == chWaitPlayTone) {
-          SetSubState(chTonePlayed);
-          timeout.Stop();
-        }
-        break;
-      default:
-        break;
-    }
-  }
-  else
   switch (extra) {
-    case EngineBase::cbpOutBufEmpty:
+    case EngineBase::cbpOutBufEmpty: {
+      PWaitAndSignal mutexWait(Mutex);
+
       switch (state) {
         case stSend:
           SetState(stSendBufEmptyHandle);
@@ -1597,13 +1578,38 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
           break;
       }
       break;
+    }
     case EngineBase::cbpReset:
     case EngineBase::cbpOutBufNoFull:
     case EngineBase::cbpUpdateState:
     case EngineBase::cbpUserInput:
       break;
-    default:
-      myPTRACE(1, "ModemEngineBody::OnEngineCallback extra(" << extra << ") != seq(" << seq << ")");
+    default: {
+      PWaitAndSignal mutexWait(Mutex);
+
+      if (extra == seq) {
+        switch (state) {
+          case stSendAckWait:
+            SetState(stSendAckHandle);
+            timeout.Stop();
+            break;
+          case stRecvBegWait:
+            SetState(stRecvBegHandle);
+            timeout.Stop();
+            break;
+          case stConnectHandle:
+            if (subState == chWaitPlayTone) {
+              SetSubState(chTonePlayed);
+              timeout.Stop();
+            }
+            break;
+          default:
+            break;
+        }
+      } else {
+        myPTRACE(1, "ModemEngineBody::OnEngineCallback extra(" << extra << ") != seq(" << seq << ")");
+      }
+    }
   }
 
   parent.SignalDataReady();
