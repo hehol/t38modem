@@ -407,6 +407,10 @@
 				RelativePath="..\t38engine.cxx"
 				>
 			</File>
+			<File
+				RelativePath="..\tone_gen.cxx"
+				>
+			</File>
 			<Filter
 				Name="opal"
 				>
@@ -498,6 +502,10 @@
 			</File>
 			<File
 				RelativePath="..\t38engine.h"
+				>
+			</File>
+			<File
+				RelativePath="..\tone_gen.h"
 				>
 			</File>
 			<File

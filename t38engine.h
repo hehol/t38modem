@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.h,v $
- * Revision 1.41  2010-10-06 16:54:19  vfrolov
- * Redesigned engine opening/closing
+ * Revision 1.42  2010-10-12 16:46:25  vfrolov
+ * Implemented fake streams
+ *
+ * Revision 1.42  2010/10/12 16:46:25  vfrolov
+ * Implemented fake streams
  *
  * Revision 1.41  2010/10/06 16:54:19  vfrolov
  * Redesigned engine opening/closing
@@ -272,7 +275,6 @@ class T38Engine : public EngineBase
   //@}
 
   protected:
-
     virtual void OnAttach();
     virtual void OnDetach();
     virtual void OnResetModemState();
@@ -281,6 +283,8 @@ class T38Engine : public EngineBase
     virtual void OnOpenOut();
     virtual void OnCloseIn();
     virtual void OnCloseOut();
+    virtual void OnChangeEnableFakeIn();
+    virtual void OnChangeEnableFakeOut();
 
   private:
     void SignalOutDataReady() { outDataReadySyncPoint.Signal(); }

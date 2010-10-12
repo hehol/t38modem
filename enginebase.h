@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.h,v $
- * Revision 1.13  2010-10-08 06:04:59  vfrolov
- * Added diagErrorMask
+ * Revision 1.14  2010-10-12 16:46:25  vfrolov
+ * Implemented fake streams
+ *
+ * Revision 1.14  2010/10/12 16:46:25  vfrolov
+ * Implemented fake streams
  *
  * Revision 1.13  2010/10/08 06:04:59  vfrolov
  * Added diagErrorMask
@@ -134,6 +137,8 @@ class EngineBase : public ReferenceObject
 
     enum DataType {
       dtNone,
+      dtRing,
+      dtBusy,
       dtCed,
       dtCng,
       dtSilence,
@@ -164,10 +169,12 @@ class EngineBase : public ReferenceObject
     void Detach(const PNotifier &callback);
     void ResetModemState();
 
-    void OpenIn(HOWNERIN hOwner);
-    void OpenOut(HOWNEROUT hOwner);
+    void OpenIn(HOWNERIN hOwner, PBoolean fake = FALSE);
+    void OpenOut(HOWNEROUT hOwner, PBoolean fake = FALSE);
     void CloseIn(HOWNERIN hOwner);
     void CloseOut(HOWNEROUT hOwner);
+    void EnableFakeIn(PBoolean enable = TRUE);
+    void EnableFakeOut(PBoolean enable = TRUE);
 
     PBoolean IsOpenIn() const { return hOwnerIn != NULL; }
     PBoolean IsOpenOut() const { return hOwnerOut != NULL; }
@@ -180,13 +187,14 @@ class EngineBase : public ReferenceObject
     void WriteUserInput(const PString & value);
     int RecvUserInput(void * pBuf, PINDEX count);
 
-    virtual void SendOnIdle(DataType _dataType) = 0;
+    virtual void SendOnIdle(DataType /*_dataType*/) {}
     virtual PBoolean SendStart(DataType _dataType, int param) = 0;
     virtual int Send(const void *pBuf, PINDEX count) = 0;
     virtual PBoolean SendStop(PBoolean moreFrames, int _callbackParam) = 0;
     virtual PBoolean isOutBufFull() const = 0;
     virtual PBoolean SendingNotCompleted() const { return FALSE; }
 
+    virtual void RecvOnIdle(DataType /*_dataType*/) {}
     virtual PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done) = 0;
     virtual PBoolean RecvStart(int _callbackParam) = 0;
     virtual int Recv(void *pBuf, PINDEX count) = 0;
@@ -207,6 +215,8 @@ class EngineBase : public ReferenceObject
     virtual void OnOpenOut();
     virtual void OnCloseIn();
     virtual void OnCloseOut();
+    virtual void OnChangeEnableFakeIn();
+    virtual void OnChangeEnableFakeOut();
 
     const PString name;
     DataStream *volatile recvUserInput;
@@ -215,6 +225,10 @@ class EngineBase : public ReferenceObject
     volatile HOWNEROUT hOwnerOut;
     PBoolean firstIn;
     PBoolean firstOut;
+    PBoolean isFakeOwnerIn;
+    PBoolean isFakeOwnerOut;
+    PBoolean isEnableFakeIn;
+    PBoolean isEnableFakeOut;
 
     void ModemCallbackWithUnlock(INT extra);
 

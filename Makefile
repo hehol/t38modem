@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.27  2010-10-06 16:54:19  vfrolov
-# Redesigned engine opening/closing
+# Revision 1.28  2010-10-12 16:46:25  vfrolov
+# Implemented fake streams
+#
+# Revision 1.28  2010/10/12 16:46:25  vfrolov
+# Implemented fake streams
 #
 # Revision 1.27  2010/10/06 16:54:19  vfrolov
 # Redesigned engine opening/closing
@@ -108,7 +111,7 @@
 
 PROG		= t38modem
 SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
-		   t30tone.cxx hdlc.cxx t30.cxx fcs.cxx \
+		   t30tone.cxx tone_gen.cxx hdlc.cxx t30.cxx fcs.cxx \
 		   pmodeme.cxx enginebase.cxx t38engine.cxx audio.cxx \
 		   drv_pty.cxx \
 		   main_process.cxx

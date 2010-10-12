@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t38engine.cxx,v $
- * Revision 1.72  2010-10-08 06:09:53  vfrolov
- * Added parameter assert to SetPreparePacketTimeout()
+ * Revision 1.73  2010-10-12 16:46:25  vfrolov
+ * Implemented fake streams
+ *
+ * Revision 1.73  2010/10/12 16:46:25  vfrolov
+ * Implemented fake streams
  *
  * Revision 1.72  2010/10/08 06:09:53  vfrolov
  * Added parameter assert to SetPreparePacketTimeout()
@@ -547,6 +550,63 @@ static void t38data(T38_IFP &ifp, unsigned type, unsigned field_type, const PBYT
     }
 }
 ///////////////////////////////////////////////////////////////
+class FakePreparePacketThread : public PThread
+{
+    PCLASSINFO(FakePreparePacketThread, PThread);
+  public:
+    FakePreparePacketThread(T38Engine &engine)
+      : PThread(30000)
+      , t38engine(engine)
+    {
+      PTRACE(3, t38engine.Name() << " FakePreparePacketThread");
+      t38engine.AddReference();
+    }
+
+    ~FakePreparePacketThread()
+    {
+      PTRACE(3, t38engine.Name() << " ~FakePreparePacketThread");
+      ReferenceObject::DelPointer(&t38engine);
+    }
+
+  protected:
+    virtual void Main();
+
+    T38Engine &t38engine;
+};
+
+void FakePreparePacketThread::Main()
+{
+  PTRACE(3, t38engine.Name() << " FakePreparePacketThread::Main started");
+
+  t38engine.OpenOut(EngineBase::HOWNEROUT(this), TRUE);
+  t38engine.SetPreparePacketTimeout(EngineBase::HOWNEROUT(this), -1);
+
+#if PTRACING
+  unsigned long count = 0;
+#endif
+
+  for (;;) {
+    T38_IFP ifp;
+    int res;
+
+    res = t38engine.PreparePacket(EngineBase::HOWNEROUT(this), ifp);
+
+    if (res == 0)
+      break;
+
+#if PTRACING
+    if (res > 0) {
+      count++;
+      PTRACE(4, t38engine.Name() << " FakePreparePacketThread::Main ifp = " << setprecision(2) << ifp);
+    }
+#endif
+  }
+
+  t38engine.CloseOut(EngineBase::HOWNEROUT(this));
+
+  PTRACE(3, t38engine.Name() << " FakePreparePacketThread::Main stopped, faked out " << count << " IFP packets");
+}
+///////////////////////////////////////////////////////////////
 T38Engine::T38Engine(const PString &_name)
   : EngineBase(_name + " T38Engine")
   , bufOut(2048)
@@ -610,6 +670,56 @@ void T38Engine::OnCloseOut()
 {
   EngineBase::OnCloseOut();
   SignalOutDataReady();
+}
+
+void T38Engine::OnChangeEnableFakeIn()
+{
+  EngineBase::OnChangeEnableFakeIn();
+
+  if (IsOpenIn() || !isEnableFakeIn)
+    return;
+
+  isCarrierIn = 0;
+
+  if (modStreamInSaved != NULL) {
+    myPTRACE(1, name << " OnChangeEnableFakeIn modStreamInSaved != NULL, clean");
+    delete modStreamInSaved;
+    modStreamInSaved = NULL;
+  }
+
+  if (modStreamIn != NULL && modStreamIn->lastBuf != NULL) {
+    myPTRACE(1, name << " OnChangeEnableFakeIn modStreamIn->lastBuf != NULL");
+    modStreamIn->PutEof((countIn == 0 ? 0 : diagOutOfOrder) | diagNoCarrier);
+
+    if (stateModem == stmInRecvData) {
+      ModemCallbackWithUnlock(callbackParamIn);
+
+      if (IsOpenIn() || !isEnableFakeIn)
+        return;
+    }
+  }
+
+  if (stateModem == stmInWaitSilence) {
+    stateModem = stmIdle;
+    ModemCallbackWithUnlock(callbackParamIn);
+
+    //if (IsOpenIn() || !isEnableFakeIn)
+    //  return;
+  }
+}
+
+void T38Engine::OnChangeEnableFakeOut()
+{
+  EngineBase::OnChangeEnableFakeOut();
+  SignalOutDataReady();
+
+  if (IsOpenOut() || !isEnableFakeOut)
+    return;
+
+  if (stateModem != stmOutMoreData && stateModem != stmOutNoMoreData)
+    return;
+
+  (new FakePreparePacketThread(*this))->Resume();
 }
 
 void T38Engine::OnAttach()
@@ -1549,6 +1659,13 @@ PBoolean T38Engine::HandlePacket(HOWNERIN hOwner, const T38_IFP & ifp)
         } else {
           modStreamIn->PutEof(diagOutOfOrder | diagNoCarrier);
           myPTRACE(1, name << " HandlePacket out of order " << type_of_msg);
+
+          if (stateModem == stmInRecvData) {
+            ModemCallbackWithUnlock(callbackParamIn);
+
+            if (hOwnerIn != hOwner || !IsModemOpen())
+              return FALSE;
+          }
         }
       }
 

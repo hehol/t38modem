@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.h,v $
- * Revision 1.8  2010-10-06 16:54:19  vfrolov
- * Redesigned engine opening/closing
+ * Revision 1.9  2010-10-12 16:46:25  vfrolov
+ * Implemented fake streams
+ *
+ * Revision 1.9  2010/10/12 16:46:25  vfrolov
+ * Implemented fake streams
  *
  * Revision 1.8  2010/10/06 16:54:19  vfrolov
  * Redesigned engine opening/closing
@@ -61,7 +64,7 @@
 
 ///////////////////////////////////////////////////////////////
 class DataStream;
-class T30Tone;
+class ToneGenerator;
 class T30ToneDetect;
 ///////////////////////////////////////////////////////////////
 class AudioEngine : public EngineBase
@@ -86,11 +89,11 @@ class AudioEngine : public EngineBase
     virtual PBoolean isOutBufFull() const;
 
     PBoolean Write(HOWNERIN hOwner, const void * buffer, PINDEX len);
+    virtual void RecvOnIdle(DataType _dataType);
     virtual PBoolean RecvWait(DataType _dataType, int param, int _callbackParam, PBoolean &done);
     virtual PBoolean RecvStart(int _callbackParam);
     virtual int Recv(void *pBuf, PINDEX count);
     virtual void RecvStop();
-
   //@}
 
   protected:
@@ -103,21 +106,19 @@ class AudioEngine : public EngineBase
     virtual void OnOpenOut();
     virtual void OnCloseIn();
     virtual void OnCloseOut();
+    virtual void OnChangeEnableFakeIn();
+    virtual void OnChangeEnableFakeOut();
 
     PAdaptiveDelay readDelay;
     PAdaptiveDelay writeDelay;
-
-    PTime  targetTimeFakeOut;
-    mutable PTimer timerFakeOut;
-    PDECLARE_NOTIFIER(PTimer, AudioEngine, OnTimerFakeOutCallback);
-    const PNotifier timerFakeOutCallback;
 
     int callbackParam;
 
     DataStream *volatile sendAudio;
     DataStream *volatile recvAudio;
 
-    T30Tone *volatile t30Tone;
+    ToneGenerator *volatile pToneIn;
+    ToneGenerator *volatile pToneOut;
     T30ToneDetect *volatile t30ToneDetect;
 };
 ///////////////////////////////////////////////////////////////

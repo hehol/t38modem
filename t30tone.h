@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.h,v $
- * Revision 1.5  2010-09-10 18:00:44  vfrolov
- * Cleaned up code
+ * Revision 1.6  2010-10-12 16:46:25  vfrolov
+ * Implemented fake streams
+ *
+ * Revision 1.6  2010/10/12 16:46:25  vfrolov
+ * Implemented fake streams
  *
  * Revision 1.5  2010/09/10 18:00:44  vfrolov
  * Cleaned up code
@@ -47,26 +50,6 @@
 #ifndef _T30TONE_H
 #define _T30TONE_H
 
-///////////////////////////////////////////////////////////////
-class T30Tone : public PObject
-{
-  PCLASSINFO(T30Tone, PObject);
-
-  public:
-
-    enum Type {
-      silence,
-      cng
-    };
-
-    T30Tone(Type _type);
-    void Read(void * buffer, PINDEX amount);
-
-  protected:
-
-    Type type;
-    PINDEX index;
-};
 ///////////////////////////////////////////////////////////////
 class T30ToneDetect : public PObject
 {

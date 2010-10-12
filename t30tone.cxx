@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: t30tone.cxx,v $
- * Revision 1.7  2010-09-10 18:00:44  vfrolov
- * Cleaned up code
+ * Revision 1.8  2010-10-12 16:46:25  vfrolov
+ * Implemented fake streams
+ *
+ * Revision 1.8  2010/10/12 16:46:25  vfrolov
+ * Implemented fake streams
  *
  * Revision 1.7  2010/09/10 18:00:44  vfrolov
  * Cleaned up code
@@ -54,8 +57,6 @@
 #include <ptlib.h>
 #include "pmutils.h"
 #include "t30tone.h"
-#include <math.h>
-
 
 ///////////////////////////////////////////////////////////////
 
@@ -63,80 +64,12 @@
 
 ///////////////////////////////////////////////////////////////
 typedef	PInt16                    SIMPLE_TYPE;
-#define TWO_PI                    (3.1415926535897932384626433832795029L*2)
 #define BYTES_PER_SIMPLE          sizeof(SIMPLE_TYPE)
 #define SIMPLES_PER_SEC           8000
 ///////////////////////////////////////////////////////////////
 #define CNG_HZ                    1100
-#define CNG_MAX_DIV               100
-#define CNG_AMPLITUDE             5000
 #define CNG_ON_MSEC               500
-#define CNG_ON_BYTES              (((SIMPLES_PER_SEC*CNG_ON_MSEC)/1000)*BYTES_PER_SIMPLE)
 #define CNG_OFF_MSEC              3000
-#define CNG_OFF_BYTES             (((SIMPLES_PER_SEC*CNG_OFF_MSEC)/1000)*BYTES_PER_SIMPLE)
-#define CNG_SIMPLES_PER_REPEATE   (SIMPLES_PER_SEC/CNG_MAX_DIV)
-
-static BYTE CngTone[CNG_SIMPLES_PER_REPEATE*BYTES_PER_SIMPLE];
-
-static PBoolean initCngTone()
-{
-  for( size_t i = 0 ; i < sizeof(CngTone)/BYTES_PER_SIMPLE ; i++ ) {
-    double Sin = sin(double((CNG_HZ*TWO_PI*i)/SIMPLES_PER_SEC));
-    ((SIMPLE_TYPE *)CngTone)[i] = (SIMPLE_TYPE)(Sin * CNG_AMPLITUDE);
-  }
-  return TRUE;
-}
-
-static const PBoolean ___InitCngTone = initCngTone();
-///////////////////////////////////////////////////////////////
-T30Tone::T30Tone(T30Tone::Type _type)
-{
-  type = _type;
-
-  switch(type) {
-    case cng:
-      // begin with 1 sec silence
-      index = ((SIMPLES_PER_SEC*(CNG_ON_MSEC+CNG_OFF_MSEC-1000))/1000)*BYTES_PER_SIMPLE;
-      break;
-    default:
-      index = 0;
-  }
-}
-
-void T30Tone::Read(void * buffer, PINDEX amount)
-{
-  BYTE *pBuf = (BYTE *)buffer;
-
-  switch(type) {
-    case cng:
-      while(amount) {
-        if (index >= (PINDEX)(CNG_ON_BYTES + CNG_OFF_BYTES))
-          index = 0;
-
-        PINDEX len;
-
-        if ((PINDEX)CNG_ON_BYTES > index) {
-          PINDEX i = index % sizeof(CngTone);
-          len = sizeof(CngTone) - i;
-          if (len > amount)
-            len = amount;
-          memcpy(pBuf, CngTone + i, len);
-        } else {
-          len = CNG_ON_BYTES + CNG_OFF_BYTES - index;
-          if (len > amount)
-            len = amount;
-          memset(pBuf, 0, len);
-        }
-        pBuf += len;
-        amount -= len;
-        index += len;
-      }
-      break;
-    default:
-      memset(pBuf, 0, amount);
-      index = (index + amount) % BYTES_PER_SIMPLE;
-  }
-}
 ///////////////////////////////////////////////////////////////
 #define CNG_FILTER_BUF_LEN ((((SIMPLES_PER_SEC + CNG_HZ - 1)/CNG_HZ + 1)/2)*2)
 

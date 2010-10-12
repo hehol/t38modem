@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.16  2010-10-06 16:54:19  vfrolov
- * Redesigned engine opening/closing
+ * Revision 1.17  2010-10-12 16:46:25  vfrolov
+ * Implemented fake streams
+ *
+ * Revision 1.17  2010/10/12 16:46:25  vfrolov
+ * Implemented fake streams
  *
  * Revision 1.16  2010/10/06 16:54:19  vfrolov
  * Redesigned engine opening/closing
@@ -81,6 +84,7 @@
 #include <ptlib.h>
 #include "pmutils.h"
 #include "t30tone.h"
+#include "tone_gen.h"
 #include "audio.h"
 
 #define new PNEW
@@ -91,23 +95,126 @@ typedef	PInt16                    SIMPLE_TYPE;
 #define SIMPLES_PER_SEC           8000
 #define BYTES_PER_MSEC            ((SIMPLES_PER_SEC*BYTES_PER_SIMPLE)/1000)
 ///////////////////////////////////////////////////////////////
+class FakeReadThread : public PThread
+{
+    PCLASSINFO(FakeReadThread, PThread);
+  public:
+    FakeReadThread(AudioEngine &engine)
+      : PThread(30000)
+      , audioEngine(engine)
+    {
+      PTRACE(3, audioEngine.Name() << " FakeReadThread");
+      audioEngine.AddReference();
+    }
+
+    ~FakeReadThread()
+    {
+      PTRACE(3, audioEngine.Name() << " ~FakeReadThread");
+      ReferenceObject::DelPointer(&audioEngine);
+    }
+
+  protected:
+    virtual void Main();
+
+    AudioEngine &audioEngine;
+};
+
+void FakeReadThread::Main()
+{
+  PTRACE(3, audioEngine.Name() << " FakeReadThread::Main started");
+
+  audioEngine.OpenOut(EngineBase::HOWNEROUT(this), TRUE);
+
+  static BYTE buf[BYTES_PER_MSEC*20];
+
+#if PTRACING
+  unsigned long count = 0;
+#endif
+
+  for (;;) {
+    if (!audioEngine.Read(EngineBase::HOWNEROUT(this), buf, sizeof(buf)))
+      break;
+
+#if PTRACING
+    count++;
+#endif
+  }
+
+  audioEngine.CloseOut(EngineBase::HOWNEROUT(this));
+
+  PTRACE(3, audioEngine.Name() << " FakeReadThread::Main stopped, faked out " << count*(sizeof(buf)/BYTES_PER_MSEC) << " ms");
+}
+///////////////////////////////////////////////////////////////
+class FakeWriteThread : public PThread
+{
+    PCLASSINFO(FakeWriteThread, PThread);
+  public:
+    FakeWriteThread(AudioEngine &engine)
+      : PThread(30000)
+      , audioEngine(engine)
+    {
+      PTRACE(3, audioEngine.Name() << " FakeWriteThread");
+      audioEngine.AddReference();
+    }
+
+    ~FakeWriteThread()
+    {
+      PTRACE(3, audioEngine.Name() << " ~FakeWriteThread");
+      ReferenceObject::DelPointer(&audioEngine);
+    }
+
+  protected:
+    virtual void Main();
+
+    AudioEngine &audioEngine;
+};
+
+void FakeWriteThread::Main()
+{
+  PTRACE(3, audioEngine.Name() << " FakeWriteThread::Main started");
+
+  audioEngine.OpenIn(EngineBase::HOWNERIN(this), TRUE);
+
+#if PTRACING
+  unsigned long count = 0;
+#endif
+
+  for (;;) {
+    if (!audioEngine.Write(EngineBase::HOWNERIN(this), NULL, BYTES_PER_MSEC*20))
+      break;
+
+#if PTRACING
+    count++;
+#endif
+  }
+
+  audioEngine.CloseIn(EngineBase::HOWNERIN(this));
+
+  PTRACE(3, audioEngine.Name() << " FakeWriteThread::Main stopped, faked out " << count*20 << " ms");
+}
+///////////////////////////////////////////////////////////////
+static ToneGenerator::ToneType dt2tt(EngineBase::DataType dataType)
+{
+  switch (dataType) {
+    case EngineBase::dtCng:     return ToneGenerator::ttCng;
+    case EngineBase::dtCed:     return ToneGenerator::ttCed;
+    case EngineBase::dtRing:    return ToneGenerator::ttRing;
+    case EngineBase::dtBusy:    return ToneGenerator::ttBusy;
+    default:                    break;
+  }
+
+  return ToneGenerator::ttSilence;
+}
+///////////////////////////////////////////////////////////////
 AudioEngine::AudioEngine(const PString &_name)
   : EngineBase(_name + " AudioEngine")
-#ifdef _MSC_VER
-#pragma warning(disable:4355) // warning C4355: 'this' : used in base member initializer list
-#endif
-  , timerFakeOutCallback(PCREATE_NOTIFIER(OnTimerFakeOutCallback))
-#ifdef _MSC_VER
-#pragma warning(default:4355)
-#endif
   , callbackParam(cbpReset)
   , sendAudio(NULL)
   , recvAudio(NULL)
-  , t30Tone(NULL)
+  , pToneIn(NULL)
+  , pToneOut(NULL)
   , t30ToneDetect(NULL)
 {
-  timerFakeOut.SetNotifier(timerFakeOutCallback);
-
   PTRACE(2, name << " AudioEngine");
 }
 
@@ -115,19 +222,11 @@ AudioEngine::~AudioEngine()
 {
   PTRACE(2, name << " ~AudioEngine");
 
-  timerFakeOut = 0;
-
-  if (sendAudio)
-    delete sendAudio;
-
-  if (recvAudio)
-    delete recvAudio;
-
-  if (t30Tone)
-    delete t30Tone;
-
-  if (t30ToneDetect)
-    delete t30ToneDetect;
+  delete sendAudio;
+  delete recvAudio;
+  delete pToneIn;
+  delete pToneOut;
+  delete t30ToneDetect;
 }
 
 void AudioEngine::OnAttach()
@@ -158,9 +257,14 @@ void AudioEngine::OnResetModemState()
     recvAudio = NULL;
   }
 
-  if (t30Tone) {
-    delete t30Tone;
-    t30Tone = NULL;
+  if (pToneIn) {
+    delete pToneIn;
+    pToneIn = NULL;
+  }
+
+  if (pToneOut) {
+    delete pToneOut;
+    pToneOut = NULL;
   }
 }
 
@@ -182,46 +286,24 @@ void AudioEngine::OnChangeModemClass()
 void AudioEngine::OnOpenOut()
 {
   EngineBase::OnOpenOut();
-  timerFakeOut = 0;
-
-  if (sendAudio && !sendAudio->isFull())
-    ModemCallbackWithUnlock(cbpOutBufNoFull);
 }
 
 void AudioEngine::OnCloseOut()
 {
   EngineBase::OnCloseOut();
+}
 
-  if (sendAudio) {
-    int countTotal = 0;
+void AudioEngine::OnChangeEnableFakeOut()
+{
+  EngineBase::OnChangeEnableFakeOut();
 
-    for (;;) {
-      static BYTE buffer[64];
+  if (IsOpenOut() || !isEnableFakeOut)
+    return;
 
-      PBoolean wasFull = sendAudio->isFull();
+  if (!sendAudio)
+    return;
 
-      int count = sendAudio->GetData(buffer, sizeof(buffer));
-
-      if (count < 0) {
-        delete sendAudio;
-        sendAudio = NULL;
-        ModemCallbackWithUnlock(callbackParam);
-        break;
-      }
-      else {
-        if (wasFull && !sendAudio->isFull())
-          ModemCallbackWithUnlock(cbpOutBufNoFull);
-
-        if (count == 0)
-          break;
-
-        countTotal += count;
-      }
-    }
-
-    if (sendAudio)
-      targetTimeFakeOut = PTime() + countTotal/BYTES_PER_MSEC;
-  }
+  (new FakeReadThread(*this))->Resume();
 }
 
 PBoolean AudioEngine::Read(HOWNEROUT hOwner, void * buffer, PINDEX amount)
@@ -286,8 +368,8 @@ PBoolean AudioEngine::Read(HOWNEROUT hOwner, void * buffer, PINDEX amount)
     if (amount > count)
       memset((BYTE *)buffer + count, 0, amount - count);
   } else {
-    if (t30Tone)
-      t30Tone->Read(buffer, amount);
+    if (pToneOut)
+      pToneOut->Read(buffer, amount);
     else
       memset(buffer, 0, amount);
   }
@@ -302,37 +384,33 @@ void AudioEngine::SendOnIdle(DataType _dataType)
   PWaitAndSignal mutexWaitModem(MutexModem);
   PWaitAndSignal mutexWait(Mutex);
 
-  if (t30Tone) {
-    delete t30Tone;
-    t30Tone = NULL;
+  ToneGenerator::ToneType toneType = dt2tt(_dataType);
+
+  if (pToneOut && pToneOut->Type() != toneType) {
+    delete pToneOut;
+    pToneOut = NULL;
   }
 
-  switch (_dataType) {
-    case dtCng:
-      t30Tone = new T30Tone(T30Tone::cng);
-      break;
-    case dtNone:
-      break;
-    default:
-      PTRACE(1, name << " SendOnIdle dataType(" << _dataType << ") is not supported");
-  }
+  if (pToneOut == NULL && toneType != ToneGenerator::ttSilence)
+    pToneOut = new ToneGenerator(toneType);
 }
 
 PBoolean AudioEngine::SendStart(DataType PTRACE_PARAM(_dataType), int PTRACE_PARAM(param))
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
+
+  if (!IsModemOpen())
+    return FALSE;
+
   PWaitAndSignal mutexWait(Mutex);
 
   if (sendAudio)
     delete sendAudio;
 
-  sendAudio = new DataStream(1024*2);
+  sendAudio = new DataStream(1024 * BYTES_PER_SIMPLE);
 
   PTRACE(3, name << " SendStart _dataType=" << _dataType
                  << " param=" << param);
-
-  if (hOwnerOut == NULL)
-    targetTimeFakeOut = PTime();
 
   return TRUE;
 }
@@ -340,14 +418,14 @@ PBoolean AudioEngine::SendStart(DataType PTRACE_PARAM(_dataType), int PTRACE_PAR
 int AudioEngine::Send(const void *pBuf, PINDEX count)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
+
+  if (!IsModemOpen())
+    return -1;
+
   PWaitAndSignal mutexWait(Mutex);
 
-  if (sendAudio) {
-    if (hOwnerOut != NULL)
-      sendAudio->PutData(pBuf, count);
-    else
-      targetTimeFakeOut += count/BYTES_PER_MSEC;
-  }
+  if (sendAudio)
+    sendAudio->PutData(pBuf, count);
 
   return count;
 }
@@ -355,23 +433,16 @@ int AudioEngine::Send(const void *pBuf, PINDEX count)
 PBoolean AudioEngine::SendStop(PBoolean PTRACE_PARAM(moreFrames), int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
+
+  if (!IsModemOpen())
+    return FALSE;
+
   PWaitAndSignal mutexWait(Mutex);
 
   callbackParam = _callbackParam;
 
-  if (sendAudio) {
-    if (hOwnerOut != NULL) {
-      sendAudio->PutEof();
-    } else {
-      delete sendAudio;
-      sendAudio = NULL;
-
-      PTimeInterval delay = targetTimeFakeOut - PTime();
-      int sleep_time = (int)delay.GetMilliSeconds();
-
-      timerFakeOut = (sleep_time > 0 ? sleep_time : 1);
-    }
-  }
+  if (sendAudio)
+    sendAudio->PutEof();
 
   PTRACE(3, name << " SendStop moreFrames=" << moreFrames
                  << " callbackParam=" << callbackParam);
@@ -386,32 +457,7 @@ PBoolean AudioEngine::isOutBufFull() const
   if (!sendAudio)
     return FALSE;
 
-  if (hOwnerOut == NULL) {
-    PTimeInterval delay = targetTimeFakeOut - PTime();
-    int sleep_time = (int)delay.GetMilliSeconds();
-
-    if (sleep_time <= 0)
-      return FALSE;
-
-    PTRACE(5, "AudioEngine::isOutBufFull targetTimeFakeOut=" << targetTimeFakeOut.AsString("yyyy/MM/dd hh:mm:ss.uuu", PTime::Local));
-
-    timerFakeOut = sleep_time;
-
-    return TRUE;
-  }
-
   return sendAudio->isFull();
-}
-
-void AudioEngine::OnTimerFakeOutCallback(PTimer & PTRACE_PARAM(from), INT PTRACE_PARAM(extra))
-{
-  PTRACE(4, "AudioEngine::OnTimerFakeOutCallback"
-            " " << ModemCallbackParam(sendAudio ? cbpOutBufNoFull : callbackParam) <<
-            " " <<from.GetClass() << " " << extra);
-
-  PWaitAndSignal mutexWait(Mutex);
-
-  ModemCallbackWithUnlock(sendAudio ? cbpOutBufNoFull : callbackParam);
 }
 ///////////////////////////////////////////////////////////////
 void AudioEngine::OnOpenIn()
@@ -422,6 +468,19 @@ void AudioEngine::OnOpenIn()
 void AudioEngine::OnCloseIn()
 {
   EngineBase::OnCloseIn();
+}
+
+void AudioEngine::OnChangeEnableFakeIn()
+{
+  EngineBase::OnChangeEnableFakeIn();
+
+  if (IsOpenIn() || !isEnableFakeIn)
+    return;
+
+  if (!recvAudio)
+    return;
+
+  (new FakeWriteThread(*this))->Resume();
 }
 
 PBoolean AudioEngine::Write(HOWNERIN hOwner, const void * buffer, PINDEX len)
@@ -456,21 +515,44 @@ PBoolean AudioEngine::Write(HOWNERIN hOwner, const void * buffer, PINDEX len)
   if (hOwnerIn != hOwner || !IsModemOpen())
     return FALSE;
 
-  if (recvAudio && !recvAudio->isFull()) {
-    recvAudio->PutData(buffer, len);
-    ModemCallbackWithUnlock(callbackParam);
+  if (buffer) {
+    if (recvAudio && !recvAudio->isFull()) {
+      recvAudio->PutData(buffer, len);
+      ModemCallbackWithUnlock(callbackParam);
 
-    if (hOwnerIn != hOwner || !IsModemOpen())
-      return FALSE;
-  }
+      if (hOwnerIn != hOwner || !IsModemOpen())
+        return FALSE;
+    }
 
-  PBoolean cng = t30ToneDetect && t30ToneDetect->Write(buffer, len);
+    if (t30ToneDetect && t30ToneDetect->Write(buffer, len)) {
+      OnUserInput('c');
 
-  if (cng) {
-    OnUserInput('c');
+      if (hOwnerIn != hOwner || !IsModemOpen())
+        return FALSE;
+    }
+  } else {
+    if (recvAudio && !recvAudio->isFull()) {
+      for (PINDEX rest = len ; rest > 0 ;) {
+        BYTE buf[64*BYTES_PER_SIMPLE];
+        PINDEX lenChank = rest;
 
-    if (hOwnerIn != hOwner || !IsModemOpen())
-      return FALSE;
+        if (lenChank > (PINDEX)sizeof(buf))
+          lenChank = (PINDEX)sizeof(buf);
+
+        if (pToneIn)
+          pToneIn->Read(buf, lenChank);
+        else
+          memset(buf, 0, lenChank);
+
+        recvAudio->PutData(buf, lenChank);
+        rest -= lenChank;
+      }
+
+      ModemCallbackWithUnlock(callbackParam);
+
+      if (hOwnerIn != hOwner || !IsModemOpen())
+        return FALSE;
+    }
   }
 
   Mutex.Signal();
@@ -483,21 +565,54 @@ PBoolean AudioEngine::Write(HOWNERIN hOwner, const void * buffer, PINDEX len)
   return TRUE;
 }
 
+void AudioEngine::RecvOnIdle(DataType _dataType)
+{
+  PTRACE(2, name << " RecvOnIdle " << _dataType);
+
+  PWaitAndSignal mutexWaitModem(MutexModem);
+  PWaitAndSignal mutexWait(Mutex);
+
+  ToneGenerator::ToneType toneType = dt2tt(_dataType);
+
+  if (pToneIn && pToneIn->Type() != toneType) {
+    delete pToneIn;
+    pToneIn = NULL;
+  }
+
+  if (pToneIn == NULL && toneType != ToneGenerator::ttSilence)
+    pToneIn = new ToneGenerator(toneType);
+}
+
 PBoolean AudioEngine::RecvWait(DataType /*_dataType*/, int /*param*/, int /*_callbackParam*/, PBoolean &done)
 {
+  PWaitAndSignal mutexWaitModem(MutexModem);
+
+  if (!IsModemOpen())
+    return FALSE;
+
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (recvAudio)
+    delete recvAudio;
+
+  recvAudio = new DataStream(1024 * BYTES_PER_SIMPLE);
+
   done = TRUE;
+
   return TRUE;
 }
 
 PBoolean AudioEngine::RecvStart(int _callbackParam)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
+
+  if (!IsModemOpen())
+    return FALSE;
+
   PWaitAndSignal mutexWait(Mutex);
 
-  if (recvAudio)
-    delete recvAudio;
-
-  recvAudio = new DataStream(1024*2);
+  if (!recvAudio)
+    return FALSE;
 
   callbackParam = _callbackParam;
 
@@ -507,10 +622,11 @@ PBoolean AudioEngine::RecvStart(int _callbackParam)
 int AudioEngine::Recv(void * pBuf, PINDEX count)
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
-  PWaitAndSignal mutexWait(Mutex);
 
   if (!recvAudio)
     return -1;
+
+  PWaitAndSignal mutexWait(Mutex);
 
   return recvAudio->GetData(pBuf, count);
 }
@@ -518,6 +634,10 @@ int AudioEngine::Recv(void * pBuf, PINDEX count)
 void AudioEngine::RecvStop()
 {
   PWaitAndSignal mutexWaitModem(MutexModem);
+
+  if(!IsModemOpen())
+    return;
+
   PWaitAndSignal mutexWait(Mutex);
 
   if (recvAudio) {

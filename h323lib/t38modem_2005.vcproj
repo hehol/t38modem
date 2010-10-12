@@ -773,6 +773,10 @@
 					/>
 				</FileConfiguration>
 			</File>
+			<File
+				RelativePath="..\tone_gen.cxx"
+				>
+			</File>
 			<Filter
 				Name="h323lib"
 				>
@@ -904,6 +908,10 @@
 			</File>
 			<File
 				RelativePath="..\t38engine.h"
+				>
+			</File>
+			<File
+				RelativePath="..\tone_gen.h"
 				>
 			</File>
 			<File

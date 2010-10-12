@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: enginebase.cxx,v $
- * Revision 1.12  2010-10-06 16:54:19  vfrolov
- * Redesigned engine opening/closing
+ * Revision 1.13  2010-10-12 16:46:25  vfrolov
+ * Implemented fake streams
+ *
+ * Revision 1.13  2010/10/12 16:46:25  vfrolov
+ * Implemented fake streams
  *
  * Revision 1.12  2010/10/06 16:54:19  vfrolov
  * Redesigned engine opening/closing
@@ -77,6 +80,8 @@ ostream & operator<<(ostream & out, EngineBase::DataType dataType)
 {
   switch (dataType) {
     case EngineBase::dtNone:      return out << "dtNone";
+    case EngineBase::dtRing:      return out << "dtRing";
+    case EngineBase::dtBusy:      return out << "dtBusy";
     case EngineBase::dtCed:       return out << "dtCed";
     case EngineBase::dtCng:       return out << "dtCng";
     case EngineBase::dtSilence:   return out << "dtSilence";
@@ -121,6 +126,10 @@ EngineBase::EngineBase(const PString &_name)
   , hOwnerOut(NULL)
   , firstIn(TRUE)
   , firstOut(TRUE)
+  , isFakeOwnerIn(FALSE)
+  , isFakeOwnerOut(FALSE)
+  , isEnableFakeIn(FALSE)
+  , isEnableFakeOut(FALSE)
 {
 }
 
@@ -209,7 +218,7 @@ void EngineBase::OnResetModemState()
   myPTRACE(1, name << " OnResetModemState");
 }
 
-void EngineBase::OpenIn(HOWNERIN hOwner)
+void EngineBase::OpenIn(HOWNERIN hOwner, PBoolean fake)
 {
   PWaitAndSignal mutexWait(Mutex);
 
@@ -219,7 +228,12 @@ void EngineBase::OpenIn(HOWNERIN hOwner)
       return;
     }
 
-    myPTRACE(1, name << " OpenIn WARNING: close " << hOwnerIn << " by " << hOwner);
+    if (fake) {
+      myPTRACE(1, name << " OpenIn: disabled close " << hOwnerIn << " by fake " << hOwner);
+      return;
+    }
+
+    myPTRACE(1, name << " OpenIn " << (isFakeOwnerIn ? ": close fake " : "WARNING: close ") << hOwnerIn << " by " << hOwner);
 
     hOwnerIn = NULL;
     OnCloseIn();
@@ -228,10 +242,11 @@ void EngineBase::OpenIn(HOWNERIN hOwner)
   myPTRACE(1, name << " OpenIn: open " << hOwner);
 
   hOwnerIn = hOwner;
+  isFakeOwnerIn = fake;
   OnOpenIn();
 }
 
-void EngineBase::OpenOut(HOWNEROUT hOwner)
+void EngineBase::OpenOut(HOWNEROUT hOwner, PBoolean fake)
 {
   PWaitAndSignal mutexWait(Mutex);
 
@@ -241,7 +256,12 @@ void EngineBase::OpenOut(HOWNEROUT hOwner)
       return;
     }
 
-    myPTRACE(1, name << " OpenOut WARNING: close " << hOwnerOut << " by " << hOwner);
+    if (fake) {
+      myPTRACE(1, name << " OpenOut: disabled close " << hOwnerOut << " by fake " << hOwner);
+      return;
+    }
+
+    myPTRACE(1, name << " OpenOut " << (isFakeOwnerOut ? ": close fake " : "WARNING: close ") << hOwnerOut << " by " << hOwner);
 
     hOwnerOut = NULL;
     OnCloseOut();
@@ -250,6 +270,7 @@ void EngineBase::OpenOut(HOWNEROUT hOwner)
   myPTRACE(1, name << " OpenOut: open " << hOwner);
 
   hOwnerOut = hOwner;
+  isFakeOwnerOut = fake;
   OnOpenOut();
 }
 
@@ -270,7 +291,10 @@ void EngineBase::CloseIn(HOWNERIN hOwner)
   PWaitAndSignal mutexWait(Mutex);
 
   if (hOwnerIn == hOwner) {
-    myPTRACE(1, name << " CloseIn: close " << hOwner);
+    myPTRACE(1, name << " CloseIn: close " << (isFakeOwnerIn ? "fake " : "") << hOwner);
+
+    if (!isFakeOwnerIn)
+      isEnableFakeIn = FALSE;  // allow re-enable fake stream
 
     hOwnerIn = NULL;
     OnCloseIn();
@@ -284,7 +308,10 @@ void EngineBase::CloseOut(HOWNEROUT hOwner)
   PWaitAndSignal mutexWait(Mutex);
 
   if (hOwnerOut == hOwner) {
-    myPTRACE(1, name << " CloseOut: close " << hOwner);
+    myPTRACE(1, name << " CloseOut: close " << (isFakeOwnerOut ? "fake " : "") << hOwner);
+
+    if (!isFakeOwnerOut)
+      isEnableFakeOut = FALSE;  // allow re-enable fake stream
 
     hOwnerOut = NULL;
     OnCloseOut();
@@ -301,6 +328,52 @@ void EngineBase::OnCloseIn()
 void EngineBase::OnCloseOut()
 {
   ModemCallbackWithUnlock(cbpUpdateState);
+}
+
+void EngineBase::EnableFakeIn(PBoolean enable)
+{
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (isEnableFakeIn == enable)
+    return;
+
+  myPTRACE(3, name << " EnableFakeIn: " << (enable ? "enable" : "disable"));
+
+  isEnableFakeIn = enable;
+  OnChangeEnableFakeIn();
+}
+
+void EngineBase::OnChangeEnableFakeIn()
+{
+  if (!isEnableFakeIn && hOwnerIn != NULL && isFakeOwnerIn) {
+    myPTRACE(1, name << " OnChangeEnableFakeIn: close fake " << hOwnerIn);
+
+    hOwnerIn = NULL;
+    OnCloseIn();
+  }
+}
+
+void EngineBase::EnableFakeOut(PBoolean enable)
+{
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (isEnableFakeOut == enable)
+    return;
+
+  myPTRACE(3, name << " EnableFakeOut: " << (enable ? "enable" : "disable"));
+
+  isEnableFakeOut = enable;
+  OnChangeEnableFakeOut();
+}
+
+void EngineBase::OnChangeEnableFakeOut()
+{
+  if (!isEnableFakeOut && hOwnerOut != NULL && isFakeOwnerOut) {
+    myPTRACE(1, name << " OnChangeEnableFakeOut: close fake " << hOwnerOut);
+
+    hOwnerOut = NULL;
+    OnCloseOut();
+  }
 }
 
 void EngineBase::ChangeModemClass(ModemClass newModemClass)

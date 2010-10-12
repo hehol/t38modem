@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.102  2010-10-08 12:31:03  vfrolov
- * Optimized Mutex usage
+ * Revision 1.103  2010-10-12 16:46:25  vfrolov
+ * Implemented fake streams
+ *
+ * Revision 1.103  2010/10/12 16:46:25  vfrolov
+ * Implemented fake streams
  *
  * Revision 1.102  2010/10/08 12:31:03  vfrolov
  * Optimized Mutex usage
@@ -782,6 +785,7 @@ class ModemEngineBody : public PObject
     void OnParentStop();
     void HandleData(const PBYTEArray &buf, PBYTEArray &bresp);
     void CheckState(PBYTEArray &bresp);
+    void CheckStatePost();
 
     PBoolean IsReady() const {
       PWaitAndSignal mutexWait(Mutex);
@@ -904,6 +908,9 @@ class ModemEngineBody : public PObject
     EngineBase *activeEngines[mceNumberOfItems];
     EngineBase *currentClassEngine;
 
+    PBoolean enableFakeIn[mceNumberOfItems];
+    PBoolean enableFakeOut[mceNumberOfItems];
+
     const PNotifier callbackEndPoint;
 
     PDECLARE_NOTIFIER(PObject, ModemEngineBody, OnEngineCallback);
@@ -984,7 +991,7 @@ class ModemEngineBody : public PObject
     }
 
     void OnChangeModemClass() {
-      for (int i = 0 ; i < (int)(sizeof(activeEngines)/sizeof(activeEngines[0])) ; i++) {
+      for (int i = 0 ; i < mceNumberOfItems ; i++) {
         if (activeEngines[i])
           activeEngines[i]->ChangeModemClass(P.ModemClassId());
       }
@@ -1007,7 +1014,7 @@ class ModemEngineBody : public PObject
 
         PTRACE(4, "ModemEngineBody::SendOnIdle " << sendOnIdle);
 
-        for (int i = 0 ; i < (int)(sizeof(activeEngines)/sizeof(activeEngines[0])) ; i++) {
+        for (int i = 0 ; i < mceNumberOfItems ; i++) {
           if (activeEngines[i])
             activeEngines[i]->SendOnIdle(sendOnIdle);
         }
@@ -1153,6 +1160,11 @@ void ModemEngine::Main()
     if (stop)
       break;
 
+    body->CheckStatePost();
+
+    if (stop)
+      break;
+
     WaitDataReady();
   }
 
@@ -1223,8 +1235,11 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
     sendOnIdle(EngineBase::dtNone),
     pPlayTone(NULL)
 {
-  for (int i = 0 ; i < (int)(sizeof(activeEngines)/sizeof(activeEngines[0])) ; i++)
+  for (int i = 0 ; i < mceNumberOfItems ; i++) {
     activeEngines[i] = NULL;
+    enableFakeIn[i] = FALSE;
+    enableFakeOut[i] = FALSE;
+  }
 }
 
 ModemEngineBody::~ModemEngineBody()
@@ -1250,6 +1265,11 @@ void ModemEngineBody::OnHook()
   lastOnHookActivity = PTime();
 
   if (off_hook) {
+    for (int i = 0 ; i < mceNumberOfItems ; i++) {
+      enableFakeIn[i] = FALSE;
+      enableFakeOut[i] = FALSE;
+    }
+
     timerBusy.Stop();
     timeout.Stop();
     off_hook = FALSE;
@@ -1257,8 +1277,8 @@ void ModemEngineBody::OnHook()
     forceFaxMode = FALSE;
     state = stCommand;
     subState = 0;
-    //_DetachEngine(mceT38);
-    //_DetachEngine(mceAudio);
+    _DetachEngine(mceT38);
+    _DetachEngine(mceAudio);
     TRACE_STATE(4, "ModemEngineBody::OnHook:");
   }
 
@@ -1282,10 +1302,22 @@ void ModemEngineBody::_ClearCall()
       delete pPlayTone;
       pPlayTone = NULL;
     }
-  }
 
-  _DetachEngine(mceT38);
-  _DetachEngine(mceAudio);
+    if (off_hook) {
+      timerBusy.Start(1000);
+
+      if (!activeEngines[mceAudio])
+        _AttachEngine(mceAudio);
+
+      for (int i = 0 ; i < mceNumberOfItems ; i++) {
+        enableFakeIn[i] = TRUE;
+        enableFakeOut[i] = TRUE;
+      }
+
+      if (activeEngines[mceAudio])
+        activeEngines[mceAudio]->RecvOnIdle(EngineBase::dtBusy);
+    }
+  }
 
   if (!CallToken().IsEmpty()) {
     PStringToString request;
@@ -1350,9 +1382,18 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       SetCallState(cstAlerted);
 
       if (state == stConnectWait && !pPlayTone && P.ModemClassId() == EngineBase::mcAudio) {
-        _AttachEngine(mceAudio);
         SetState(stConnectHandle, chConnected);
         timerRing.Start(5000);
+
+        if (!activeEngines[mceAudio])
+          _AttachEngine(mceAudio);
+
+        enableFakeIn[mceAudio] = TRUE;
+        enableFakeOut[mceAudio] = TRUE;
+
+        if (activeEngines[mceAudio])
+          activeEngines[mceAudio]->RecvOnIdle(EngineBase::dtRing);
+
         parent.SignalDataReady();
         request.SetAt("response", "confirm");
       }
@@ -1375,6 +1416,10 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     else
     if (CallToken().IsEmpty() || CallToken() == request("calltoken")) {
       timerRing.Stop();
+
+      if (activeEngines[mceAudio])
+        activeEngines[mceAudio]->RecvOnIdle(EngineBase::dtNone);
+
       SetCallState(cstEstablished);
 
       if (state == stConnectWait) {
@@ -1399,7 +1444,6 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       CallToken("");
 
       if (callState == cstDialing && state == stConnectWait && request("trynextcommand") == "dial") {
-        timerRing.Stop();
         SetCallState(cstCleared);
         SetState(stDial);
         params = request;
@@ -3691,6 +3735,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             PWaitAndSignal mutexWait(Mutex);
             SetState(stCommand);
             timeout.Stop();
+
             if (currentClassEngine)
               currentClassEngine->ResetModemState();
           }
@@ -3733,9 +3778,6 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
           }
       }
     }
-
-    if (state == stCommand)
-      SendOnIdle(EngineBase::dtNone);
 }
 
 void ModemEngineBody::CheckState(PBYTEArray & bresp)
@@ -3806,7 +3848,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     }
   }
 
-  for (int i = 0 ; i < (int)(sizeof(activeEngines)/sizeof(activeEngines[0])) ; i++) {
+  for (int i = 0 ; i < mceNumberOfItems ; i++) {
       EngineBase *engine = activeEngines[i];
 
       if (engine == NULL)
@@ -3860,8 +3902,6 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
   if (off_hook && callState == cstReleasing && callSubState == 0) {
     SetCallSubState(1);
 
-    timerBusy.Start(1000);
-
     switch (state) {
       case stCommand:
         break;
@@ -3880,28 +3920,11 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         break;
       case stSend:
       case stSendBufEmptyHandle:
-        break;
       case stSendAckWait:
-        SetState(stSendAckHandle);
-        timeout.Stop();
-        break;
       case stSendAckHandle:
-        break;
       case stRecvBegWait:
-        resp = RC_NO_CARRIER();
-        SetState(stCommand);
-        break;
       case stRecvBegHandle:
-        break;
       case stRecv:
-        if (dataCount || P.ModemClassId() == EngineBase::mcAudio) {
-          PBYTEArray _bresp((const BYTE *)"\x10\x03", 2);		// <DLE><ETX>
-          bresp.Concatenate(_bresp);
-          PTRACE(2, "<-- DLE " << PRTHEX(_bresp));
-        }
-
-        resp = (P.ModemClassId() == EngineBase::mcAudio ? RC_OK() : RC_ERROR());
-        SetState(stCommand);
         break;
       default:
         resp = RC_ERROR();
@@ -4010,6 +4033,8 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               SendOnIdle(EngineBase::dtCng);
 
             connectionEstablished = TRUE;
+            enableFakeIn[mceAudio] = TRUE;
+            enableFakeOut[mceAudio] = TRUE;
 
             if (P.ModemClassId() == EngineBase::mcAudio || callDirection == cdUndefined) {
               SetState(stCommand);
@@ -4330,6 +4355,47 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
     myPTRACE(1, "<-- " << PRTHEX(_bresp));
     bresp.Concatenate(_bresp);
+  }
+}
+
+void ModemEngineBody::CheckStatePost()
+{
+  PWaitAndSignal mutexWait(Mutex);
+
+  if (off_hook) {
+    for (int i = 0 ; i < (int)(sizeof(activeEngines)/sizeof(activeEngines[0])) ; i++) {
+      EngineBase *engine = activeEngines[i];
+
+      if (!engine)
+        continue;
+
+      PBoolean enableIn = FALSE;
+      PBoolean enableOut = FALSE;
+
+      if (engine == currentClassEngine) {
+        switch (state) {
+          case stSend:
+          case stSendBufEmptyHandle:
+          case stSendAckWait:
+            enableOut = enableFakeOut[i];
+            break;
+          case stRecvBegWait:
+          case stRecvBegHandle:
+          case stRecv:
+            enableIn = enableFakeIn[i];
+            break;
+          default:
+            break;
+        }
+      }
+
+      engine->AddReference();
+      Mutex.Signal();
+      engine->EnableFakeIn(enableIn);
+      engine->EnableFakeOut(enableOut);
+      Mutex.Wait();
+      ReferenceObject::DelPointer(engine);
+    }
   }
 
   if (state == stCommand)
