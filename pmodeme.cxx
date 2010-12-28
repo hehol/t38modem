@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.103  2010-10-12 16:46:25  vfrolov
- * Implemented fake streams
+ * Revision 1.104  2010-12-28 12:29:07  vfrolov
+ * Disabled echo in non-command state
+ *
+ * Revision 1.104  2010/12/28 12:29:07  vfrolov
+ * Disabled echo in non-command state
  *
  * Revision 1.103  2010/10/12 16:46:25  vfrolov
  * Implemented fake streams
@@ -3650,8 +3653,6 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             if (lendone > 0) {
                 PTRACE(4, "--> DLE " << lendone << " bytes");
 
-                if (Echo())
-                  bresp.Concatenate(PBYTEArray(pBuf, lendone));
                 len -= lendone;
                 pBuf += lendone;
             }
@@ -3742,8 +3743,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
           break;
         default:
           myPTRACE(1, "Reset state " << state);
-          if( Echo() )
-            bresp.Concatenate(PBYTEArray(pBuf, 1));
+
           len--;
           pBuf++;
           {
