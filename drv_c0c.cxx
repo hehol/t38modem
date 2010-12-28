@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2004-2009 Vyacheslav Frolov
+ * Copyright (c) 2004-2010 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: drv_c0c.cxx,v $
- * Revision 1.12  2009-07-08 18:43:44  vfrolov
- * Added PseudoModem::ttyName()
+ * Revision 1.13  2010-12-28 12:27:22  vfrolov
+ * Added fTXContinueOnXoff to prevent deadlock
+ *
+ * Revision 1.13  2010/12/28 12:27:22  vfrolov
+ * Added fTXContinueOnXoff to prevent deadlock
  *
  * Revision 1.12  2009/07/08 18:43:44  vfrolov
  * Added PseudoModem::ttyName()
@@ -402,6 +405,28 @@ void OutC0C::Main()
         break;
       case WAIT_TIMEOUT:
         myPTRACE(6, "TIMEOUT");
+
+//#if PTRACING
+//        if (PTrace::CanTrace(6)) {
+//          DWORD errors;
+//          COMSTAT comstat;
+//
+//          if (ClearCommError(hC0C, &errors, &comstat)) {
+//            PTRACE(1,
+//                "errors="       << hex << errors << dec << " "
+//                "fCtsHold="     << comstat.fCtsHold << " "
+//                "fDsrHold="     << comstat.fDsrHold << " "
+//                "fRlsdHold="    << comstat.fRlsdHold << " "
+//                "fXoffHold="    << comstat.fXoffHold << " "
+//                "fXoffSent="    << comstat.fXoffSent << " "
+//                "fEof="         << comstat.fEof << " "
+//                "fTxim="        << comstat.fTxim << " "
+//                "cbInQue="      << comstat.cbInQue << " "
+//                "cbOutQue="     << comstat.cbOutQue);
+//          }
+//        }
+//#endif
+
         break;
       default:
         TraceLastError("WaitForMultipleObjects()");
@@ -513,6 +538,8 @@ PBoolean PseudoModemC0C::StartAll()
 {
   reset = TRUE;
 
+  PTRACE(3, "PseudoModemC0C::StartAll");
+
   if (IsOpenC0C()
      && (inC0C = new InC0C(*this, hC0C)) != NULL
      && (outC0C = new OutC0C(*this, hC0C)) != NULL
@@ -530,6 +557,8 @@ PBoolean PseudoModemC0C::StartAll()
 void PseudoModemC0C::StopAll()
 {
   ready = FALSE;
+
+  PTRACE(3, "PseudoModemC0C::StopAll reset=" << reset << " stop=" << stop << " childstop=" << childstop);
 
   if (inC0C) {
     inC0C->SignalStop();
@@ -596,6 +625,7 @@ BOOL PseudoModemC0C::OpenC0C()
   dcb.fDsrSensitivity = TRUE;
   dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
   dcb.fDtrControl = DTR_CONTROL_ENABLE;
+  dcb.fTXContinueOnXoff = TRUE;
   dcb.fOutX = FALSE;
   dcb.fInX = TRUE;
   dcb.XonChar = 0x11;
