@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: audio.cxx,v $
- * Revision 1.17  2010-10-12 16:46:25  vfrolov
- * Implemented fake streams
+ * Revision 1.18  2010-12-29 12:35:41  vfrolov
+ * Fixed mutex locking
+ *
+ * Revision 1.18  2010/12/29 12:35:41  vfrolov
+ * Fixed mutex locking
  *
  * Revision 1.17  2010/10/12 16:46:25  vfrolov
  * Implemented fake streams
@@ -320,7 +323,7 @@ PBoolean AudioEngine::Read(HOWNEROUT hOwner, void * buffer, PINDEX amount)
     PWaitAndSignal mutexWait(Mutex);
 
     if (hOwnerOut != hOwner || !IsModemOpen())
-      return 0;
+      return FALSE;
 
     if (firstOut) {
       firstOut = FALSE;
@@ -497,7 +500,7 @@ PBoolean AudioEngine::Write(HOWNERIN hOwner, const void * buffer, PINDEX len)
     PWaitAndSignal mutexWait(Mutex);
 
     if (hOwnerIn != hOwner || !IsModemOpen())
-      return 0;
+      return FALSE;
 
     if (firstIn) {
       firstIn = FALSE;
@@ -508,54 +511,47 @@ PBoolean AudioEngine::Write(HOWNERIN hOwner, const void * buffer, PINDEX len)
 
       writeDelay.Restart();
     }
-  }
 
-  Mutex.Wait();
+    if (buffer) {
+      if (recvAudio && !recvAudio->isFull()) {
+        recvAudio->PutData(buffer, len);
+        ModemCallbackWithUnlock(callbackParam);
 
-  if (hOwnerIn != hOwner || !IsModemOpen())
-    return FALSE;
-
-  if (buffer) {
-    if (recvAudio && !recvAudio->isFull()) {
-      recvAudio->PutData(buffer, len);
-      ModemCallbackWithUnlock(callbackParam);
-
-      if (hOwnerIn != hOwner || !IsModemOpen())
-        return FALSE;
-    }
-
-    if (t30ToneDetect && t30ToneDetect->Write(buffer, len)) {
-      OnUserInput('c');
-
-      if (hOwnerIn != hOwner || !IsModemOpen())
-        return FALSE;
-    }
-  } else {
-    if (recvAudio && !recvAudio->isFull()) {
-      for (PINDEX rest = len ; rest > 0 ;) {
-        BYTE buf[64*BYTES_PER_SIMPLE];
-        PINDEX lenChank = rest;
-
-        if (lenChank > (PINDEX)sizeof(buf))
-          lenChank = (PINDEX)sizeof(buf);
-
-        if (pToneIn)
-          pToneIn->Read(buf, lenChank);
-        else
-          memset(buf, 0, lenChank);
-
-        recvAudio->PutData(buf, lenChank);
-        rest -= lenChank;
+        if (hOwnerIn != hOwner || !IsModemOpen())
+          return FALSE;
       }
 
-      ModemCallbackWithUnlock(callbackParam);
+      if (t30ToneDetect && t30ToneDetect->Write(buffer, len)) {
+        OnUserInput('c');
 
-      if (hOwnerIn != hOwner || !IsModemOpen())
-        return FALSE;
+        if (hOwnerIn != hOwner || !IsModemOpen())
+          return FALSE;
+      }
+    } else {
+      if (recvAudio && !recvAudio->isFull()) {
+        for (PINDEX rest = len ; rest > 0 ;) {
+          BYTE buf[64*BYTES_PER_SIMPLE];
+          PINDEX lenChank = rest;
+
+          if (lenChank > (PINDEX)sizeof(buf))
+            lenChank = (PINDEX)sizeof(buf);
+
+          if (pToneIn)
+            pToneIn->Read(buf, lenChank);
+          else
+            memset(buf, 0, lenChank);
+
+          recvAudio->PutData(buf, lenChank);
+          rest -= lenChank;
+        }
+
+        ModemCallbackWithUnlock(callbackParam);
+
+        if (hOwnerIn != hOwner || !IsModemOpen())
+          return FALSE;
+      }
     }
   }
-
-  Mutex.Signal();
 
   writeDelay.Delay(len/BYTES_PER_MSEC);
 
