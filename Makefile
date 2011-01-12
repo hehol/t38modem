@@ -3,7 +3,7 @@
 #
 # T38FAX Pseudo Modem
 #
-# Copyright (c) 2001-2010 Vyacheslav Frolov
+# Copyright (c) 2001-2011 Vyacheslav Frolov
 #
 # t38modem Project
 #
@@ -24,8 +24,11 @@
 # Contributor(s): Equivalence Pty ltd
 #
 # $Log: Makefile,v $
-# Revision 1.28  2010-10-12 16:46:25  vfrolov
-# Implemented fake streams
+# Revision 1.29  2011-01-12 12:23:43  vfrolov
+# Replaced hardcoded workaround for mgetty-voice by conditional one
+#
+# Revision 1.29  2011/01/12 12:23:43  vfrolov
+# Replaced hardcoded workaround for mgetty-voice by conditional one
 #
 # Revision 1.28  2010/10/12 16:46:25  vfrolov
 # Implemented fake streams
@@ -225,5 +228,14 @@ ifdef USE_UNIX98_PTY
   endif
 else
   STDCCFLAGS += -DUSE_LEGACY_PTY
+endif
+
+#
+# If defined ALAW_132_BIT_REVERSE then t38modem
+# will use reversed bit order for +VSM=132
+# (workaround for mgetty-voice)
+#
+ifdef ALAW_132_BIT_REVERSE
+  STDCCFLAGS += -DALAW_132_BIT_REVERSE
 endif
 

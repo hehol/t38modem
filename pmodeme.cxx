@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2001-2010 Vyacheslav Frolov
+ * Copyright (c) 2001-2011 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.104  2010-12-28 12:29:07  vfrolov
- * Disabled echo in non-command state
+ * Revision 1.105  2011-01-12 12:23:43  vfrolov
+ * Replaced hardcoded workaround for mgetty-voice by conditional one
+ *
+ * Revision 1.105  2011/01/12 12:23:43  vfrolov
+ * Replaced hardcoded workaround for mgetty-voice by conditional one
  *
  * Revision 1.104  2010/12/28 12:29:07  vfrolov
  * Disabled echo in non-command state
@@ -822,13 +825,11 @@ class ModemEngineBody : public PObject
     PBoolean SetBitRevDleData() {
       switch (P.ModemClassId()) {
       case EngineBase::mcAudio:
-        switch (P.Vcml()) {
-          case 132:
-            dleData.BitRev(TRUE);
-            break;
-          default:
-            dleData.BitRev(FALSE);
-        }
+        dleData.BitRev(
+#ifdef ALAW_132_BIT_REVERSE
+          P.Vcml() == 132 ? TRUE :
+#endif
+          FALSE);
         break;
       case EngineBase::mcFax:
         dleData.BitRev(TRUE);
