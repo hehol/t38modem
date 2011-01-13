@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2010 Vyacheslav Frolov
+ * Copyright (c) 2007-2011 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,10 +24,13 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.23  2010-03-15 14:31:30  vfrolov
- * Added options
- *   --h323-t38-udptl-redundancy
- *   --h323-t38-udptl-keep-alive-interval
+ * Revision 1.24  2011-01-13 06:39:08  vfrolov
+ * Disabled OPAL version < 3.9.0
+ * Added route options help topic
+ *
+ * Revision 1.24  2011/01/13 06:39:08  vfrolov
+ * Disabled OPAL version < 3.9.0
+ * Added route options help topic
  *
  * Revision 1.23  2010/03/15 14:31:30  vfrolov
  * Added options
@@ -114,12 +117,8 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 8, 1))
-  #error *** Uncompatible OPAL version (required >= 3.8.1) ***
-#endif
-
-#if PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 9, 0)
-  #define HAS_T38_UDPTL_IDLE_TIMER 1
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 9, 0))
+  #error *** Uncompatible OPAL version (required >= 3.9.0) ***
 #endif
 
 #undef PACK_VERSION
@@ -230,34 +229,17 @@ PStringArray MyH323EndPoint::Descriptions()
   PStringArray descriptions = PString(
       "H.323 options:\n"
       "  --no-h323                 : Disable H.323 protocol.\n"
-      "  --h323-audio [!]wildcard[,[!]...]\n"
-      "                            : Enable the audio format(s) matching the\n"
-      "                              wildcard(s). The '*' character match any\n"
-      "                              substring. The leading '!' character indicates\n"
-      "                              a negative test.\n"
-      "                              Default: " OPAL_G711_ULAW_64K "," OPAL_G711_ALAW_64K ".\n"
-      "                              May be used multiple times.\n"
-      "                              Can be overriden by route option\n"
-      "                                OPAL-Enable-Audio=[!]wildcard[,[!]...]\n"
+      "  --h323-audio str          : Use OPAL-Enable-Audio=str route option by\n"
+      "                              default. May be used multiple times.\n"
       "  --h323-audio-list         : Display available audio formats.\n"
-      "  --h323-disable-t38-mode   : Disable T.38 fax mode.\n"
-      "                              Can be overriden by route option\n"
-      "                                OPAL-Disable-T38-Mode=false\n"
-      "  --h323-t38-udptl-redundancy maxsize:redundancy[,maxsize:redundancy...]\n"
-      "                            : Set error recovery redundancy for IFP packets\n"
-      "                              dependent from their size. For example:\n"
-      "                              '2:I,9:L,32767:H' (where I, L and H are numbers)\n"
-      "                              sets redundancy for (I)ndication, (L)ow speed and\n"
-      "                              (H)igh speed IFP packets.\n"
-      "                              Can be overriden by route option\n"
-      "                                T38-UDPTL-Redundancy=[maxsize:redundancy...]\n"
-#if HAS_T38_UDPTL_IDLE_TIMER
+      "  --h323-disable-t38-mode   : Use OPAL-Disable-T38-Mode=true route option by\n"
+      "                              default.\n"
+      "  --h323-t38-udptl-redundancy str\n"
+      "                            : Use OPAL-T38-UDPTL-Redundancy=str route option by\n"
+      "                              default.\n"
       "  --h323-t38-udptl-keep-alive-interval ms\n"
-      "                            : Continuously resend last UDPTL packet each ms\n"
-      "                              milliseconds.\n"
-      "                              Can be overriden by route option\n"
-      "                                T38-UDPTL-Keep-Alive-Interval=ms\n"
-#endif
+      "                            : Use OPAL-T38-UDPTL-Keep-Alive-Interval=ms route\n"
+      "                              option by default.\n"
       "  -F --fastenable           : Enable fast start.\n"
       "  -T --h245tunneldisable    : Disable H245 tunnelling.\n"
       "  --h323-listen iface       : Interface/port(s) to listen for H.323 requests\n"
@@ -266,14 +248,40 @@ PStringArray MyH323EndPoint::Descriptions()
       "  -g --gatekeeper host      : Specify gatekeeper host.\n"
       "  -n --no-gatekeeper        : Disable gatekeeper discovery.\n"
       "  --require-gatekeeper      : Exit if gatekeeper discovery fails.\n"
-      "  --h323-bearer-capability S:C:R:P\n"
-      "                            : Bearer capability information element (Q.931)\n"
-      "                                S - coding standard (0-3)\n"
-      "                                C - information transfer capability (0-31)\n"
-      "                                R - information transfer rate (1-127)\n"
-      "                                P - user information layer 1 protocol (2-5).\n"
-      "                              Can be overriden by route option\n"
-      "                                OPAL-Bearer-Capability=S:C:R:P\n"
+      "  --h323-bearer-capability str\n"
+      "                            : Use OPAL-Bearer-Capability=str route option by\n"
+      "                              default.\n"
+      "\n"
+      "H.323 route options:\n"
+      "  OPAL-Enable-Audio=[!]wildcard[,[!]...]\n"
+      "    Enable the audio format(s) matching the wildcard(s). The '*' character\n"
+      "    match any substring. The leading '!' character indicates a negative test.\n"
+      "    Default: " OPAL_G711_ULAW_64K "," OPAL_G711_ALAW_64K ".\n"
+      "  OPAL-Disable-T38-Mode={true|false}\n"
+      "    Enable or disable T.38 fax mode.\n"
+      "    Default: false (enable T.38 fax mode).\n"
+      "  OPAL-T38-UDPTL-Redundancy=[maxsize:redundancy[,maxsize:redundancy...]]\n"
+      "    Set error recovery redundancy for IFP packets dependent from their size.\n"
+      "    For example the string '2:I,9:L,32767:H' (where I, L and H are numbers)\n"
+      "    sets redundancy for (I)ndication, (L)ow speed and (H)igh speed IFP packets.\n"
+      "    Default: empty string (no redundancy).\n"
+      "  OPAL-T38-UDPTL-Redundancy-Interval=ms\n"
+      "    Continuously resend last UDPTL packet each ms milliseconds on idle till it\n"
+      "    contains IFP packets not sent redundancy times.\n"
+      "    Default: 50.\n"
+      "  OPAL-T38-UDPTL-Keep-Alive-Interval=ms\n"
+      "    Continuously resend last UDPTL packet each ms milliseconds on idle.\n"
+      "    Default: 0 (no resend).\n"
+      "  OPAL-T38-UDPTL-Optimise-On-Retransmit={true|false}\n"
+      "    Optimize UDPTL packets on resending in accordance with required redundancy\n"
+      "    (exclude redundancy IFP packets sent redundancy times).\n"
+      "    Default: true (optimize).\n"
+      "  OPAL-Bearer-Capability=S:C:R:P\n"
+      "    Set bearer capability information element (Q.931) with\n"
+      "      S - coding standard (0-3)\n"
+      "      C - information transfer capability (0-31)\n"
+      "      R - information transfer rate (1-127)\n"
+      "      P - user information layer 1 protocol (2-5).\n"
   ).Lines();
 
   return descriptions;

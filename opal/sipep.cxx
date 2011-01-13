@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2010 Vyacheslav Frolov
+ * Copyright (c) 2007-2011 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,10 +24,13 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.26  2010-03-15 14:32:02  vfrolov
- * Added options
- *   --sip-t38-udptl-redundancy
- *   --sip-t38-udptl-keep-alive-interval
+ * Revision 1.27  2011-01-13 06:39:08  vfrolov
+ * Disabled OPAL version < 3.9.0
+ * Added route options help topic
+ *
+ * Revision 1.27  2011/01/13 06:39:08  vfrolov
+ * Disabled OPAL version < 3.9.0
+ * Added route options help topic
  *
  * Revision 1.26  2010/03/15 14:32:02  vfrolov
  * Added options
@@ -122,12 +125,8 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 8, 1))
-  #error *** Uncompatible OPAL version (required >= 3.8.1) ***
-#endif
-
-#if PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 9, 0)
-  #define HAS_T38_UDPTL_IDLE_TIMER 1
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 9, 0))
+  #error *** Uncompatible OPAL version (required >= 3.9.0) ***
 #endif
 
 #undef PACK_VERSION
@@ -216,34 +215,17 @@ PStringArray MySIPEndPoint::Descriptions()
   PStringArray descriptions = PString(
       "SIP options:\n"
       "  --no-sip                  : Disable SIP protocol.\n"
-      "  --sip-audio [!]wildcard[,[!]...]\n"
-      "                            : Enable the audio format(s) matching the\n"
-      "                              wildcard(s). The '*' character match any\n"
-      "                              substring. The leading '!' character indicates\n"
-      "                              a negative test.\n"
-      "                              Default: " OPAL_G711_ULAW_64K "," OPAL_G711_ALAW_64K ".\n"
-      "                              May be used multiple times.\n"
-      "                              Can be overriden by route option\n"
-      "                                OPAL-Enable-Audio=[!]wildcard[,[!]...]\n"
+      "  --sip-audio str           : Use OPAL-Enable-Audio=str route option by\n"
+      "                              default. May be used multiple times.\n"
       "  --sip-audio-list          : Display available audio formats.\n"
-      "  --sip-disable-t38-mode    : Disable T.38 fax mode.\n"
-      "                              Can be overriden by route option\n"
-      "                                OPAL-Disable-T38-Mode=false\n"
-      "  --sip-t38-udptl-redundancy maxsize:redundancy[,maxsize:redundancy...]\n"
-      "                            : Set error recovery redundancy for IFP packets\n"
-      "                              dependent from their size. For example:\n"
-      "                              '2:I,9:L,32767:H' (where I, L and H are numbers)\n"
-      "                              sets redundancy for (I)ndication, (L)ow speed and\n"
-      "                              (H)igh speed IFP packets.\n"
-      "                              Can be overriden by route option\n"
-      "                                T38-UDPTL-Redundancy=[maxsize:redundancy...]\n"
-#if HAS_T38_UDPTL_IDLE_TIMER
+      "  --sip-disable-t38-mode    : Use OPAL-Disable-T38-Mode=true route option by\n"
+      "                              default.\n"
+      "  --sip-t38-udptl-redundancy str\n"
+      "                            : Use OPAL-T38-UDPTL-Redundancy=str route option by\n"
+      "                              default.\n"
       "  --sip-t38-udptl-keep-alive-interval ms\n"
-      "                            : Continuously resend last UDPTL packet each ms\n"
-      "                              milliseconds.\n"
-      "                              Can be overriden by route option\n"
-      "                                T38-UDPTL-Keep-Alive-Interval=ms\n"
-#endif
+      "                            : Use OPAL-T38-UDPTL-Keep-Alive-Interval=ms route\n"
+      "                              option by default.\n"
       "  --sip-proxy [user:[pwd]@]host\n"
       "                            : Proxy information.\n"
       "  --sip-register [user@]registrar[,pwd[,contact[,realm[,authID]]]]\n"
@@ -253,6 +235,31 @@ PStringArray MySIPEndPoint::Descriptions()
       "                            : '*' is all interfaces (default tcp$*:5060 and\n"
       "                            : udp$*:5060).\n"
       "  --sip-no-listen           : Disable listen for incoming calls.\n"
+      "\n"
+      "SIP route options:\n"
+      "  OPAL-Enable-Audio=[!]wildcard[,[!]...]\n"
+      "    Enable the audio format(s) matching the wildcard(s). The '*' character\n"
+      "    match any substring. The leading '!' character indicates a negative test.\n"
+      "    Default: " OPAL_G711_ULAW_64K "," OPAL_G711_ALAW_64K ".\n"
+      "  OPAL-Disable-T38-Mode={true|false}\n"
+      "    Enable or disable T.38 fax mode.\n"
+      "    Default: false (enable T.38 fax mode).\n"
+      "  OPAL-T38-UDPTL-Redundancy=[maxsize:redundancy[,maxsize:redundancy...]]\n"
+      "    Set error recovery redundancy for IFP packets dependent from their size.\n"
+      "    For example the string '2:I,9:L,32767:H' (where I, L and H are numbers)\n"
+      "    sets redundancy for (I)ndication, (L)ow speed and (H)igh speed IFP packets.\n"
+      "    Default: empty string (no redundancy).\n"
+      "  OPAL-T38-UDPTL-Redundancy-Interval=ms\n"
+      "    Continuously resend last UDPTL packet each ms milliseconds on idle till it\n"
+      "    contains IFP packets not sent redundancy times.\n"
+      "    Default: 50.\n"
+      "  OPAL-T38-UDPTL-Keep-Alive-Interval=ms\n"
+      "    Continuously resend last UDPTL packet each ms milliseconds on idle.\n"
+      "    Default: 0 (no resend).\n"
+      "  OPAL-T38-UDPTL-Optimise-On-Retransmit={true|false}\n"
+      "    Optimize UDPTL packets on resending in accordance with required redundancy\n"
+      "    (exclude redundancy IFP packets sent redundancy times).\n"
+      "    Default: true (optimize).\n"
   ).Lines();
 
   return descriptions;
