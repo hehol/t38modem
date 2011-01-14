@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2010 Vyacheslav Frolov
+ * Copyright (c) 2007-2011 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,13 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.29  2010-10-06 16:54:19  vfrolov
- * Redesigned engine opening/closing
+ * Revision 1.30  2011-01-14 20:42:36  vfrolov
+ * Added "srcname" to incoming call request
+ * Thanks Dmitry (gorod225)
+ *
+ * Revision 1.30  2011/01/14 20:42:36  vfrolov
+ * Added "srcname" to incoming call request
+ * Thanks Dmitry (gorod225)
  *
  * Revision 1.29  2010/10/06 16:54:19  vfrolov
  * Redesigned engine opening/closing
@@ -683,6 +688,7 @@ PBoolean ModemConnection::SetUpConnection()
   }
 
   PString srcNum;
+  PString srcName;
 
   {
     PSafePtr<OpalConnection> other = GetOtherPartyConnection();
@@ -691,6 +697,7 @@ PBoolean ModemConnection::SetUpConnection()
       return FALSE;
 
     srcNum = other->GetRemotePartyNumber();
+    srcName = other->GetRemotePartyName();
   }
 
   PString dstNum = GetRemotePartyNumber();
@@ -698,6 +705,7 @@ PBoolean ModemConnection::SetUpConnection()
   myPTRACE(1, "ModemConnection::SetUpConnection"
            << " dstNum=" << dstNum
            << " srcNum=" << srcNum
+           << " srcName=" << srcName
            << " ...");
 
   ModemEndPoint &ep = (ModemEndPoint &)GetEndPoint();
@@ -722,6 +730,7 @@ PBoolean ModemConnection::SetUpConnection()
   request.SetAt("command", "call");
   request.SetAt("calltoken", GetToken());
   request.SetAt("srcnum", srcNum);
+  request.SetAt("srcname", srcName);
   request.SetAt("dstnum", dstNum);
 
   if (!pmodem->Request(request)) {
