@@ -24,8 +24,13 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.105  2011-01-12 12:23:43  vfrolov
- * Replaced hardcoded workaround for mgetty-voice by conditional one
+ * Revision 1.106  2011-01-14 20:32:11  vfrolov
+ * Added DATE, TIME and NAME tags to Caller ID report
+ * Added AT#CIDFMT command
+ *
+ * Revision 1.106  2011/01/14 20:32:11  vfrolov
+ * Added DATE, TIME and NAME tags to Caller ID report
+ * Added AT#CIDFMT command
  *
  * Revision 1.105  2011/01/12 12:23:43  vfrolov
  * Replaced hardcoded workaround for mgetty-voice by conditional one
@@ -441,6 +446,7 @@ class Profile
     DeclareRegisterByte(DialTimeComma, 8);
     DeclareRegisterByte(DialTimeDTMF, 11);
 
+    DeclareRegisterByte(CidNameFmt,        MaxRegVoice - 8);
     DeclareRegisterByte(Vtd,               MaxRegVoice - 7);
     DeclareRegisterByte(Vcml,              MaxRegVoice - 6);
     DeclareRegisterByte(Vsds,              MaxRegVoice - 5);
@@ -1043,8 +1049,11 @@ class ModemEngineBody : public PObject
 
     PMutex Mutex;
 
+    PTime callTime;
+
     DeclareStringParam(CallToken)
     DeclareStringParam(SrcNum)
+    DeclareStringParam(SrcName)
     DeclareStringParam(DstNum)
 
     DeclareResultCode(RC_PREF,            "", "\r\n")
@@ -1364,9 +1373,11 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
 
       CallToken(request("calltoken"));
       SrcNum(request("srcnum"));
+      SrcName(request("srcname"));
       DstNum(request("dstnum"));
-      timerRing.Start(5000);
+      callTime = PTime();
       P.RingCount(0);
+      timerRing.Start(5000);
       request.SetAt("response", "confirm");
     }
   }
@@ -2660,7 +2671,6 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                             crlf = TRUE;
                             break;
                           default: {
-                            PWaitAndSignal mutexWait(Mutex);
                             const char *modemClass;
 
                             switch (ParseNum(&pCmd)) {
@@ -2679,6 +2689,7 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                             }
 
                             if (modemClass) {
+                              PWaitAndSignal mutexWait(Mutex);
                               P.ModemClass(modemClass);
                               OnChangeModemClass();
                             }
@@ -3505,6 +3516,34 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                 crlf = TRUE;
                 break;
               }
+              case 'F':
+                if (strncmp(pCmd, "MT", 2) == 0) {    // #CIDFMT
+                  pCmd += 2;
+                  switch (*pCmd++) {
+                    case '=': {
+                      int val = ParseNum(&pCmd, 1, 1, 3);
+
+                      if (val < 0) {
+                        err = TRUE;
+                        break;
+                      }
+
+                      PWaitAndSignal mutexWait(Mutex);
+                      P.CidNameFmt((BYTE)val);
+
+                      break;
+                    }
+                    case '?':
+                      resp.sprintf("\r\n%u", (unsigned)P.CidNameFmt());
+                      crlf = TRUE;
+                      break;
+                    default:
+                      err = TRUE;
+                  }
+                } else {
+                  err = TRUE;
+                }
+                break;
               default:
                 err = TRUE;
             }
@@ -3807,13 +3846,36 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         resp = RC_RING();
         BYTE ringCount = P.RingCount();
         if (!ringCount) {
-          if(P.CidMode())
-            resp += "NMBR = " + SrcNum() + "\r\n";
-          if(P.DidMode())
-            resp += "NDID = " + DstNum() + "\r\n";
-          if(P.CidMode() || P.DidMode())
+          if (P.CidMode() || P.DidMode()) {
+            if (P.CidMode()) {
+              resp += "DATE = " + callTime.AsString("MMdd") + "\r\n";
+              resp += "TIME = " + callTime.AsString("hhmm") + "\r\n";
+              resp += "NMBR = " + SrcNum() + "\r\n";
+
+              switch (P.CidNameFmt()) {
+                case 0:
+                default:
+                  resp += "NAME = " + SrcName() + "\r\n";
+                  break;
+                case 1:
+                  resp += "NAME = \r\n";
+                  break;
+                case 2:
+                  resp += "NAME = " + DstNum() + "\r\n";
+                  break;
+                case 3:
+                  resp += "NAME = " + DstNum() + " <- " + SrcName() + "\r\n";
+                  break;
+              }
+            }
+
+            if (P.DidMode())
+              resp += "NDID = " + DstNum() + "\r\n";
+
             resp += RC_RING();
+          }
         }
+
         P.RingCount(++ringCount);
 
         if (P.AutoAnswer() > 0 && (ringCount >= P.AutoAnswer())) {

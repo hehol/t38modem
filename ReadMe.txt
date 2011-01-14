@@ -214,21 +214,24 @@ $ .../faxgetty -D ttyx1
 4.1. AT#CID command
 -------------------
 
-4.1.1 calling/called number reporting
--------------------------------------
+4.1.1 Reporting Caller ID and DID after the first RING
+------------------------------------------------------
 
-#CID=0	- disables calling/called number reporting (default).
-#CID=1	- Enables only calling number reporting after the first RING.
-#CID=10	- Enables calling/called number reporting after the first RING.
-#CID=11	- Enables only called number reporting after the first RING.
+#CID=0	- disable Caller ID and DID reporting (default).
+#CID=1	- enable only Caller ID reporting.
+#CID=10	- enable Caller ID and DID reporting.
+#CID=11	- enable only DID reporting.
 
 Example:
 
 <-- AT#CID=10
 --> OK
 --> RING
---> NMBR = <calling number>
---> NDID = <called number>
+--> DATE = <MMDD>              ; Caller ID
+--> TIME = <HHMM>              ; Caller ID
+--> NMBR = <calling number>    ; Caller ID
+--> NAME = <calling name>      ; Caller ID
+--> NDID = <called number>     ; DID
 --> RING
 --> RING
 
@@ -352,3 +355,15 @@ Examples:
 
 #HCLR=0	- ATH command will not clear not answered incoming call (default).
 #HCLR=1	- ATH command will clear not answered incoming call.
+
+4.6. AT#CIDFMT command
+----------------------
+
+4.6.1 Set value format for NAME tag of Caller ID
+------------------------------------------------
+
+#CIDFMT=0   - report "NAME = <calling name>" (default).
+#CIDFMT=1   - report "NAME = ".
+#CIDFMT=2   - report "NAME = <called number>".
+#CIDFMT=3   - report "NAME = <called number> <- <calling name>".
+
