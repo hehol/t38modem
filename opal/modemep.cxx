@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.30  2011-01-14 20:42:36  vfrolov
- * Added "srcname" to incoming call request
- * Thanks Dmitry (gorod225)
+ * Revision 1.31  2011-01-17 17:17:38  vfrolov
+ * Disabled compiling with OPAL version != 3.9.0 (use SVN TRUNK 24174)
+ *
+ * Revision 1.31  2011/01/17 17:17:38  vfrolov
+ * Disabled compiling with OPAL version != 3.9.0 (use SVN TRUNK 24174)
  *
  * Revision 1.30  2011/01/14 20:42:36  vfrolov
  * Added "srcname" to incoming call request
@@ -128,6 +130,16 @@
 #include <ptlib.h>
 
 #include <opal/buildopts.h>
+/////////////////////////////////////////////////////////////////////////////
+#define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
+
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) == PACK_VERSION(3, 9, 0))
+  #error *** Uncompatible OPAL version (required == 3.9.0, use SVN TRUNK 24174) ***
+#endif
+
+#undef PACK_VERSION
+/////////////////////////////////////////////////////////////////////////////
+
 #include <opal/patch.h>
 
 #include "../enginebase.h"
