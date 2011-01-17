@@ -3,7 +3,7 @@
  *
  * T38FAX Pseudo Modem
  *
- * Copyright (c) 2007-2010 Vyacheslav Frolov
+ * Copyright (c) 2007-2011 Vyacheslav Frolov
  *
  * Open H323 Project
  *
@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: manager.cxx,v $
- * Revision 1.15  2010-07-09 13:18:13  vfrolov
- * Fixed help message
+ * Revision 1.16  2011-01-17 08:33:17  vfrolov
+ * Added --displayname option
+ *
+ * Revision 1.16  2011/01/17 08:33:17  vfrolov
+ * Added --displayname option
  *
  * Revision 1.15  2010/07/09 13:18:13  vfrolov
  * Fixed help message
@@ -116,6 +119,7 @@ PString MyManager::ArgSpec()
     "-ports:"
     "-route:"
     "u-username:"
+    "-displayname:"
     "-stun:"
     "-fake-audio:"
   ;
@@ -140,6 +144,9 @@ PStringArray MyManager::Descriptions()
       "                              then the file is read with each line consisting\n"
       "                              of a pat=dst[;...] route specification.\n"
       "  -u --username str         : Set the default username to str.\n"
+      "  --displayname str         : Set the default display name to str.\n"
+      "                              Can be overriden by route option\n"
+      "                                OPAL-" OPAL_OPT_CALLING_DISPLAY_NAME "=str\n"
       "  --stun server             : Set STUN server.\n"
       "  --fake-audio [!]wildcard[,[!]...]\n"
       "                            : Register the fake audio format(s) matching the\n"
@@ -239,6 +246,9 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
       args.GetOptionString("username") :
       PProcess::Current().GetName() + " v" + PProcess::Current().GetVersion()
   );
+
+  if (args.HasOption("displayname"))
+    SetDefaultDisplayName(args.GetOptionString("displayname"));
 
   if (args.HasOption("stun"))
     SetSTUNServer(args.GetOptionString("stun"));
