@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.24  2011-01-13 06:39:08  vfrolov
- * Disabled OPAL version < 3.9.0
- * Added route options help topic
+ * Revision 1.25  2011-01-19 11:41:17  vfrolov
+ * Replaced deprecated ApplyStringOptions() by OnApplyStringOptions()
+ *
+ * Revision 1.25  2011/01/19 11:41:17  vfrolov
+ * Replaced deprecated ApplyStringOptions() by OnApplyStringOptions()
  *
  * Revision 1.24  2011/01/13 06:39:08  vfrolov
  * Disabled OPAL version < 3.9.0
@@ -160,7 +162,7 @@ class MyH323Connection : public H323Connection
   //@}
 
     virtual PBoolean SetUpConnection();
-    virtual void ApplyStringOptions(OpalConnection::StringOptions & stringOptions);
+    virtual void OnApplyStringOptions();
 
     virtual PBoolean OnSendSignalSetup(
       H323SignalPDU & setupPDU                 ///<  Setup PDU to send
@@ -432,8 +434,10 @@ PBoolean MyH323Connection::SetUpConnection()
   return H323Connection::SetUpConnection();
 }
 
-void MyH323Connection::ApplyStringOptions(OpalConnection::StringOptions & stringOptions)
+void MyH323Connection::OnApplyStringOptions()
 {
+  H323Connection::OnApplyStringOptions();
+
   if (LockReadWrite()) {
     mediaFormatList = OpalMediaFormatList();
 
@@ -458,14 +462,14 @@ void MyH323Connection::ApplyStringOptions(OpalConnection::StringOptions & string
     }
 
     if (GetStringOptions().GetBoolean("Disable-T38-Mode")) {
-      PTRACE(3, "MyH323Connection::ApplyStringOptions: Disable-T38-Mode=true");
+      PTRACE(3, "MyH323Connection::OnApplyStringOptions: Disable-T38-Mode=true");
     } else {
       mediaFormatList += OpalT38;
     }
 
     mediaFormatList += OpalRFC2833;
 
-    PTRACE(4, "MyH323Connection::ApplyStringOptions Enabled formats (in preference order):\n"
+    PTRACE(4, "MyH323Connection::OnApplyStringOptions Enabled formats (in preference order):\n"
            << setfill('\n') << mediaFormatList << setfill(' '));
 
     if (GetStringOptions().Contains("Bearer-Capability")) {
@@ -482,7 +486,7 @@ void MyH323Connection::ApplyStringOptions(OpalConnection::StringOptions & string
             iBC[2] >= 1 && iBC[2] <= 127 &&
             iBC[3] >= 2 && iBC[3] <= 5)
         {
-          PTRACE(3, "MyH323Connection::ApplyStringOptions: Bearer-Capability=" << bc);
+          PTRACE(3, "MyH323Connection::OnApplyStringOptions: Bearer-Capability=" << bc);
           bearerCapability = iBC;
         } else {
           iBC[0] = -1;
@@ -492,14 +496,12 @@ void MyH323Connection::ApplyStringOptions(OpalConnection::StringOptions & string
       }
 
       if (iBC[0] < 0) {
-        PTRACE(3, "MyH323Connection::ApplyStringOptions: Wrong Bearer-Capability=" << bc << " (ignored)");
+        PTRACE(3, "MyH323Connection::OnApplyStringOptions: Wrong Bearer-Capability=" << bc << " (ignored)");
       }
     }
 
     UnlockReadWrite();
   }
-
-  H323Connection::ApplyStringOptions(stringOptions);
 }
 
 PBoolean MyH323Connection::OnSendSignalSetup(H323SignalPDU & setupPDU)

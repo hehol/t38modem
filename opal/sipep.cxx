@@ -24,9 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.27  2011-01-13 06:39:08  vfrolov
- * Disabled OPAL version < 3.9.0
- * Added route options help topic
+ * Revision 1.28  2011-01-19 11:41:17  vfrolov
+ * Replaced deprecated ApplyStringOptions() by OnApplyStringOptions()
+ *
+ * Revision 1.28  2011/01/19 11:41:17  vfrolov
+ * Replaced deprecated ApplyStringOptions() by OnApplyStringOptions()
  *
  * Revision 1.27  2011/01/13 06:39:08  vfrolov
  * Disabled OPAL version < 3.9.0
@@ -162,7 +164,7 @@ class MySIPConnection : public SIPConnection
   //@}
 
     virtual PBoolean SetUpConnection();
-    virtual void ApplyStringOptions(OpalConnection::StringOptions & stringOptions);
+    virtual void OnApplyStringOptions();
 
     virtual bool SwitchFaxMediaStreams(
       bool enableFax                            ///< Enable FAX or return to audio mode
@@ -426,8 +428,10 @@ PBoolean MySIPConnection::SetUpConnection()
   return SIPConnection::SetUpConnection();
 }
 
-void MySIPConnection::ApplyStringOptions(OpalConnection::StringOptions & stringOptions)
+void MySIPConnection::OnApplyStringOptions()
 {
+  SIPConnection::OnApplyStringOptions();
+
   if (LockReadWrite()) {
     mediaFormatList = OpalMediaFormatList();
 
@@ -452,20 +456,18 @@ void MySIPConnection::ApplyStringOptions(OpalConnection::StringOptions & stringO
     }
 
     if (GetStringOptions().GetBoolean("Disable-T38-Mode")) {
-      PTRACE(3, "MySIPConnection::ApplyStringOptions: Disable-T38-Mode=true");
+      PTRACE(3, "MySIPConnection::OnApplyStringOptions: Disable-T38-Mode=true");
     } else {
       mediaFormatList += OpalT38;
     }
 
     mediaFormatList += OpalRFC2833;
 
-    PTRACE(4, "MySIPConnection::ApplyStringOptions Enabled formats (in preference order):\n"
+    PTRACE(4, "MySIPConnection::OnApplyStringOptions Enabled formats (in preference order):\n"
            << setfill('\n') << mediaFormatList << setfill(' '));
 
     UnlockReadWrite();
   }
-
-  SIPConnection::ApplyStringOptions(stringOptions);
 }
 
 bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
