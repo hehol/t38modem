@@ -359,11 +359,25 @@ Examples:
 4.6. AT#CIDFMT command
 ----------------------
 
-4.6.1 Set value format for NAME tag of Caller ID
-------------------------------------------------
+AT#CIDFMT command allows to set value format for NAME and NMBR tags of Caller ID.
 
-#CIDFMT=0   - report "NAME = <calling name>" (default).
-#CIDFMT=1   - report "NAME = ".
-#CIDFMT=2   - report "NAME = <called number>".
-#CIDFMT=3   - report "NAME = <called number> <- <calling name>".
+Syntax:
+
+  #CIDFMT=[<name format>][,[<nmbr format>]]
+
+If a format element is empty then its value will be untouched.
+
+Subparameter <name format>:
+
+  0   - report "NAME = <calling name>" (default)
+  1   - report "NAME = "
+  2   - report "NAME = <called number>"
+  3   - report "NAME = <called number> <- <calling name>"
+
+Subparameter <nmbr format>:
+
+  0   - report "NMBR = <calling number>" (default)
+  1   - report "NMBR = "
+  2   - report "NMBR = <called number>"
+  3   - report "NMBR = <called number>#<calling number>"
 

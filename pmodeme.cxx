@@ -24,9 +24,11 @@
  * Contributor(s): Equivalence Pty ltd
  *
  * $Log: pmodeme.cxx,v $
- * Revision 1.106  2011-01-14 20:32:11  vfrolov
- * Added DATE, TIME and NAME tags to Caller ID report
- * Added AT#CIDFMT command
+ * Revision 1.107  2011-01-19 17:17:54  vfrolov
+ * Extended AT#CIDFMT command for setting value format for NMBR tag
+ *
+ * Revision 1.107  2011/01/19 17:17:54  vfrolov
+ * Extended AT#CIDFMT command for setting value format for NMBR tag
  *
  * Revision 1.106  2011/01/14 20:32:11  vfrolov
  * Added DATE, TIME and NAME tags to Caller ID report
@@ -418,12 +420,22 @@ static const char Revision[] = TOSTR(MAJOR_VERSION) "." TOSTR(MINOR_VERSION) "."
 ///////////////////////////////////////////////////////////////
 class Profile
 {
-  enum {
-    MaxReg = 59,
-    MaxRegVoice = MaxReg - 10,
-    MinRegVoice = MaxRegVoice - 9,
-    MaxBit = 7
-  };
+  protected:
+    #define PROFILE_SIZE_STD      40
+    #define PROFILE_SIZE_EXT      10
+    #define PROFILE_SIZE_VOICE    10
+    #define PROFILE_SIZE          (PROFILE_SIZE_STD + PROFILE_SIZE_EXT + PROFILE_SIZE_VOICE)
+
+    enum {
+      MinRegStd     = 0,
+      MaxRegStd     = MinRegStd + PROFILE_SIZE_STD - 1,
+      MinRegExt     = MaxRegStd + 1,
+      MaxRegExt     = MinRegExt + PROFILE_SIZE_EXT - 1,
+      MinRegVoice   = MaxRegExt + 1,
+      MaxRegVoice   = MinRegVoice + PROFILE_SIZE_VOICE - 1,
+
+      MaxBit        = 7,
+    };
 
   public:
     Profile();
@@ -446,22 +458,31 @@ class Profile
     DeclareRegisterByte(DialTimeComma, 8);
     DeclareRegisterByte(DialTimeDTMF, 11);
 
-    DeclareRegisterByte(CidNameFmt,        MaxRegVoice - 8);
-    DeclareRegisterByte(Vtd,               MaxRegVoice - 7);
-    DeclareRegisterByte(Vcml,              MaxRegVoice - 6);
-    DeclareRegisterByte(Vsds,              MaxRegVoice - 5);
-    DeclareRegisterByte(Vsdi,              MaxRegVoice - 4);
-    DeclareRegisterByte(VgrInterval,       MaxRegVoice - 3);
-    DeclareRegisterByte(VgtInterval,       MaxRegVoice - 2);
-    DeclareRegisterByte(VraInterval,       MaxRegVoice - 1);
-    DeclareRegisterByte(VrnInterval,       MaxRegVoice - 0);
+    DeclareRegisterByte(IfcByDCE,          MinRegExt + 0);
+    DeclareRegisterByte(IfcByDTE,          MinRegExt + 1);
+    DeclareRegisterByte(ClearMode,         MinRegExt + 2);
+    DeclareRegisterByte(DelayFrmConnect,   MinRegExt + 3);
+    DeclareRegisterByte(DidMode,           MinRegExt + 4);
+    DeclareRegisterByte(CidMode,           MinRegExt + 5);
 
-    DeclareRegisterByte(IfcByDCE,          MaxReg - 5);
-    DeclareRegisterByte(IfcByDTE,          MaxReg - 4);
-    DeclareRegisterByte(ClearMode,         MaxReg - 3);
-    DeclareRegisterByte(DelayFrmConnect,   MaxReg - 2);
-    DeclareRegisterByte(DidMode,           MaxReg - 1);
-    DeclareRegisterByte(CidMode,           MaxReg - 0);
+    #if 5 >= PROFILE_SIZE_EXT
+      #error *** The PROFILE_SIZE_EXT is too small to declare register ***
+    #endif
+
+    DeclareRegisterByte(Vtd,               MinRegVoice + 0);
+    DeclareRegisterByte(Vcml,              MinRegVoice + 1);
+    DeclareRegisterByte(Vsds,              MinRegVoice + 2);
+    DeclareRegisterByte(Vsdi,              MinRegVoice + 3);
+    DeclareRegisterByte(VgrInterval,       MinRegVoice + 4);
+    DeclareRegisterByte(VgtInterval,       MinRegVoice + 5);
+    DeclareRegisterByte(VraInterval,       MinRegVoice + 6);
+    DeclareRegisterByte(VrnInterval,       MinRegVoice + 7);
+    DeclareRegisterByte(CidNameFmt,        MinRegVoice + 8);
+    DeclareRegisterByte(CidNmbrFmt,        MinRegVoice + 9);
+
+    #if 9 >= PROFILE_SIZE_VOICE
+      #error *** The PROFILE_SIZE_VOICE is too small to declare register ***
+    #endif
 
     void Flo(BYTE val) { IfcByDTE(val); IfcByDCE(val); }
     BYTE Flo() const {
@@ -539,7 +560,7 @@ class Profile
 
   protected:
     static PBoolean ChkR(PINDEX r) {
-      return r <= MaxReg;
+      return r < PROFILE_SIZE;
     }
     static PBoolean ChkB(PINDEX b) {
       return b <= MaxBit;
@@ -557,9 +578,14 @@ class Profile
       return BYTE(("\x01\x03\x07\x0F\x1F\x3F\x7F\xFF"[bh - bl]) << bl);
     }
 
-    BYTE S[MaxReg + 1];	// S-registers
+    BYTE S[PROFILE_SIZE];	// S-registers
     PString modemClass;
     EngineBase::ModemClass modemClassId;
+
+    #undef PROFILE_SIZE
+    #undef PROFILE_SIZE_VOICE
+    #undef PROFILE_SIZE_EXT
+    #undef PROFILE_SIZE_STD
 };
 
 static const Profile Profiles[1];
@@ -1188,9 +1214,8 @@ void ModemEngine::Main()
 
 ///////////////////////////////////////////////////////////////
 Profile::Profile() {
-  for( PINDEX r = 0 ; r <= MaxReg ; r++ ) {
+  for (PINDEX r = 0 ; r < PINDEX(sizeof(S)/sizeof(S[0])) ; r++)
     S[r] = 0;
-  }
 
   S7(60);
   DialTimeComma(2);
@@ -1208,9 +1233,9 @@ Profile::Profile() {
 }
 
 Profile &Profile::operator=(const Profile &p) {
-  for( PINDEX r = 0 ; r <= MaxReg ; r++ ) {
+  for (PINDEX r = 0 ; r <= PINDEX(sizeof(S)/sizeof(S[0])) ; r++)
     S[r] = p.S[r];
-  }
+
   ModemClass(p.ModemClass());
   return *this;
 }
@@ -3512,7 +3537,7 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                   }
                 }
 
-                resp.sprintf("\r\n%u", P.CidMode());
+                resp.sprintf("\r\n%u", cid);
                 crlf = TRUE;
                 break;
               }
@@ -3521,20 +3546,35 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                   pCmd += 2;
                   switch (*pCmd++) {
                     case '=': {
-                      int val = ParseNum(&pCmd, 1, 1, 3);
+                      int name_format = P.CidNameFmt();
+                      int nmbr_format = P.CidNmbrFmt();
 
-                      if (val < 0) {
+                      name_format = ParseNum(&pCmd, 0, 1, 3, name_format);
+
+                      if (name_format < 0) {
                         err = TRUE;
                         break;
                       }
 
+                      if (*pCmd == ',') {
+                        pCmd++;
+
+                        nmbr_format = ParseNum(&pCmd, 0, 1, 3, nmbr_format);
+
+                        if (nmbr_format < 0) {
+                          err = TRUE;
+                          break;
+                        }
+                      }
+
                       PWaitAndSignal mutexWait(Mutex);
-                      P.CidNameFmt((BYTE)val);
+                      P.CidNameFmt((BYTE)name_format);
+                      P.CidNmbrFmt((BYTE)nmbr_format);
 
                       break;
                     }
                     case '?':
-                      resp.sprintf("\r\n%u", (unsigned)P.CidNameFmt());
+                      resp.sprintf("\r\n%u,%u", (unsigned)P.CidNameFmt(), (unsigned)P.CidNmbrFmt());
                       crlf = TRUE;
                       break;
                     default:
@@ -3850,7 +3890,22 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             if (P.CidMode()) {
               resp += "DATE = " + callTime.AsString("MMdd") + "\r\n";
               resp += "TIME = " + callTime.AsString("hhmm") + "\r\n";
-              resp += "NMBR = " + SrcNum() + "\r\n";
+
+              switch (P.CidNmbrFmt()) {
+                case 0:
+                default:
+                  resp += "NMBR = " + SrcNum() + "\r\n";
+                  break;
+                case 1:
+                  resp += "NMBR = \r\n";
+                  break;
+                case 2:
+                  resp += "NMBR = " + DstNum() + "\r\n";
+                  break;
+                case 3:
+                  resp += "NMBR = " + DstNum() + "#" + SrcNum() + "\r\n";
+                  break;
+              }
 
               switch (P.CidNameFmt()) {
                 case 0:
