@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: h323ep.cxx,v $
- * Revision 1.25  2011-01-19 11:41:17  vfrolov
- * Replaced deprecated ApplyStringOptions() by OnApplyStringOptions()
+ * Revision 1.26  2011-02-11 09:41:07  vfrolov
+ * Added more tracing
+ *
+ * Revision 1.26  2011/02/11 09:41:07  vfrolov
+ * Added more tracing
  *
  * Revision 1.25  2011/01/19 11:41:17  vfrolov
  * Replaced deprecated ApplyStringOptions() by OnApplyStringOptions()
@@ -400,6 +403,8 @@ H323Connection * MyH323EndPoint::CreateConnection(
 
   MyH323Connection *connection =
       new MyH323Connection(call, *this, token, alias, address, options, stringOptions);
+
+  PTRACE(6, "MyH323EndPoint::CreateConnection new " << connection->GetClass() << ' ' << (void *)connection);
 
   OpalConnection::StringOptions newOptions;
 

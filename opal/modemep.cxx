@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: modemep.cxx,v $
- * Revision 1.31  2011-01-17 17:17:38  vfrolov
- * Disabled compiling with OPAL version != 3.9.0 (use SVN TRUNK 24174)
+ * Revision 1.32  2011-02-11 09:41:07  vfrolov
+ * Added more tracing
+ *
+ * Revision 1.32  2011/02/11 09:41:07  vfrolov
+ * Added more tracing
  *
  * Revision 1.31  2011/01/17 17:17:38  vfrolov
  * Disabled compiling with OPAL version != 3.9.0 (use SVN TRUNK 24174)
@@ -499,6 +502,8 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
     if (!connectionsActive.Contains(token)) {
       ModemConnection * connection =
           new ModemConnection(call, *this, token, remotePartyAddress, userData, stringOptions);
+
+      PTRACE(6, "ModemEndPoint::MakeConnection new " << connection->GetClass() << ' ' << (void *)connection);
 
       OpalConnection::StringOptions newOptions;
 
@@ -1191,6 +1196,7 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
       patch->GetSource().Close();
     }
 
+    PTRACE(4, "ModemConnection::UpdateMediaStreams: opening source for sink " << *otherSink);
     thisSource = OpenMediaStream(thisSourceFormat, otherSinkSessionID, true);
 
     if (thisSource == NULL) {
@@ -1198,6 +1204,7 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
       return false;
     }
 
+    PTRACE(4, "ModemConnection::UpdateMediaStreams: creating patch for source " << *thisSource);
     patch = GetEndPoint().GetManager().CreateMediaPatch(*thisSource,
                 otherSink->RequiresPatchThread(thisSource) && thisSource->RequiresPatchThread(otherSink));
 
@@ -1206,6 +1213,7 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
       return false;
     }
 
+    PTRACE(4, "ModemConnection::UpdateMediaStreams: adding otherSink to patch " << *patch);
     patch->AddSink(otherSink);
 
     other.OnPatchMediaStream(false, *patch);
@@ -1221,6 +1229,7 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
       otherSource->RemovePatch(patch);
 
     // NOTE: Both sinks must have the same session ID for T.38 <-> PCM transcoding !!!
+    PTRACE(4, "ModemConnection::UpdateMediaStreams: opening sink for source " << *otherSource);
     thisSink = OpenMediaStream(thisSinkFormat, otherSinkSessionID, false);
 
     if (thisSink == NULL) {
@@ -1228,6 +1237,7 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
       return false;
     }
 
+    PTRACE(4, "ModemConnection::UpdateMediaStreams: creating patch for source " << *otherSource);
     patch = GetEndPoint().GetManager().CreateMediaPatch(*otherSource,
                 thisSink->RequiresPatchThread(otherSource) && otherSource->RequiresPatchThread(thisSink));
 
@@ -1236,6 +1246,7 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
       return false;
     }
 
+    PTRACE(4, "ModemConnection::UpdateMediaStreams: adding thisSink to patch " << *patch);
     patch->AddSink(thisSink);
 
     other.OnPatchMediaStream(true, *patch);

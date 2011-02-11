@@ -24,8 +24,11 @@
  * Contributor(s):
  *
  * $Log: sipep.cxx,v $
- * Revision 1.28  2011-01-19 11:41:17  vfrolov
- * Replaced deprecated ApplyStringOptions() by OnApplyStringOptions()
+ * Revision 1.29  2011-02-11 09:41:07  vfrolov
+ * Added more tracing
+ *
+ * Revision 1.29  2011/02/11 09:41:07  vfrolov
+ * Added more tracing
  *
  * Revision 1.28  2011/01/19 11:41:17  vfrolov
  * Replaced deprecated ApplyStringOptions() by OnApplyStringOptions()
@@ -394,6 +397,8 @@ SIPConnection * MySIPEndPoint::CreateConnection(
 
   MySIPConnection * connection =
       new MySIPConnection(call, *this, token, destination, transport, options, stringOptions);
+
+  PTRACE(6, "MySIPEndPoint::CreateConnection new " << connection->GetClass() << ' ' << (void *)connection);
 
   OpalConnection::StringOptions newOptions;
 
