@@ -7,6 +7,38 @@
  *
  */
 
+Changelog for t38modem 2.0.0 (Apr 13 2011)
+
+* (OPAL) Implemented G.711 fallback to fax pass-through mode.
+* (OPAL) Added ability to disable T.38 fax mode.
+* (OPAL) Implemented multiple per-route options to override command line
+  options (NOTE: the route comma delimiter in command line was deprecated
+  for this reason).
+* Added ability to set Q.931 bearer capability information element for
+  H.323 connections.
+* Enabled dialing characters # and * in extension number.
+* Replaced hardcoded timeouts by S7 value (V.250).
+* (OPAL) Implemented fake audio codecs G.722, G.722.1, G.722.2, 
+  G.723.1, G.723.1(5.3k), G.723.1A(5.3k), G.723.1A(6.3k), G.726-16K,
+  G.726-24K, G.726-32K, G.726-40K, G.728, G.729, G.729A, G.729A/B,
+  G.729B, GSM-06.10, GSM-AMR, iLBC.
+* (OPAL) Restored and improved ability to set error recovery redundancy for
+  IFP packets.
+* (OPAL) Restored and improved ability to continuously re-send last UDPTL
+  packet.
+* (OPAL) Implemented fallback to alternate route option.
+* (OPAL) Added ability to build with OPAL configured to disable H.323 or
+  SIP protocol support.
+* Allowed "+ A B C D" dialing digits in called number.
+* Added ignoring unrecognized dialing digits (V.250).
+* Implemented dial string terminated by a semicolon ("ATD<dialstring>;[...]").
+* Implemented fake Ring Tone and Busy Tone generation for voice-modem mode.
+* Replaced hardcoded workaround for mgetty-voice by conditional-compiling one
+  (ALAW_132_BIT_REVERSE).
+* Added ability to put called number to Caller ID info with NAME or NMBR tags.
+* Fixed some other bugs and incompatibilities. Made some other improvements.
+  Added some other options.
+
 Changelog for t38modem 1.2.0 (Oct  8 2009)
 
 * Enabled dialing characters # and *.
@@ -18,7 +50,7 @@ Changelog for t38modem 1.2.0 (Oct  8 2009)
 * Added ability to dial and switch to answering mode ("ATD<dialstring>;A").
 * Fixed incompatibilities with some OS.
 * (OPAL) Added ability to use route pattern "modem:.*@tty".
-* (OPAL) Added ability to enable/ audio formats.
+* (OPAL) Added ability to enable/disadle/reorder audio formats.
 * (OPAL) Removed --h323-old-asn and --sip-old-asn options.
 * Fixed some other bugs.
 
