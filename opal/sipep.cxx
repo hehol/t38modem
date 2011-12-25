@@ -130,8 +130,8 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 9, 0))
-  #error *** Uncompatible OPAL version (required >= 3.9.0) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 10, 0))
+  #error *** Incompatible OPAL version (required >= 3.10.0) ***
 #endif
 
 #undef PACK_VERSION
@@ -186,8 +186,8 @@ class MySIPConnection : public SIPConnection
 
     virtual void AdjustMediaFormats(
       bool local,                               ///<  Media formats a local ones to be presented to remote
-      OpalMediaFormatList & mediaFormats,       ///<  Media formats to use
-      OpalConnection * otherConnection          ///<  Other connection we are adjusting media for
+      OpalConnection * otherConnection,         ///<  Other connection we are adjusting media for
+      OpalMediaFormatList & mediaFormats        ///<  Media formats to use
     ) const;
 
   protected:
@@ -493,7 +493,7 @@ bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
   }
 
   OpalMediaFormatList mediaFormats = GetMediaFormats();
-  AdjustMediaFormats(true, mediaFormats, NULL);
+  AdjustMediaFormats(true, NULL, mediaFormats);
 
   PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
@@ -595,12 +595,12 @@ OpalMediaFormatList MySIPConnection::GetLocalMediaFormats()
 
 void MySIPConnection::AdjustMediaFormats(
     bool local,
-    OpalMediaFormatList & mediaFormats,
-    OpalConnection * otherConnection) const
+    OpalConnection * otherConnection,
+    OpalMediaFormatList & mediaFormats) const
 {
   PTRACE(4, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
-  SIPConnection::AdjustMediaFormats(local, mediaFormats, otherConnection);
+  SIPConnection::AdjustMediaFormats(local, otherConnection, mediaFormats);
 
   if (local) {
     PStringArray order;

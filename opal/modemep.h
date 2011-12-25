@@ -59,8 +59,8 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 8, 0))
-  #error *** Uncompatible OPAL version (required >= 3.8.0) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 10, 0))
+  #error *** Incompatible OPAL version (required >= 3.10.0) ***
 #endif
 
 #undef PACK_VERSION

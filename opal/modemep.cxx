@@ -136,8 +136,8 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) == PACK_VERSION(3, 9, 0))
-  #error *** Uncompatible OPAL version (required == 3.9.0, use SVN TRUNK 24174) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 10, 0))
+  #error *** Incompatible OPAL version (required >= 3.10.0) ***
 #endif
 
 #undef PACK_VERSION
@@ -885,7 +885,7 @@ void ModemConnection::RequestMode(PThread &, INT faxMode)
 
     if (faxMode) {
       OpalMediaFormatList otherMediaFormats = other->GetMediaFormats();
-      other->AdjustMediaFormats(false, otherMediaFormats, NULL);
+      other->AdjustMediaFormats(false, NULL, otherMediaFormats);
 
       PTRACE(4, "ModemConnection::RequestMode: other connection formats: \n" <<
                 setfill('\n') << otherMediaFormats << setfill(' '));
@@ -944,7 +944,7 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
 
         if (other != NULL) {
           OpalMediaFormatList otherMediaFormats = other->GetMediaFormats();
-          other->AdjustMediaFormats(false, otherMediaFormats, NULL);
+          other->AdjustMediaFormats(false, NULL, otherMediaFormats);
 
           PTRACE(4, "ModemConnection::RequestMode: other connection formats: \n" <<
                     setfill('\n') << otherMediaFormats << setfill(' '));
@@ -1075,11 +1075,11 @@ static OpalMediaFormatList ReorderMediaFormats(
 bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
 {
   OpalMediaFormatList otherMediaFormats = other.GetMediaFormats();
-  other.AdjustMediaFormats(true, otherMediaFormats, NULL);
+  other.AdjustMediaFormats(true, NULL, otherMediaFormats);
 
   OpalMediaFormatList thisMediaFormats = GetMediaFormats();
-  AdjustMediaFormats(true, thisMediaFormats, NULL);
-  other.AdjustMediaFormats(true, thisMediaFormats, this);
+  AdjustMediaFormats(true, NULL, thisMediaFormats);
+  other.AdjustMediaFormats(true, this, thisMediaFormats);
 
   PTRACE(3, "ModemConnection::UpdateMediaStreams:\n"
             "patching " << setfill(',') << thisMediaFormats << setfill(' ') << "\n"
@@ -1192,7 +1192,6 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
     OpalMediaPatch *patch = otherSink->GetPatch();
 
     if (patch != NULL) {
-      otherSink->RemovePatch(patch);
       patch->GetSource().Close();
     }
 
@@ -1224,9 +1223,6 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
 
   if (thisSink == NULL) {
     OpalMediaPatch *patch = otherSource->GetPatch();
-
-    if (patch != NULL)
-      otherSource->RemovePatch(patch);
 
     // NOTE: Both sinks must have the same session ID for T.38 <-> PCM transcoding !!!
     PTRACE(4, "ModemConnection::UpdateMediaStreams: opening sink for source " << *otherSource);

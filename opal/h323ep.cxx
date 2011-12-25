@@ -122,8 +122,8 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 9, 0))
-  #error *** Uncompatible OPAL version (required >= 3.9.0) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 10, 0))
+  #error *** Incompatible OPAL version (required >= 3.10.0) ***
 #endif
 
 #undef PACK_VERSION
@@ -195,8 +195,8 @@ class MyH323Connection : public H323Connection
 
     virtual void AdjustMediaFormats(
       bool local,                              ///<  Media formats a local ones to be presented to remote
-      OpalMediaFormatList & mediaFormats,      ///<  Media formats to use
-      OpalConnection * otherConnection         ///<  Other connection we are adjusting media for
+      OpalConnection * otherConnection,        ///<  Other connection we are adjusting media for
+      OpalMediaFormatList & mediaFormats       ///<  Media formats to use
     ) const;
 
   protected:
@@ -552,7 +552,7 @@ H323Connection::AnswerCallResponse MyH323Connection::OnAnswerCall(
 bool MyH323Connection::SwitchFaxMediaStreams(bool enableFax)
 {
   OpalMediaFormatList mediaFormats = GetMediaFormats();
-  AdjustMediaFormats(true, mediaFormats, NULL);
+  AdjustMediaFormats(true, NULL, mediaFormats);
 
   PTRACE(3, "MyH323Connection::SwitchFaxMediaStreams:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
@@ -655,12 +655,12 @@ OpalMediaFormatList MyH323Connection::GetLocalMediaFormats()
 
 void MyH323Connection::AdjustMediaFormats(
     bool local,
-    OpalMediaFormatList & mediaFormats,
-    OpalConnection * otherConnection) const
+    OpalConnection * otherConnection,
+    OpalMediaFormatList & mediaFormats) const
 {
   PTRACE(4, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
-  H323Connection::AdjustMediaFormats(local, mediaFormats, otherConnection);
+  H323Connection::AdjustMediaFormats(local, otherConnection, mediaFormats);
 
   if (local) {
     PStringArray order;
