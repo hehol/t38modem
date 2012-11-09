@@ -113,7 +113,11 @@ PBoolean AudioModemMediaStream::Open()
   return OpalMediaStream::Open();
 }
 
+#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
+void AudioModemMediaStream::InternalClose()
+#else
 PBoolean AudioModemMediaStream::Close()
+#endif
 {
   if (isOpen) {
     PTRACE(3, "AudioModemMediaStream::Close " << *this);
@@ -124,7 +128,9 @@ PBoolean AudioModemMediaStream::Close()
       audioEngine->CloseOut(EngineBase::HOWNEROUT(this));
   }
 
+#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) < OPAL_PACK_VERSION(3, 10, 5))
   return OpalMediaStream::Close();
+#endif
 }
 
 PBoolean AudioModemMediaStream::ReadData(BYTE * data, PINDEX size, PINDEX & length)
@@ -191,7 +197,11 @@ PBoolean T38ModemMediaStream::Open()
   return OpalMediaStream::Open();
 }
 
+#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
+void T38ModemMediaStream::InternalClose()
+#else
 PBoolean T38ModemMediaStream::Close()
+#endif
 {
   if (isOpen) {
     PTRACE(3, "T38ModemMediaStream::Close " << *this);
@@ -210,15 +220,21 @@ PBoolean T38ModemMediaStream::Close()
     }
   }
 
+#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) < OPAL_PACK_VERSION(3, 10, 5))
   return OpalMediaStream::Close();
+#endif
 }
 
 void T38ModemMediaStream::OnStartMediaPatch()
 {
   if (isSource) {
+#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
+    if (m_mediaPatch != NULL) {
+      OpalMediaStreamPtr sink = m_mediaPatch->GetSink();
+#else
     if (mediaPatch != NULL) {
       OpalMediaStreamPtr sink = mediaPatch->GetSink();
-
+#endif
       if (sink != NULL) {
         OpalMediaFormat format = sink->GetMediaFormat();
 

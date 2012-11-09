@@ -53,6 +53,8 @@
 
 #include <opal/mediastrm.h>
 
+#define OPAL_PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
+
 /////////////////////////////////////////////////////////////////////////////
 class AudioEngine;
 
@@ -77,8 +79,11 @@ class AudioModemMediaStream : public OpalMediaStream
   /**@name Overrides of OpalRawMediaStream class */
   //@{
     virtual PBoolean Open();
+#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
+    virtual void InternalClose();
+#else
     virtual PBoolean Close();
-
+#endif
     virtual PBoolean ReadData(
       BYTE * data,                         ///<  Data buffer to read to
       PINDEX size,                         ///<  Size of buffer
@@ -121,7 +126,11 @@ class T38ModemMediaStream : public OpalMediaStream
   /**@name Overrides of OpalMediaStream class */
   //@{
     virtual PBoolean Open();
+#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
+    virtual void InternalClose();
+#else
     virtual PBoolean Close();
+#endif
     virtual void OnStartMediaPatch();
 
     virtual PBoolean ReadPacket(
