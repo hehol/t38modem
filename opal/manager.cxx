@@ -277,6 +277,13 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
     return FALSE;
 #endif
 
+  /*
+   We only support G.711 and T.38 internally, so make sure no other codecs get
+   offered on outbound calls
+   */
+  static char const *FormatMask[] = { "!G.711*", "!@fax" };
+  SetMediaFormatMask(PStringArray(PARRAYSIZE(FormatMask), FormatMask));
+
   if (args.HasOption("route")) {
     SetRouteTable(args.GetOptionString("route").Tokenise("\r\n", FALSE));
 
