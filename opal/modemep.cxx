@@ -1192,7 +1192,7 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
     OpalMediaPatch *patch = otherSink->GetPatch();
 
     if (patch != NULL) {
-      patch->GetSource().Close();
+      otherSink->SetPatch(NULL);
     }
 
     PTRACE(4, "ModemConnection::UpdateMediaStreams: opening source for sink " << *otherSink);
@@ -1223,6 +1223,9 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
 
   if (thisSink == NULL) {
     OpalMediaPatch *patch = otherSource->GetPatch();
+
+    if (patch != NULL)
+      otherSource->SetPatch(NULL);
 
     // NOTE: Both sinks must have the same session ID for T.38 <-> PCM transcoding !!!
     PTRACE(4, "ModemConnection::UpdateMediaStreams: opening sink for source " << *otherSource);
