@@ -145,7 +145,7 @@ PStringArray MyManager::Descriptions()
       "                              of a pat=dst[;...] route specification.\n"
       "  -u --username str         : Set the default username to str.\n"
       "  --displayname str         : Set the default display name to str.\n"
-      "                              Can be overriden by route option\n"
+      "                              Can be overridden by route option\n"
       "                                OPAL-" OPAL_OPT_CALLING_DISPLAY_NAME "=str\n"
       "  --stun server             : Set STUN server.\n"
       "  --fake-audio [!]wildcard[,[!]...]\n"
