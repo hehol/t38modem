@@ -112,60 +112,41 @@
 #
 #
 
+%.o: %.cxx
+	$(CXX) -c $(CFLAGS) $(CPPFLAGS) -o $@ $<
+
 PROG		= t38modem
-SOURCES		:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
-		   t30tone.cxx tone_gen.cxx hdlc.cxx t30.cxx fcs.cxx \
-		   pmodeme.cxx enginebase.cxx t38engine.cxx audio.cxx \
-		   drv_pty.cxx \
-		   main_process.cxx
+OBJECTS		:= pmutils.o dle.o pmodem.o pmodemi.o drivers.o \
+		   t30tone.o tone_gen.o hdlc.o t30.o fcs.o \
+		   pmodeme.o enginebase.o t38engine.o audio.o \
+		   drv_pty.o \
+		   main_process.o \
+		   opal/opalutils.o \
+		   opal/modemep.o opal/modemstrm.o \
+		   opal/h323ep.o \
+		   opal/sipep.o \
+		   opal/manager.o \
+		   opal/fake_codecs.o
+#Renamed SOURCES - no explicit rules
+#SOURCES	:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
+#		   t30tone.cxx tone_gen.cxx hdlc.cxx t30.cxx fcs.cxx \
+#		   pmodeme.cxx enginebase.cxx t38engine.cxx audio.cxx \
+#		   drv_pty.cxx \
+#		   main_process.cxx
 
-#
-# Build t38modem for
-#  - Open Phone Abstraction Library if defined USE_OPAL
-#  - Open H323 Library or H323 Plus Library if not defined USE_OPAL
-#    (NOTE: define NO_PBOOLEAN for Open H323 Library)
-#
-ifdef USE_OPAL
-  VPATH_CXX := opal
-
-  SOURCES += \
-             opalutils.cxx \
-             modemep.cxx modemstrm.cxx \
-             h323ep.cxx \
-             sipep.cxx \
-             manager.cxx \
-             fake_codecs.cxx \
-
-  ifndef OPALDIR
-    OPALDIR=$(HOME)/opal
-  endif
-
-  OBJDIR_SUFFIX = _opal$(OBJ_SUFFIX)
-  STDCCFLAGS += -DUSE_OPAL
-
-  include $(OPALDIR)/opal_inc.mak
-else
-  VPATH_CXX := h323lib
-
-  SOURCES += t38protocol.cxx audio_chan.cxx g7231_fake.cxx h323ep.cxx
-
-  ifndef OPENH323DIR
-    OPENH323DIR=$(HOME)/openh323
-  endif
-
-  include $(OPENH323DIR)/openh323u.mak
-
-  ifdef NO_PBOOLEAN
-    STDCCFLAGS += -DPBoolean=BOOL
-  endif
-endif
+USE_UNIX98_PTY := 1
+CPPFLAGS += `pkg-config --cflags opal`
+LDFLAGS  += `pkg-config --libs opal`
+CPPFLAGS += -DUSE_OPAL
+# Unfortunately, T38modem has a bug that mandates this for now. Filing a bug, but for now...
+CPPFLAGS += -fpermissive
 
 #
 # If defined COUT_TRACE then enable duplicate the
 # output of myPTRACE() to cout
 #
 ifdef COUT_TRACE
-STDCCFLAGS += -DCOUT_TRACE
+CPPFLAGS += -DCOUT_TRACE
 endif
 
 #
@@ -177,7 +158,7 @@ endif
 # do not use --old-asn option).
 #
 ifdef OPTIMIZE_CORRIGENDUM_IFP
-STDCCFLAGS += -DOPTIMIZE_CORRIGENDUM_IFP
+CPPFLAGS += -DOPTIMIZE_CORRIGENDUM_IFP
 endif
 
 #
@@ -185,7 +166,7 @@ endif
 # output the trace with level N
 #
 ifdef MYPTRACE_LEVEL
-STDCCFLAGS += -DMYPTRACE_LEVEL=$(MYPTRACE_LEVEL)
+CPPFLAGS += -DMYPTRACE_LEVEL=$(MYPTRACE_LEVEL)
 endif
 
 #
@@ -193,7 +174,7 @@ endif
 # output the warnings on level N for big file descriptors
 #
 ifdef FD_TRACE_LEVEL
-STDCCFLAGS += -DFD_TRACE_LEVEL=$(FD_TRACE_LEVEL)
+CPPFLAGS += -DFD_TRACE_LEVEL=$(FD_TRACE_LEVEL)
 endif
 
 #
@@ -202,7 +183,7 @@ endif
 #  - CPU usage will be traced
 #
 ifdef PROCESS_PER_THREAD
-STDCCFLAGS += -DPROCESS_PER_THREAD
+CPPFLAGS += -DPROCESS_PER_THREAD
 endif
 
 #
@@ -210,7 +191,7 @@ endif
 # will repeat indicator sending on idle
 #
 ifdef REPEAT_INDICATOR_SENDING
-STDCCFLAGS += -DREPEAT_INDICATOR_SENDING
+CPPFLAGS += -DREPEAT_INDICATOR_SENDING
 endif
 
 #
@@ -221,13 +202,13 @@ endif
 # Both schemes cen be used simultaneously.
 #
 ifdef USE_UNIX98_PTY
-  STDCCFLAGS += -DUSE_UNIX98_PTY
+  CPPFLAGS += -DUSE_UNIX98_PTY
 
   ifdef USE_LEGACY_PTY
-    STDCCFLAGS += -DUSE_LEGACY_PTY
+    CPPFLAGS += -DUSE_LEGACY_PTY
   endif
 else
-  STDCCFLAGS += -DUSE_LEGACY_PTY
+  CPPFLAGS += -DUSE_LEGACY_PTY
 endif
 
 #
@@ -236,6 +217,14 @@ endif
 # (workaround for mgetty-voice)
 #
 ifdef ALAW_132_BIT_REVERSE
-  STDCCFLAGS += -DALAW_132_BIT_REVERSE
+  CPPFLAGS += -DALAW_132_BIT_REVERSE
 endif
 
+.PHONY: all clean
+all: $(PROG)
+
+clean:
+	rm -f $(PROG) $(OBJECTS)
+
+$(PROG) : $(OBJECTS)
+	$(CXX) $(CPPFLAGS) -o $(PROG) $(OBJECTS) $(LDFLAGS)
