@@ -179,11 +179,12 @@ class MyH323Connection : public H323Connection
     );
 
     virtual bool SwitchFaxMediaStreams(
-      bool enableFax                           ///< Enable FAX or return to audio mode
+      bool toT38                               ///< Enable FAX or return to audio mode
     );
 
     virtual void OnSwitchedFaxMediaStreams(
-      bool enabledFax                          ///< Enabled FAX or audio mode
+      bool toT38,                              ///< Enabled FAX or audio mode
+      bool success                             ///< True if switch succeeded
     );
 
     virtual PBoolean OnOpenMediaStream(
@@ -570,15 +571,15 @@ bool MyH323Connection::SwitchFaxMediaStreams(bool enableFax)
   return false;
 }
 
-void MyH323Connection::OnSwitchedFaxMediaStreams(bool enabledFax)
+void MyH323Connection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
 {
   PTRACE(3, "MyH323Connection::OnSwitchedFaxMediaStreams: "
-         << (enabledFax == switchingToFaxMode ? "" : "NOT ") << "switched to "
-         << (switchingToFaxMode ? "fax" : "audio"));
+         << (success ? "succeeded" : "NOT ") << "switched to "
+         << (toT38 ? "T.38" : "audio"));
 
-  H323Connection::OnSwitchedFaxMediaStreams(enabledFax);
+  H323Connection::OnSwitchedFaxMediaStreams(toT38, success);
 
-  if (switchingToFaxMode && !enabledFax) {
+  if (toT38 && !success) {
       PTRACE(3, "MyH323Connection::OnSwitchedFaxMediaStreams: fallback to audio");
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);
