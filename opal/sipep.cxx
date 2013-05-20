@@ -208,6 +208,8 @@ PString MySIPEndPoint::ArgSpec()
     "-sip-disable-t38-mode."
     "-sip-t38-udptl-redundancy:"
     "-sip-t38-udptl-keep-alive-interval:"
+    "-sip-t38-max-buffer:"
+    "-sip-t38-max-datagram:"
     "-sip-proxy:"
     "-sip-register:"
     "-sip-listen:"
@@ -231,6 +233,10 @@ PStringArray MySIPEndPoint::Descriptions()
       "  --sip-t38-udptl-keep-alive-interval ms\n"
       "                            : Use OPAL-T38-UDPTL-Keep-Alive-Interval=ms route\n"
       "                              option by default.\n"
+      "  --sip-t38-max-buffer bytes\n"
+      "                            : Set T38FaxMaxBuffer to bytes.\n"
+      "  --sip-t38-max-datagram bytes\n"
+      "                            : Set T38FaxMaxDatagram to bytes.\n"
       "  --sip-proxy [user:[pwd]@]host\n"
       "                            : Proxy information.\n"
       "  --sip-register [user@]registrar[,pwd[,contact[,realm[,authID]]]]\n"
@@ -318,6 +324,22 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
                              args.HasOption("sip-t38-udptl-keep-alive-interval")
                              ? args.GetOptionString("sip-t38-udptl-keep-alive-interval")
                              : "0");
+
+  if ( (args.HasOption("sip-t38-max-datagram")) || (args.HasOption("sip-t38-max-buffer")) ) {
+    OpalMediaFormat t38 = OpalT38;
+
+    if (args.HasOption("sip-t38-max-datagram")) {
+      t38.SetOptionInteger("T38FaxMaxDatagram", args.GetOptionString("sip-t38-max-datagram").AsInteger());
+      PTRACE(2, "MySIPEndPoint::Initialise Set T38FaxMaxDatagram to " << args.GetOptionString("sip-t38-max-datagram"));
+    }
+
+    if (args.HasOption("sip-t38-max-buffer")) {
+      t38.SetOptionInteger("T38FaxMaxBuffer", args.GetOptionString("sip-t38-max-buffer").AsInteger());
+      PTRACE(2, "MySIPEndPoint::Initialise Set T38FaxMaxBuffer to " << args.GetOptionString("sip-t38-max-buffer"));
+    }
+
+    OpalMediaFormat::SetRegisteredMediaFormat(t38);
+  }
 
   if (!args.HasOption("sip-no-listen")) {
     PStringArray listeners;
