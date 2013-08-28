@@ -1402,7 +1402,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       DstNum(request("dstnum"));
       callTime = PTime();
       P.RingCount(0);
-      timerRing.Start(5000);
+      timerRing.Start(6000);
       request.SetAt("response", "confirm");
     }
   }
@@ -1423,7 +1423,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
 
       if (state == stConnectWait && !pPlayTone && P.ModemClassId() == EngineBase::mcAudio) {
         SetState(stConnectHandle, chConnected);
-        timerRing.Start(5000);
+        timerRing.Start(6000);
 
         if (!activeEngines[mceAudio])
           _AttachEngine(mceAudio);
