@@ -123,6 +123,8 @@
  */
 
 #include <ptlib.h>
+#include <iostream>
+#include <fstream>
 
 #include <opal/buildopts.h>
 
@@ -239,9 +241,14 @@ PStringArray MySIPEndPoint::Descriptions()
       "                            : Set T38FaxMaxDatagram to bytes.\n"
       "  --sip-proxy [user:[pwd]@]host\n"
       "                            : Proxy information.\n"
-      "  --sip-register [user@]registrar[,pwd[,contact[,realm[,authID]]]]\n"
+      "  --sip-register [user@]registrar[,pwd[,contact[,realm[,authID[,expire[,Compat[,resultFile]]]]]]]\n"
       "                            : Registration information. Can be used multiple\n"
-      "                              times.\n"
+      "                              times. Field Compat={Full|NoMulti|NoPrivate}, specifying \n"
+      "                              registration compatipiliby.  Full is the default and \n"
+      "                              means Fully Compliant.  NoMulti means that no multiple\n"
+      "                              contacts are used.  NoPrivate means that no private\n"
+      "                              contacts are used. The field resultFile specifies that the\n"
+      "                              registration result is stored in resultFile. \n"
       "  --sip-listen iface        : Interface/port(s) to listen for SIP requests\n"
       "                            : '*' is all interfaces (default tcp$*:5060 and\n"
       "                            : udp$*:5060).\n"
@@ -297,6 +304,27 @@ PBoolean MySIPEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
     return TRUE;
 
   return FALSE;
+}
+
+void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
+{
+  PTime time;
+  SIPEndPoint::OnRegistrationStatus(status);
+  PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() " << status.m_reason);
+  if (status.m_userData) {
+    ofstream sipRegResultFile;
+    PString *outFilePString = (PString*) status.m_userData;
+    string outFile = *outFilePString;
+    sipRegResultFile.open(outFile.c_str(),ios::out | ios::trunc);
+    if (sipRegResultFile.is_open()) {
+      sipRegResultFile << status.m_reason << endl;
+      sipRegResultFile << status.m_addressofRecord << endl;
+      sipRegResultFile << time.AsString(PTime::LongISO8601) << endl;
+      sipRegResultFile << (status.m_reRegistering ? "Renewed registration" : "Initial registration") << endl;
+      sipRegResultFile << status.m_productInfo.AsString() << endl;
+      sipRegResultFile.close();
+    }
+  }
 }
 
 PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
@@ -374,6 +402,19 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
       if (prms.GetSize() >= 1) {
         SIPRegister::Params params;
 
+        params.m_expire = 300;
+        
+        PString user;
+        PINDEX atLoc = prms[0].Find('@');
+        if (atLoc != P_MAX_INDEX) {
+          user = prms[0].Left(atLoc);
+          params.m_registrarAddress = prms[0].Right(prms[0].GetLength()-atLoc-1);
+        }
+        else {
+          user = "";
+          params.m_registrarAddress = prms[0];
+        }
+
         params.m_addressOfRecord = prms[0];
 
         if (prms.GetSize() >= 2) {
@@ -384,15 +425,37 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
 
             if (prms.GetSize() >= 4) {
               params.m_realm = prms[3];
+              // If given a realm, change AOR to use it
+              if (params.m_realm.GetLength()) {
+                params.m_addressOfRecord = user+ '@' + params.m_realm;
+              }
 
               if (prms.GetSize() >= 5) {
                 params.m_authID = prms[4];
+
+                if (prms.GetSize() >= 6) {
+                  params.m_expire = prms[5].AsInteger();
+
+                  if (prms.GetSize() >= 7) {
+                    if (prms[6] == "NoMulti") {
+                      params.m_compatibility = SIPRegister::e_CannotRegisterMultipleContacts;
+                    } else if (prms[6] == "NoPrivate") {
+                      params.m_compatibility = SIPRegister::e_CannotRegisterPrivateContacts;
+                    } else {
+                      params.m_compatibility = SIPRegister::e_FullyCompliant;
+                    }
+
+                    if (prms.GetSize() >= 8) {
+                      PString *pps = new PString();
+                      *pps = prms[7];
+                      params.m_userData = pps;
+                    }
+                  }
+                }
               }
             }
           }
         }
-
-        params.m_expire = 300;
 
         if (!Register(params, regs[i])) {
           cerr << "Could not start SIP registration to " << params.m_addressOfRecord << endl;
