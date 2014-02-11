@@ -172,11 +172,12 @@ class MySIPConnection : public SIPConnection
     virtual void OnApplyStringOptions();
 
     virtual bool SwitchFaxMediaStreams(
-      bool enableFax                            ///< Enable FAX or return to audio mode
+      bool toT38                                ///< Enable FAX or return to audio mode
     );
 
     virtual void OnSwitchedFaxMediaStreams(
-      bool enabledFax                           ///< Enabled FAX or audio mode
+      bool toT38,                               ///< Enabled FAX or audio mode
+      bool success                              ///< True if switch succeeded
     );
 
     virtual PBoolean OnOpenMediaStream(
@@ -595,15 +596,15 @@ bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
   return res;
 }
 
-void MySIPConnection::OnSwitchedFaxMediaStreams(bool enabledFax)
+void MySIPConnection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
 {
   PTRACE(3, "MySIPConnection::OnSwitchedFaxMediaStreams: "
-         << (enabledFax == switchingToFaxMode ? "" : "NOT ") << "switched to "
-         << (switchingToFaxMode ? "fax" : "audio"));
+         << (success ? "succeeded" : "NOT ") << "switched to "
+         << (toT38 ? "T.38" : "audio"));
 
-  SIPConnection::OnSwitchedFaxMediaStreams(enabledFax);
+  SIPConnection::OnSwitchedFaxMediaStreams(toT38, success);
 
-  if (switchingToFaxMode && !enabledFax) {
+  if (toT38 && !success) {
       PTRACE(3, "MySIPConnection::OnSwitchedFaxMediaStreams: fallback to audio");
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);

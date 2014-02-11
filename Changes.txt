@@ -7,6 +7,13 @@
  *
  */
 
+Changelog for t38modem 3.11.0 (Nov 12 2013)
+* Changes to work with Opal 3.10.11.
+
+Changelog for t38modem 2.0.1 (Sep 24 2013)
+* Busy Fix (When busy set cause code to EndedByLocalBusy instead of 
+  EndedByLocalUser)
+
 Changelog for t38modem 2.0.0 (Apr 13 2011)
 
 * (OPAL) Implemented G.711 fallback to fax pass-through mode.
