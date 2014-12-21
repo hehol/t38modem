@@ -179,11 +179,12 @@ class MyH323Connection : public H323Connection
     );
 
     virtual bool SwitchFaxMediaStreams(
-      bool enableFax                           ///< Enable FAX or return to audio mode
+      bool toT38                               ///< Enable FAX or return to audio mode
     );
 
     virtual void OnSwitchedFaxMediaStreams(
-      bool enabledFax                          ///< Enabled FAX or audio mode
+      bool toT38,                              ///< Enabled FAX or audio mode
+      bool success                             ///< True if switch succeeded
     );
 
     virtual PBoolean OnOpenMediaStream(
@@ -250,7 +251,8 @@ PStringArray MyH323EndPoint::Descriptions()
       "  --h323-listen iface       : Interface/port(s) to listen for H.323 requests\n"
       "                            : '*' is all interfaces, (default tcp$*:1720).\n"
       "  --h323-no-listen          : Disable listen for incoming calls.\n"
-      "  -g --gatekeeper host      : Specify gatekeeper host.\n"
+      "  -g --gatekeeper host[,user,password]\n"      
+      "                            : Specify gatekeeper host.\n"
       "  -n --no-gatekeeper        : Disable gatekeeper discovery.\n"
       "  --require-gatekeeper      : Exit if gatekeeper discovery fails.\n"
       "  --h323-bearer-capability str\n"
@@ -365,12 +367,30 @@ PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
   }
 
   if (args.HasOption("gatekeeper")) {
-    PString gkName = args.GetOptionString("gatekeeper");
-    if (SetGatekeeper(gkName))
-      cout << "Gatekeeper set: " << *GetGatekeeper() << endl;
-    else {
-      cerr << "Error registering with gatekeeper at \"" << gkName << '"' << endl;
-      return FALSE;
+    PString r = args.GetOptionString("gatekeeper");
+    PStringArray regs = r.Tokenise("\r\n", FALSE);
+
+    for (PINDEX i = 0 ; i < regs.GetSize() ; i++) {
+      PStringArray prms = regs[i].Tokenise(",",TRUE);
+
+      PAssert(prms.GetSize() >= 1, "empty registration information");
+
+      if (prms.GetSize() >= 1) {
+        PString gkName = prms[0];
+
+        if (prms.GetSize() >= 3) {
+          PString gkUser = prms[1];
+          PString gkPass = prms[2];
+          SetGatekeeperPassword(gkPass,gkUser);
+        }
+        
+        if (SetGatekeeper(gkName))
+          cout << "Gatekeeper set: " << *GetGatekeeper() << endl;
+        else {
+          cerr << "Error registering with gatekeeper at \"" << gkName << '"' << endl;
+          return FALSE;
+        }
+      }
     }
   }
   else
@@ -570,15 +590,15 @@ bool MyH323Connection::SwitchFaxMediaStreams(bool enableFax)
   return false;
 }
 
-void MyH323Connection::OnSwitchedFaxMediaStreams(bool enabledFax)
+void MyH323Connection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
 {
   PTRACE(3, "MyH323Connection::OnSwitchedFaxMediaStreams: "
-         << (enabledFax == switchingToFaxMode ? "" : "NOT ") << "switched to "
-         << (switchingToFaxMode ? "fax" : "audio"));
+         << (success ? "succeeded" : "NOT ") << "switched to "
+         << (toT38 ? "T.38" : "audio"));
 
-  H323Connection::OnSwitchedFaxMediaStreams(enabledFax);
+  H323Connection::OnSwitchedFaxMediaStreams(toT38, success);
 
-  if (switchingToFaxMode && !enabledFax) {
+  if (toT38 && !success) {
       PTRACE(3, "MyH323Connection::OnSwitchedFaxMediaStreams: fallback to audio");
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);

@@ -1610,7 +1610,8 @@ PBoolean T38Engine::HandlePacketLost(HOWNERIN hOwner, unsigned myPTRACE_PARAM(nL
   }
 
   if( !(modStream == NULL || modStream->lastBuf == NULL) ) {
-    if( modStream->ModPars.msgType == T38D(e_v21) ) {
+    // LXK Fix: Add check for hdlc so lost high speed hdlc data packets handled as well as v.21
+    if(( modStream->ModPars.msgType == T38D(e_v21)) || (modStream->ModPars.dataType == dtHdlc)) {
       modStream->SetDiag(diagBadFcs);
     }
   }

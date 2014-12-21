@@ -73,6 +73,7 @@ class MySIPEndPoint : public SIPEndPoint
     static PStringArray Descriptions(const PConfigArgs & args);
     static PBoolean Create(OpalManager & mgr, const PConfigArgs & args);
     PBoolean Initialise(const PConfigArgs & args);
+    void OnRegistrationStatus(const RegistrationStatus & status);
 
     virtual SIPConnection * CreateConnection(
       OpalCall & call,                         ///<  Owner of connection

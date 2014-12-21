@@ -120,7 +120,7 @@ class T38Modem : public PProcess
 PCREATE_PROCESS(T38Modem);
 ///////////////////////////////////////////////////////////////
 T38Modem::T38Modem()
-  : PProcess("Vyacheslav Frolov", "T38Modem",
+  : PProcess("Frolov,Holtschneider,Davidson", "T38Modem",
              MAJOR_VERSION, MINOR_VERSION, BUILD_TYPE, BUILD_NUMBER)
 {
 }

@@ -5,6 +5,8 @@
  *
  * Original author: Vyacheslav Frolov
  *
+ * Additional contributors: Henning Holtschneider, Pete Davidson
+ *
  */
 
 1. Introduction
@@ -17,6 +19,12 @@ From IP network view point it's a H.323/SIP endpoint with T.38 fax support.
 From your view point it's a gateway between an application and IP network.
 
 The homepage for t38modem project is http://t38modem.sourceforge.net/.
+
+T38modem version 2.0.0 can only be used with opal/ptlib revision 24174.  
+
+To use later versions of opal/ptlib see the t38modem projects at github:
+https://github.com/hehol/t38modem
+https://github.com/PeteDavidson/t38modem
 
 2. Building
 -----------

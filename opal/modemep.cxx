@@ -211,6 +211,8 @@ class ModemConnection : public OpalConnection
       PseudoModemMode mode
     );
 
+    bool OnSwitchingFaxMediaStreams(bool toT38);
+
   protected:
     bool UpdateMediaStreams(OpalConnection &other);
 
@@ -730,14 +732,17 @@ PBoolean ModemConnection::SetUpConnection()
 
   if (_pmodem == NULL) {
     myPTRACE(1, "... denied (all modems busy)");
-    Release(EndedByLocalUser);
+    // LXK change -- Use EndedByLocalBusy instead of EndedByLocalUser
+    // so that caller receives a normal busy signal instead of a
+    // fast busy (congestion) or recorded message.
+    Release(EndedByLocalBusy);
     return FALSE;
   }
 
   if (pmodem != NULL) {
     myPTRACE(1, "... denied (internal error)");
     ep.PMFree(_pmodem);
-    Release(EndedByLocalUser);
+    Release(EndedByLocalBusy);  // LXK change -- see above
     return FALSE;
   }
 
@@ -752,7 +757,7 @@ PBoolean ModemConnection::SetUpConnection()
 
   if (!pmodem->Request(request)) {
     myPTRACE(1, "... denied (modem is not ready)");	// or we can try other modem
-    Release(EndedByLocalUser);
+    Release(EndedByLocalBusy);  // LXK change -- see above
     return FALSE;
   }
 
@@ -1260,5 +1265,12 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
 
   return true;
 }
+
+bool ModemConnection::OnSwitchingFaxMediaStreams(bool toT38)
+{
+    PTRACE(3, "ModemConnection::OnSwitchingFaxMediaStreams: Remote switch of media streams to " << (toT38 ? "T.38" : "audio") << " on " << *this);
+    return true;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 
