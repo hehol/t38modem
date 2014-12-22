@@ -267,7 +267,7 @@
 #include <ptlib.h>
 
 #ifdef USE_OPAL
-  #include <opal/buildopts.h>
+  #include <opal/opal_config.h>
   #include <asn/t38.h>
 #else
   #include <t38.h>

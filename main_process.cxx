@@ -61,7 +61,7 @@
 #include <ptlib.h>
 
 #ifdef USE_OPAL
-  #include <opal/buildopts.h>
+  #include <opal/opal_config.h>
 #endif
 
 #include "version.h"

@@ -37,7 +37,7 @@
 
 #include <ptlib.h>
 
-#include <opal/buildopts.h>
+#include <opal/opal_config.h>
 
 #include "opalutils.h"
 

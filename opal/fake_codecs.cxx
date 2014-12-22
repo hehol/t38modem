@@ -40,7 +40,7 @@
 
 #include <ptlib.h>
 
-#include <opal/buildopts.h>
+#include <opal/opal_config.h>
 
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))

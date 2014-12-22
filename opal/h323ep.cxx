@@ -116,7 +116,7 @@
 
 #include <ptlib.h>
 
-#include <opal/buildopts.h>
+#include <opal/opal_config.h>
 
 #if OPAL_H323
 /////////////////////////////////////////////////////////////////////////////

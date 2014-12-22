@@ -126,7 +126,7 @@
 #include <iostream>
 #include <fstream>
 
-#include <opal/buildopts.h>
+#include <opal/opal_config.h>
 
 #if OPAL_SIP
 /////////////////////////////////////////////////////////////////////////////
