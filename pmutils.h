@@ -259,13 +259,13 @@ class DataStreamQ : public _DataStreamQ
 
 #ifdef COUT_TRACE
 #define _myPTRACE(level, args) do { \
-  PTRACE(level, args); \
+  PTRACE(level, NULL, NULL, args); \
   cout << PThread::Current()->GetThreadName() << ": " << args << endl; \
 } while(0)
 #define myCanTrace(level) TRUE
 #define myPTRACE_PARAM(param) param
 #else
-#define _myPTRACE(level, args) do { PTRACE(level, args); } while(0)
+#define _myPTRACE(level, args) do { PTRACE(level, NULL, NULL, args); } while(0)
 #define myCanTrace(level) PTrace::CanTrace(level)
 #define myPTRACE_PARAM(param) PTRACE_PARAM(param)
 #endif // COUT_TRACE
