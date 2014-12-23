@@ -247,7 +247,7 @@ static ostream & operator<<(ostream & out, ModemConnection::PseudoModemMode mode
 #endif
 /////////////////////////////////////////////////////////////////////////////
 ModemEndPoint::ModemEndPoint(OpalManager & mgr, const char * prefix)
-  : OpalEndPoint(mgr, prefix, CanTerminateCall)
+  : OpalEndPoint(mgr, prefix, NoAttributes)
 {
   myPTRACE(1, "ModemEndPoint::ModemEndPoint");
 
@@ -496,7 +496,6 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
     }
   }
 
-  PWaitAndSignal wait(inUseFlag);
   PString token;
 
   for (int i = 0 ; i < 10000 ; i++) {
@@ -559,7 +558,6 @@ ModemConnection::ModemConnection(
   , phaseWasTimeout(false)
 {
   remotePartyNumber = GetPartyName(remoteParty);
-  remotePartyAddress = remoteParty;
 
   myPTRACE(4, "ModemConnection::ModemConnection " << *this);
 
