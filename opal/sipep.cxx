@@ -155,16 +155,9 @@ class MySIPConnection : public SIPConnection
   /**@name Construction */
   //@{
     MySIPConnection(
-      OpalCall & call,                          ///<  Owner call for connection
-      SIPEndPoint & endpoint,                   ///<  Owner endpoint for connection
-      const PString & token,                    ///<  token to identify the connection
-      const SIPURL & address,                   ///<  Destination address for outgoing call
-      OpalTransport * transport,                ///<  Transport INVITE came in on
-      unsigned int options = 0,                 ///<  Connection options
-      OpalConnection::StringOptions * stringOptions = NULL  ///<  complex string options
+      const SIPConnection::Init & init
     )
-    : SIPConnection(call, endpoint, token, address, transport, options, stringOptions)
-    , switchingToFaxMode(false)
+    : SIPConnection(init)
     {}
   //@}
 
@@ -469,20 +462,12 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
   return TRUE;
 }
 
-SIPConnection * MySIPEndPoint::CreateConnection(
-    OpalCall & call,
-    const PString & token,
-    void * /*userData*/,
-    const SIPURL & destination,
-    OpalTransport * transport,
-    SIP_PDU * /*invite*/,
-    unsigned int options,
-    OpalConnection::StringOptions * stringOptions)
+SIPConnection * MySIPEndPoint::CreateConnection(const SIPConnection::Init & init)
 {
-  PTRACE(2, "MySIPEndPoint::CreateConnection for " << call);
+  PTRACE(2, "MySIPEndPoint::CreateConnection for " << init.m_call);
 
   MySIPConnection * connection =
-      new MySIPConnection(call, *this, token, destination, transport, options, stringOptions);
+      new MySIPConnection(init);
 
   PTRACE(6, "MySIPEndPoint::CreateConnection new " << connection->GetClass() << ' ' << (void *)connection);
 
@@ -609,18 +594,6 @@ void MySIPConnection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);
   }
-}
-
-PBoolean MySIPConnection::OnOpenMediaStream(OpalMediaStream & stream)
-{
-  PTRACE(4, "MySIPConnection::OnOpenMediaStream: " << stream);
-
-  RTP_Session *session = GetSession(stream.GetSessionID());
-
-  if (session)
-    RTP_Session::EncodingLock(*session)->ApplyStringOptions(GetStringOptions());
-
-  return SIPConnection::OnOpenMediaStream(stream);
 }
 
 OpalMediaFormatList MySIPConnection::GetMediaFormats() const
