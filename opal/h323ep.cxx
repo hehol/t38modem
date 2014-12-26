@@ -187,10 +187,6 @@ class MyH323Connection : public H323Connection
       bool success                             ///< True if switch succeeded
     );
 
-    virtual PBoolean OnOpenMediaStream(
-      OpalMediaStream & stream                 ///<  New media stream being opened
-    );
-
     virtual OpalMediaFormatList GetMediaFormats() const;
     virtual OpalMediaFormatList GetLocalMediaFormats();
 
@@ -603,18 +599,6 @@ void MyH323Connection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);
   }
-}
-
-PBoolean MyH323Connection::OnOpenMediaStream(OpalMediaStream & stream)
-{
-  PTRACE(4, "MyH323Connection::OnOpenMediaStream: " << stream);
-
-  RTP_Session *session = GetSession(stream.GetSessionID());
-
-  if (session)
-    RTP_Session::EncodingLock(*session)->ApplyStringOptions(GetStringOptions());
-
-  return H323Connection::OnOpenMediaStream(stream);
 }
 
 OpalMediaFormatList MyH323Connection::GetMediaFormats() const

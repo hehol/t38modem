@@ -173,10 +173,6 @@ class MySIPConnection : public SIPConnection
       bool success                              ///< True if switch succeeded
     );
 
-    virtual PBoolean OnOpenMediaStream(
-      OpalMediaStream & stream                  ///<  New media stream being opened
-    );
-
     virtual OpalMediaFormatList GetMediaFormats() const;
     virtual OpalMediaFormatList GetLocalMediaFormats();
 
