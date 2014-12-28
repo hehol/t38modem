@@ -399,13 +399,12 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
         if (atLoc != P_MAX_INDEX) {
           user = prms[0].Left(atLoc);
           params.m_registrarAddress = prms[0].Right(prms[0].GetLength()-atLoc-1);
+          params.m_addressOfRecord = user;
         }
         else {
           user = "";
           params.m_registrarAddress = prms[0];
         }
-
-        params.m_addressOfRecord = prms[0];
 
         if (prms.GetSize() >= 2) {
           params.m_password = prms[1];
