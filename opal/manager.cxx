@@ -281,7 +281,7 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
     const RouteTable &routeTable = GetRouteTable();
 
     for (PINDEX i=0 ; i < routeTable.GetSize() ; i++) {
-      cout << "  " << routeTable[i].pattern << "=" << routeTable[i].destination << endl;
+      cout << "  " << routeTable[i].GetPartyA() << " - " << routeTable[i].GetPartyB() << "=" << routeTable[i].GetDestination() << endl;
     }
   }
 
