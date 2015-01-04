@@ -253,17 +253,6 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
   if (args.HasOption("stun"))
     SetSTUNServer(args.GetOptionString("stun"));
 
-  if (stun != NULL) {
-    cout << "STUN server \"" << stun->GetServer() << "\" replies " << stun->GetNatTypeName();
-
-    PIPSocket::Address externalAddress;
-
-    if (stun->GetExternalAddress(externalAddress))
-      cout << ", external IP " << externalAddress;
-
-    cout << endl;
-  }
-
   if (!ModemEndPoint::Create(*this, args))
     return FALSE;
 
