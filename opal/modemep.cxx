@@ -1268,8 +1268,15 @@ bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
 
 bool ModemConnection::OnSwitchingFaxMediaStreams(bool toT38)
 {
+  bool faxMode = true;
+
     PTRACE(3, "ModemConnection::OnSwitchingFaxMediaStreams: Remote switch of media streams to " << (toT38 ? "T.38" : "audio") << " on " << *this);
-    return true;
+    if (GetStringOptions().GetBoolean("No-Force-T38-Mode")) {
+      PTRACE(3, "ModemConnection::OnSwitchingFaxMediaStreams: No-Force-T38-Mode=true");
+      faxMode = false;
+    }
+    PTRACE(3, "ModemConnection::OnSwitchingFaxMediaStreams: return: " << !(toT38 && !faxMode));
+    return !(toT38 && !faxMode);
 }
 
 /////////////////////////////////////////////////////////////////////////////
