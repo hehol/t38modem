@@ -261,6 +261,7 @@ PString ModemEndPoint::ArgSpec()
     "-no-modem."
     "p-ptty:"
     "-force-fax-mode."
+    "-force-fax-mode-delay:"
     "-no-force-t38-mode."
   ;
 }
@@ -278,6 +279,9 @@ PStringArray ModemEndPoint::Descriptions()
       "                              See Modem drivers section for tty format.\n"
       "  --force-fax-mode          : Use OPAL-Force-Fax-Mode=true route option by\n"
       "                              default.\n"
+      "  --force-fax-mode-delay secs\n"
+      "                            : Use OPAL-Force-Fax-Mode-Delay=secs route option by\n"
+      "                              default.\n"
       "  --no-force-t38-mode       : Use OPAL-No-Force-T38-Mode=true route option by\n"
       "                              default.\n"
       "Modem route options:\n"
@@ -288,6 +292,8 @@ PStringArray ModemEndPoint::Descriptions()
       "    address will be used to re-route if outgoing call Set-Up phase fails.\n"
       "  OPAL-Force-Fax-Mode={true|false}\n"
       "    Enable or disable forcing fax mode (T.38 or G.711 pass-trough).\n"
+      "  OPAL-Force-Fax-Mode-Delay=secs\n"
+      "    Set Force-Fax-Mode to delay secs seconds.\n"
       "  OPAL-No-Force-T38-Mode={true|false}\n"
       "    Not enable or not disable forcing T.38 mode.\n"
       "Modem drivers:\n"
@@ -347,6 +353,11 @@ PBoolean ModemEndPoint::Initialise(const PConfigArgs & args)
 
   if (args.HasOption("force-fax-mode"))
     defaultStringOptions.SetAt("Force-Fax-Mode", "true");
+
+  defaultStringOptions.SetAt("Force-Fax-Mode-Delay",
+                               args.HasOption("force-fax-mode-delay")
+                               ? args.GetOptionString("force-fax-mode-delay")
+                               : "7");   // Default is 7 seconds
 
   if (args.HasOption("no-force-t38-mode"))
     defaultStringOptions.SetAt("No-Force-T38-Mode", "true");
@@ -921,6 +932,8 @@ void ModemConnection::RequestMode(PThread &, INT faxMode)
 
 bool ModemConnection::RequestMode(PseudoModemMode mode)
 {
+  int ForceFaxModeDelay = 0; 
+
   myPTRACE(1, "ModemConnection::RequestMode: " << *this << " " << mode);
 
   PTRACE(4, "ModemConnection::RequestMode: options: \n" <<
@@ -941,6 +954,14 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
         }
 
         PTRACE(3, "ModemConnection::RequestMode: force fax mode for other connection");
+
+        if (isPartyA) {                                // only delay if we are the caller
+          ForceFaxModeDelay = GetStringOptions()("Force-Fax-Mode-Delay").AsInteger();
+          PTRACE(3, "ModemConnection::RequestMode: wait " << ForceFaxModeDelay << " seconds for force fax mode");
+          if (ForceFaxModeDelay) {
+            PThread::Sleep(ForceFaxModeDelay * 1000);  // Sleep some seconds to let other side hear our CNG
+          }
+        }
 
         PThread::Create(requestMode, (INT)true);
         break;
