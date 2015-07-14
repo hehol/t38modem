@@ -1233,7 +1233,7 @@ Profile::Profile() {
 }
 
 Profile &Profile::operator=(const Profile &p) {
-  for (PINDEX r = 0 ; r <= PINDEX(sizeof(S)/sizeof(S[0])) ; r++)
+  for (PINDEX r = 0 ; r < PINDEX(sizeof(S)/sizeof(S[0])) ; r++)
     S[r] = p.S[r];
 
   ModemClass(p.ModemClass());
