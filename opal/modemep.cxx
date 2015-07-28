@@ -543,6 +543,7 @@ OpalMediaFormatList ModemEndPoint::GetMediaFormats() const
   formats += OpalPCM16;
   formats += OpalT38;
   formats += OpalRFC2833;
+  formats += OpalCiscoNSE;
 
   return formats;
 }
@@ -832,6 +833,8 @@ OpalMediaFormatList ModemConnection::GetMediaFormats() const
     default:
       break;
   }
+
+  PTRACE(3, "ModemConnection::GetMediaFormats mediaFormats " << mediaFormats);
 
   return mediaFormats;
 }

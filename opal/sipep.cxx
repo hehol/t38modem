@@ -553,6 +553,7 @@ void MySIPConnection::OnApplyStringOptions()
     }
 
     mediaFormatList += OpalRFC2833;
+    mediaFormatList += OpalCiscoNSE;
 
     PTRACE(4, "MySIPConnection::OnApplyStringOptions Enabled formats (in preference order):\n"
            << setfill('\n') << mediaFormatList << setfill(' '));
