@@ -937,7 +937,7 @@ class ModemEngineBody : public PObject
     void _DetachEngine(ModemClassEngine mce);
     void _ClearCall();
 
-    int NextSeq() { return seq = ++seq & EngineBase::cbpUserDataMask; }
+    int NextSeq() { ++seq; return seq &= EngineBase::cbpUserDataMask; }
 
     ModemEngine &parent;
 
