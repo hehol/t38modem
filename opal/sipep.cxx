@@ -311,7 +311,7 @@ void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
 {
   PTime time;
   SIPEndPoint::OnRegistrationStatus(status);
-  PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() " << status.m_reason);
+  PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() " << status.m_reason << " | " << status.m_userData);
   if (status.m_userData) {
     ofstream sipRegResultFile;
     PString *outFilePString = (PString*) status.m_userData;
@@ -324,7 +324,14 @@ void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
       sipRegResultFile << (status.m_reRegistering ? "Renewed registration" : "Initial registration") << endl;
       sipRegResultFile << status.m_productInfo.AsString() << endl;
       sipRegResultFile.close();
+      PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() file " << outFile << " written successfully");
     }
+    else {
+      PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() open of " << outFile << " failed");
+    }
+  }
+  else {
+    PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() No status.m_userData");
   }
 }
 
