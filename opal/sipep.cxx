@@ -216,6 +216,7 @@ PString MySIPEndPoint::ArgSpec()
     "-sip-proxy:"
     "-sip-register:"
     "-sip-listen:"
+    "-sip-retry-403-forbidden."
     "-sip-no-listen."
   ;
 }
@@ -254,6 +255,8 @@ PStringArray MySIPEndPoint::Descriptions()
       "                            : '*' is all interfaces (default tcp$*:5060 and\n"
       "                            : udp$*:5060).\n"
       "  --sip-no-listen           : Disable listen for incoming calls.\n"
+      "  --sip-retry-403-forbidden : Enable retrying on 403 Forbidden responses. This violates\n"
+      "                              RFC 3261, but is needed by some SIP servers.\n"
       "\n"
       "SIP route options:\n"
       "  OPAL-Enable-Audio=[!]wildcard[,[!]...]\n"
@@ -337,6 +340,8 @@ void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
 
 PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
 {
+  bool retry403;
+
   if (args.HasOption("sip-audio")) {
     PStringStream s;
 
@@ -398,6 +403,11 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
   if (args.HasOption("sip-proxy"))
     SetProxy(args.GetOptionString("sip-proxy"));
 
+  if (args.HasOption("sip-retry-403-forbidden"))
+    retry403=true;
+  else
+    retry403=false;
+
   if (args.HasOption("sip-register")) {
     PString r = args.GetOptionString("sip-register");
     PStringArray regs = r.Tokenise("\r\n", FALSE);
@@ -411,6 +421,8 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
         SIPRegister::Params params;
 
         params.m_expire = 300;
+
+        params.m_retry403 = retry403;
         
         PString user;
         PINDEX atLoc = prms[0].Find('@');
