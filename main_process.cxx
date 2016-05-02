@@ -114,6 +114,7 @@ class T38Modem : public PProcess
     void Main();
 
   protected:
+    MyManager *manager;
     PBoolean Initialise();
 };
 
@@ -123,6 +124,15 @@ T38Modem::T38Modem()
   : PProcess("Frolov,Holtschneider,Davidson", "T38Modem",
              MAJOR_VERSION, MINOR_VERSION, BUILD_TYPE, BUILD_NUMBER)
 {
+}
+
+PSemaphore TimeToTerminate(0,1);
+
+void SignalHandler(int signo)
+{
+  cout << "T38Modem received signal " << signo << ".\n";
+  if (signo == SIGTERM) 
+    TimeToTerminate.Signal();
 }
 
 void T38Modem::Main()
@@ -135,13 +145,22 @@ void T38Modem::Main()
        << " (" << GetOSVersion() << '-' << GetOSHardware() << ")\n"
        << endl;
 
+  cout << GetName() << " pid: " << getpid() << "  ppid: " << getppid() << endl;
+
+  if (signal(SIGTERM, SignalHandler) == SIG_ERR)
+    cout << GetName() << " can't catch SIGTERM\n";
+
   if (!Initialise()) {
     PThread::Sleep(100);  // workaround for race condition
     return;
   }
 
-  for (;;)
-    PThread::Sleep(5000);
+  TimeToTerminate.Wait();
+
+  cout << GetName() << " deleting manager..." << endl;
+  delete manager;
+  cout << GetName() << " ending, manager deleted." << endl;
+  remove("/var/tmp/t38modem_pid");
 }
 
 PBoolean T38Modem::Initialise()
@@ -255,7 +274,7 @@ PBoolean T38Modem::Initialise()
 #endif
 
 #ifdef USE_OPAL
-  MyManager *manager = new MyManager();
+  manager = new MyManager();
 
   if (!manager->Initialise(args))
     return FALSE;

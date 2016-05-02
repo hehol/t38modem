@@ -330,7 +330,7 @@ void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
       PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() file " << outFile << " written successfully");
     }
     else {
-      PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() open of " << outFile << " failed");
+      PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() open of " << outFile << " failed: " << strerror(errno));
     }
   }
   else {
