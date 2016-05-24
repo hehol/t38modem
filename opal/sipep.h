@@ -86,8 +86,7 @@ class MySIPEndPoint : public SIPEndPoint
       OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
     );
 
-  protected:
-    PStringToString defaultStringOptions;
+    static PStringToString defaultStringOptions;
 };
 /////////////////////////////////////////////////////////////////////////////
 

@@ -202,6 +202,8 @@ class MySIPConnection : public SIPConnection
 //  Implementation
 //
 /////////////////////////////////////////////////////////////////////////////
+PStringToString MySIPEndPoint::defaultStringOptions;
+
 PString MySIPEndPoint::ArgSpec()
 {
   return

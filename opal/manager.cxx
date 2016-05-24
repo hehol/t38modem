@@ -344,6 +344,74 @@ void MyManager::OnClearedCall(OpalCall & call)
   OpalManager::OnClearedCall(call);
 }
 
+// Here we check the routes as they get added to see if there are any
+// options that we care about.
+PBoolean MyManager::AddRouteEntry(const PString & spec)
+{
+  PStringArray RouteParts = spec.Tokenise(":");
+  PString RouteType = RouteParts[0];
+  RouteParts = spec.Tokenise(";");
+  for (PINDEX i = 0; i < RouteParts.GetSize(); i++) {
+    PStringArray RouteSubParts = RouteParts[i].Tokenise("=");
+    if (RouteType == "sip") {
+      if (RouteSubParts[0] == "OPAL-Disable-T38-Mode") {
+        if ((RouteSubParts.GetSize() == 1) || (RouteSubParts[1]=="true")) {
+          cout << "Disable-T38-Mode on sip route" << endl;
+          MySIPEndPoint::defaultStringOptions.SetAt("Disable-T38-Mode", "true");
+        }
+      }
+      else if (RouteSubParts[0] == "OPAL-Enable-Audio") {
+        // For Enable-Audio we have to Register the Fake Codecs
+        // and make sure we always include G.711
+        if (RouteSubParts.GetSize() == 2) {
+          cout << "Enable-Audio=" << RouteSubParts[1] << " on sip route" << endl;
+          FakeCodecs::RegisterFakeAudioFormats(RouteSubParts[1].Tokenise(",", FALSE));
+          MySIPEndPoint::defaultStringOptions.SetAt("Enable-Audio","G.711*,"+RouteSubParts[1]);
+        }
+      }
+    }
+    else if (RouteType == "h323") {
+      if (RouteSubParts[0] == "OPAL-Disable-T38-Mode") {
+        if ((RouteSubParts.GetSize() == 1) || (RouteSubParts[1]=="true")) {
+          cout << "Disable-T38-Mode on h323 route" << endl;
+          MyH323EndPoint::defaultStringOptions.SetAt("Disable-T38-Mode", "true");
+        }
+      }
+      else if (RouteSubParts[0] == "OPAL-Enable-Audio") {
+        // For Enable-Audio we have to Register the Fake Codecs
+        // and make sure we always include G.711
+        if (RouteSubParts.GetSize() == 2) {
+          cout << "Enable-Audio=" << RouteSubParts[1] << " on h323 route" << endl;
+          FakeCodecs::RegisterFakeAudioFormats(RouteSubParts[1].Tokenise(",", FALSE));
+          MyH323EndPoint::defaultStringOptions.SetAt("Enable-Audio","G.711*,"+RouteSubParts[1]);
+        }
+      }
+    }
+    else if (RouteType == "modem") {
+      if (RouteSubParts[0] == "OPAL-Force-Fax-Mode") {
+        if ((RouteSubParts.GetSize() == 1) || (RouteSubParts[1]=="true")) {
+          cout << "Force-Fax-Mode on modem route" << endl;
+          ModemEndPoint::defaultStringOptions.SetAt("Force-Fax-Mode", "true");
+        }
+      }
+      else if (RouteSubParts[0] == "OPAL-Force-Fax-Mode-Delay") {
+        if (RouteSubParts.GetSize() == 2) {
+          cout << "Force-Fax-Mode-Delay=" << RouteSubParts[1] << " on modem route" << endl;
+          ModemEndPoint::defaultStringOptions.SetAt("Force-Fax-Mode-Delay",RouteSubParts[1]);
+        }
+      }
+      else if (RouteSubParts[0] == "OPAL-No-Force-T38-Mode") {
+        if ((RouteSubParts.GetSize() == 1) || (RouteSubParts[1]=="true")) {
+          cout << "No-Force-T38-Mode on modem route" << endl;
+          ModemEndPoint::defaultStringOptions.SetAt("No-Force-T38-Mode", "true");
+        }
+      }
+    }
+  }
+
+  return OpalManager::AddRouteEntry(spec);
+}
+
 PBoolean MyManager::OnOpenMediaStream(OpalConnection & connection, OpalMediaStream & stream)
 {
   OpalCall &call = connection.GetCall();

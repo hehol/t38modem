@@ -106,8 +106,9 @@ class ModemEndPoint : public OpalEndPoint
     virtual OpalMediaFormatList GetMediaFormats() const;
   //@}
 
+    static PStringToString defaultStringOptions;
+
   protected:
-    PStringToString defaultStringOptions;
     PseudoModemQ *pmodem_pool;
 
     PDECLARE_NOTIFIER(PObject, ModemEndPoint, OnMyCallback);

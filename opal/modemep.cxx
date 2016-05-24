@@ -246,6 +246,8 @@ static ostream & operator<<(ostream & out, ModemConnection::PseudoModemMode mode
 }
 #endif
 /////////////////////////////////////////////////////////////////////////////
+PStringToString ModemEndPoint::defaultStringOptions;
+
 ModemEndPoint::ModemEndPoint(OpalManager & mgr, const char * prefix)
   : OpalEndPoint(mgr, prefix, CanTerminateCall)
 {

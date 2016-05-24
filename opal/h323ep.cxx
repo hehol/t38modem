@@ -210,6 +210,8 @@ class MyH323Connection : public H323Connection
 //  Implementation
 //
 /////////////////////////////////////////////////////////////////////////////
+PStringToString MyH323EndPoint::defaultStringOptions;
+
 PString MyH323EndPoint::ArgSpec()
 {
   return

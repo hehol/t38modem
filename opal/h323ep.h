@@ -97,8 +97,7 @@ class MyH323EndPoint : public H323EndPoint
       OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
     );
 
-  protected:
-    PStringToString defaultStringOptions;
+    static PStringToString defaultStringOptions;
 };
 /////////////////////////////////////////////////////////////////////////////
 
