@@ -128,12 +128,14 @@ T38Modem::T38Modem()
 
 PSemaphore TimeToTerminate(0,1);
 
+#if defined(USE_UNIX98_PTY) || defined(USE_SIGTERM)
 void SignalHandler(int signo)
 {
   cout << "T38Modem received signal " << signo << ".\n";
   if (signo == SIGTERM) 
     TimeToTerminate.Signal();
 }
+#endif
 
 void T38Modem::Main()
 {
@@ -145,10 +147,12 @@ void T38Modem::Main()
        << " (" << GetOSVersion() << '-' << GetOSHardware() << ")\n"
        << endl;
 
+#if defined(USE_UNIX98_PTY) || defined(USE_SIGTERM)
   cout << GetName() << " pid: " << getpid() << "  ppid: " << getppid() << endl;
 
   if (signal(SIGTERM, SignalHandler) == SIG_ERR)
     cout << GetName() << " can't catch SIGTERM\n";
+#endif
 
   if (!Initialise()) {
     PThread::Sleep(100);  // workaround for race condition
