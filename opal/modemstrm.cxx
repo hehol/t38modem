@@ -68,7 +68,7 @@
 
 #include <ptlib.h>
 
-#include <opal/buildopts.h>
+#include <opal_config.h>
 
 #include <asn/t38.h>
 #include <opal/patch.h>
@@ -100,7 +100,7 @@ AudioModemMediaStream::~AudioModemMediaStream()
 
 PBoolean AudioModemMediaStream::Open()
 {
-  if (isOpen)
+  if (m_isOpen)
     return TRUE;
 
   PTRACE(3, "AudioModemMediaStream::Open " << *this);
@@ -119,7 +119,7 @@ void AudioModemMediaStream::InternalClose()
 PBoolean AudioModemMediaStream::Close()
 #endif
 {
-  if (isOpen) {
+  if (m_isOpen) {
     PTRACE(3, "AudioModemMediaStream::Close " << *this);
 
     if (IsSink())
@@ -135,7 +135,7 @@ PBoolean AudioModemMediaStream::Close()
 
 PBoolean AudioModemMediaStream::ReadData(BYTE * data, PINDEX size, PINDEX & length)
 {
-  if (!isOpen || !audioEngine->Read(EngineBase::HOWNEROUT(this), data, size)) {
+  if (!m_isOpen || !audioEngine->Read(EngineBase::HOWNEROUT(this), data, size)) {
     length = 0;
     return false;
   }
@@ -147,7 +147,7 @@ PBoolean AudioModemMediaStream::ReadData(BYTE * data, PINDEX size, PINDEX & leng
 
 PBoolean AudioModemMediaStream::WriteData(const BYTE * data, PINDEX length, PINDEX & written)
 {
-  if (!isOpen || !audioEngine->Write(EngineBase::HOWNERIN(this), data, length)) {
+  if (!m_isOpen || !audioEngine->Write(EngineBase::HOWNERIN(this), data, length)) {
     written = 0;
     return false;
   }
@@ -179,7 +179,7 @@ T38ModemMediaStream::~T38ModemMediaStream()
 
 PBoolean T38ModemMediaStream::Open()
 {
-  if (isOpen)
+  if (m_isOpen)
     return TRUE;
 
   PTRACE(3, "T38ModemMediaStream::Open " << *this);
@@ -203,7 +203,7 @@ void T38ModemMediaStream::InternalClose()
 PBoolean T38ModemMediaStream::Close()
 #endif
 {
-  if (isOpen) {
+  if (m_isOpen) {
     PTRACE(3, "T38ModemMediaStream::Close " << *this);
 
     if (IsSink()) {
@@ -227,7 +227,7 @@ PBoolean T38ModemMediaStream::Close()
 
 void T38ModemMediaStream::OnStartMediaPatch()
 {
-  if (isSource) {
+  if (m_isSource) {
 #if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
     if (m_mediaPatch != NULL) {
       OpalMediaStreamPtr sink = m_mediaPatch->GetSink();
@@ -262,7 +262,7 @@ void T38ModemMediaStream::OnStartMediaPatch()
 
 PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
 {
-  if (!isOpen)
+  if (!m_isOpen)
     return FALSE;
 
   T38_IFP ifp;
@@ -314,7 +314,7 @@ PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
 
 PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
 {
-  if (!isOpen)
+  if (!m_isOpen)
     return FALSE;
 
   PTRACE(5, "T38ModemMediaStream::WritePacket "

@@ -132,7 +132,7 @@
 
 #include <ptlib.h>
 
-#include <opal/buildopts.h>
+#include <opal_config.h>
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
@@ -249,7 +249,7 @@ static ostream & operator<<(ostream & out, ModemConnection::PseudoModemMode mode
 PStringToString ModemEndPoint::defaultStringOptions;
 
 ModemEndPoint::ModemEndPoint(OpalManager & mgr, const char * prefix)
-  : OpalEndPoint(mgr, prefix, CanTerminateCall)
+  : OpalEndPoint(mgr, prefix, NoAttributes)
 {
   myPTRACE(1, "ModemEndPoint::ModemEndPoint");
 
@@ -509,7 +509,7 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
     }
   }
 
-  PWaitAndSignal wait(inUseFlag);
+  PWaitAndSignal wait(PMutex inUseFlag);
   PString token;
 
   for (int i = 0 ; i < 10000 ; i++) {
@@ -573,7 +573,7 @@ ModemConnection::ModemConnection(
   , phaseWasTimeout(false)
 {
   remotePartyNumber = GetPartyName(remoteParty);
-  remotePartyAddress = remoteParty;
+  PString remotePartyAddress = remoteParty;
 
   myPTRACE(4, "ModemConnection::ModemConnection " << *this);
 
@@ -994,7 +994,7 @@ bool ModemConnection::RequestMode(PseudoModemMode mode)
 
           bool force = false;
 
-          OPAL_DEFINE_MEDIA_COMMAND(SearchForFakeTranscoder, "search_for_fake_transcoder");
+          OPAL_DEFINE_MEDIA_COMMAND(SearchForFakeTranscoder, "search_for_fake_transcoder", OpalMediaType::Audio());
           static const SearchForFakeTranscoder cmdSearchForFakeTranscoder;
 
           for (OpalMediaStreamPtr stream = GetMediaStream(OpalMediaType::Audio(), true) ;

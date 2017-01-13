@@ -76,14 +76,7 @@ class MySIPEndPoint : public SIPEndPoint
     void OnRegistrationStatus(const RegistrationStatus & status);
 
     virtual SIPConnection * CreateConnection(
-      OpalCall & call,                         ///<  Owner of connection
-      const PString & token,                   ///<  token used to identify connection
-      void * userData,                         ///<  User data for connection
-      const SIPURL & destination,              ///<  Destination for outgoing call
-      OpalTransport * transport,               ///<  Transport INVITE has been received on
-      SIP_PDU * invite,                        ///<  Original INVITE pdu
-      unsigned int options = 0,                ///<  connection options
-      OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
+      const SIPConnection::Init & init
     );
 
     static PStringToString defaultStringOptions;

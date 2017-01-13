@@ -82,7 +82,7 @@
 
 #include <ptlib.h>
 
-#include <opal/buildopts.h>
+#include <opal_config.h>
 
 #include "../pmutils.h"
 
@@ -250,19 +250,19 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
   if (args.HasOption("displayname"))
     SetDefaultDisplayName(args.GetOptionString("displayname"));
 
-  if (args.HasOption("stun"))
-    SetSTUNServer(args.GetOptionString("stun"));
+  //if (args.HasOption("stun"))
+  //  SetSTUNServer(args.GetOptionString("stun"));
 
-  if (stun != NULL) {
-    cout << "STUN server \"" << stun->GetServer() << "\" replies " << stun->GetNatTypeName();
+  //if (stun != NULL) {
+  //  cout << "STUN server \"" << stun->GetServer() << "\" replies " << stun->GetNatTypeName();
 
-    PIPSocket::Address externalAddress;
+  //  PIPSocket::Address externalAddress;
 
-    if (stun->GetExternalAddress(externalAddress))
-      cout << ", external IP " << externalAddress;
+  //  if (stun->GetExternalAddress(externalAddress))
+  //    cout << ", external IP " << externalAddress;
 
-    cout << endl;
-  }
+  //  cout << endl;
+  //}
 
   if (!ModemEndPoint::Create(*this, args))
     return FALSE;
@@ -293,7 +293,7 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
     const RouteTable &routeTable = GetRouteTable();
 
     for (PINDEX i=0 ; i < routeTable.GetSize() ; i++) {
-      cout << "  " << routeTable[i].pattern << "=" << routeTable[i].destination << endl;
+      cout << "  " << routeTable[i].GetPartyA() << "," << routeTable[i].GetPartyB() << "=" << routeTable[i].GetDestination() << endl;
     }
   }
 

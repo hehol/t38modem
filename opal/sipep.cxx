@@ -126,7 +126,7 @@
 #include <iostream>
 #include <fstream>
 
-#include <opal/buildopts.h>
+#include <opal_config.h>
 
 #if OPAL_SIP
 /////////////////////////////////////////////////////////////////////////////
@@ -155,15 +155,9 @@ class MySIPConnection : public SIPConnection
   /**@name Construction */
   //@{
     MySIPConnection(
-      OpalCall & call,                          ///<  Owner call for connection
-      SIPEndPoint & endpoint,                   ///<  Owner endpoint for connection
-      const PString & token,                    ///<  token to identify the connection
-      const SIPURL & address,                   ///<  Destination address for outgoing call
-      OpalTransport * transport,                ///<  Transport INVITE came in on
-      unsigned int options = 0,                 ///<  Connection options
-      OpalConnection::StringOptions * stringOptions = NULL  ///<  complex string options
+      const Init & init
     )
-    : SIPConnection(call, endpoint, token, address, transport, options, stringOptions)
+    : SIPConnection(init)
     , switchingToFaxMode(false)
     {}
   //@}
@@ -342,7 +336,7 @@ void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
 
 PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
 {
-  bool retry403;
+  //bool retry403;
 
   if (args.HasOption("sip-audio")) {
     PStringStream s;
@@ -405,10 +399,10 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
   if (args.HasOption("sip-proxy"))
     SetProxy(args.GetOptionString("sip-proxy"));
 
-  if (args.HasOption("sip-retry-403-forbidden"))
-    retry403=true;
-  else
-    retry403=false;
+  //if (args.HasOption("sip-retry-403-forbidden"))
+  //  retry403=true;
+  //else
+  //  retry403=false;
 
   if (args.HasOption("sip-register")) {
     PString r = args.GetOptionString("sip-register");
@@ -424,7 +418,7 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
 
         params.m_expire = 300;
 
-        params.m_retry403 = retry403;
+        //params.m_retry403 = retry403;
         
         PString user;
         PINDEX atLoc = prms[0].Find('@');
@@ -491,19 +485,11 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
 }
 
 SIPConnection * MySIPEndPoint::CreateConnection(
-    OpalCall & call,
-    const PString & token,
-    void * /*userData*/,
-    const SIPURL & destination,
-    OpalTransport * transport,
-    SIP_PDU * /*invite*/,
-    unsigned int options,
-    OpalConnection::StringOptions * stringOptions)
+    const SIPConnection::Init & init)
 {
-  PTRACE(2, "MySIPEndPoint::CreateConnection for " << call);
+  PTRACE(2, "MySIPEndPoint::CreateConnection for " << init.m_call);
 
-  MySIPConnection * connection =
-      new MySIPConnection(call, *this, token, destination, transport, options, stringOptions);
+  MySIPConnection * connection = new MySIPConnection(init);
 
   PTRACE(6, "MySIPEndPoint::CreateConnection new " << connection->GetClass() << ' ' << (void *)connection);
 
@@ -637,10 +623,10 @@ PBoolean MySIPConnection::OnOpenMediaStream(OpalMediaStream & stream)
 {
   PTRACE(4, "MySIPConnection::OnOpenMediaStream: " << stream);
 
-  RTP_Session *session = GetSession(stream.GetSessionID());
+  //OpalRTP_Session *session = GetSession(stream.GetSessionID());
 
-  if (session)
-    RTP_Session::EncodingLock(*session)->ApplyStringOptions(GetStringOptions());
+  //if (session)
+  //  OpalRTP_Session::EncodingLock(*session)->ApplyStringOptions(GetStringOptions());
 
   return SIPConnection::OnOpenMediaStream(stream);
 }
