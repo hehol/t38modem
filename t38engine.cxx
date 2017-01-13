@@ -267,7 +267,7 @@
 #include <ptlib.h>
 
 #ifdef USE_OPAL
-  #include <opal/buildopts.h>
+  #include <opal_config.h>
   #include <asn/t38.h>
 #else
   #include <t38.h>
@@ -1642,10 +1642,10 @@ PBoolean T38Engine::HandlePacket(HOWNERIN hOwner, const T38_IFP & ifp)
     case T38_Type_of_msg::e_t30_indicator: {
       T38_Type_of_msg_t30_indicator type_of_msg = ifp.m_type_of_msg;
 
-      if ((modStreamIn != NULL) && (modStreamIn->lastBuf != NULL &&
-            modStreamIn->ModPars.ind == type_of_msg) ||
-          (modStreamInSaved != NULL) && (modStreamInSaved->lastBuf != NULL &&
-            modStreamInSaved->ModPars.ind == type_of_msg))
+      if (((modStreamIn != NULL) && (modStreamIn->lastBuf != NULL &&
+            modStreamIn->ModPars.ind == type_of_msg)) ||
+          ((modStreamInSaved != NULL) && (modStreamInSaved->lastBuf != NULL &&
+            modStreamInSaved->ModPars.ind == type_of_msg)))
       {
         myPTRACE(3, name << " HandlePacket ignored repeated indicator " << type_of_msg);
         break;

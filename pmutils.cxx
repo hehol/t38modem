@@ -103,9 +103,9 @@ void ModemThread::SignalStop() {
 
 void ModemThread::WaitDataReady()
 {
-  do {
+  //do {
     dataReadySyncPoint.Wait();
-  } while(!dataReadySyncPoint.WillBlock());
+  //} while(!dataReadySyncPoint.WillBlock());
 }
 ///////////////////////////////////////////////////////////////
 ModemThreadChild::ModemThreadChild(ModemThread &_parent)
