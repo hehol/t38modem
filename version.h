@@ -26,9 +26,9 @@
 #ifndef _T38M_VERSION_H
 #define _T38M_VERSION_H
 
-#define MAJOR_VERSION 3
-#define MINOR_VERSION 15
-#define BUILD_TYPE    ReleaseCode
+#define MAJOR_VERSION 4
+#define MINOR_VERSION 2
+#define BUILD_TYPE    AlphaCode
 #define BUILD_NUMBER  0
 
 #endif  // _T38M_VERSION_H
