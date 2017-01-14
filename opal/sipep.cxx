@@ -431,7 +431,7 @@ PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
           params.m_registrarAddress = prms[0];
         }
 
-        params.m_addressOfRecord = prms[0];
+        params.m_addressOfRecord = user;
 
         if (prms.GetSize() >= 2) {
           params.m_password = prms[1];
