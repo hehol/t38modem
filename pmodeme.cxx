@@ -4530,6 +4530,13 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                 if (dataType == EngineBase::dtHdlc) {
                   int diag = dleData.GetDiag();
 
+                  // If dataCount is 0 then we have not sent up <DLE><ETX> yet
+                  if (dataCount == 0) {
+                    PBYTEArray _bresp((const BYTE *)"\x10\x03", 2); // add <DLE><ETX>
+                    myPTRACE(1, "<-- " << PRTHEX(_bresp));
+                    bresp.Concatenate(_bresp);
+                  }
+
                   if (diag == 0)
                     resp = RC_OK();
                   else
