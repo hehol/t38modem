@@ -491,6 +491,22 @@ MODPARS( 145, T38I(e_v17_14400_long_training),  1500, T38D(e_v17_14400), 14400 )
 MODPARS( 146, T38I(e_v17_14400_short_training),  300, T38D(e_v17_14400), 14400 ),
 };
 
+static const MODPARS modsFast[] = {
+MODPARS(   3, T38I(e_v21_preamble),              900, T38D(e_v21),        268800 ),
+MODPARS(  24, T38I(e_v27_2400_training),           0, T38D(e_v27_2400),    67200 ),
+MODPARS(  48, T38I(e_v27_4800_training),           0, T38D(e_v27_4800),   134400 ),
+MODPARS(  72, T38I(e_v29_7200_training),           0, T38D(e_v29_7200),   268800 ),
+MODPARS(  73, T38I(e_v17_7200_long_training),      0, T38D(e_v17_7200),   268800 ),
+MODPARS(  74, T38I(e_v17_7200_short_training),     0, T38D(e_v17_7200),   268800 ),
+MODPARS(  96, T38I(e_v29_9600_training),           0, T38D(e_v29_9600),   537600 ),
+MODPARS(  97, T38I(e_v17_9600_long_training),      0, T38D(e_v17_9600),   537600 ),
+MODPARS(  98, T38I(e_v17_9600_short_training),     0, T38D(e_v17_9600),   537600 ),
+MODPARS( 121, T38I(e_v17_12000_long_training),     0, T38D(e_v17_12000), 1075200 ),
+MODPARS( 122, T38I(e_v17_12000_short_training),    0, T38D(e_v17_12000), 1075200 ),
+MODPARS( 145, T38I(e_v17_14400_long_training),     0, T38D(e_v17_14400), 1075200 ),
+MODPARS( 146, T38I(e_v17_14400_short_training),    0, T38D(e_v17_14400), 1075200 ),
+};
+
 static const MODPARS invalidMods;
 
 enum GetModParsBy {
@@ -498,19 +514,37 @@ enum GetModParsBy {
   by_ind,
 };
 
-static const MODPARS &GetModPars(int key, enum GetModParsBy by = by_val) {
-  for( PINDEX i = 0 ; i < PINDEX(sizeof(mods)/sizeof(mods[0])) ; i++ ) {
-    switch( by ) {
-      case by_val:
-        if( mods[i].val == key )
-          return mods[i];
-        break;
-      case by_ind:
-        if( mods[i].ind == (unsigned)key )
-          return mods[i];
-        break;
-      default:
-        return invalidMods;
+static const MODPARS &GetModPars(PBoolean fastT38, int key, enum GetModParsBy by = by_val) {
+  if (fastT38) {
+    for( PINDEX i = 0 ; i < PINDEX(sizeof(modsFast)/sizeof(modsFast[0])) ; i++ ) {
+      switch( by ) {
+        case by_val:
+          if( modsFast[i].val == key )
+            return modsFast[i];
+          break;
+        case by_ind:
+          if( modsFast[i].ind == (unsigned)key )
+            return modsFast[i];
+          break;
+        default:
+          return invalidMods;
+      }
+    }
+  }
+  else {
+    for( PINDEX i = 0 ; i < PINDEX(sizeof(mods)/sizeof(mods[0])) ; i++ ) {
+      switch( by ) {
+        case by_val:
+          if( mods[i].val == key )
+            return mods[i];
+          break;
+        case by_ind:
+          if( mods[i].ind == (unsigned)key )
+            return mods[i];
+          break;
+        default:
+          return invalidMods;
+      }
     }
   }
   return invalidMods;
@@ -607,7 +641,7 @@ void FakePreparePacketThread::Main()
   PTRACE(3, t38engine.Name() << " FakePreparePacketThread::Main stopped, faked out " << count << " IFP packets");
 }
 ///////////////////////////////////////////////////////////////
-T38Engine::T38Engine(const PString &_name)
+T38Engine::T38Engine(const PString &_name, PBoolean useFastT38)
   : EngineBase(_name + " T38Engine")
   , bufOut(2048)
   , preparePacketTimeout(-1)
@@ -636,7 +670,12 @@ T38Engine::T38Engine(const PString &_name)
   , modStreamInSaved(NULL)
   , stateModem(stmIdle)
 {
-  PTRACE(2, name << " T38Engine");
+  PTRACE(2, name << " T38Engine -- useFastT38 = " << useFastT38);
+  fastT38 = useFastT38;
+  if (fastT38)
+    msPerOut = 1;
+  else
+    msPerOut = 30;
 }
 
 T38Engine::~T38Engine()
@@ -816,7 +855,7 @@ PBoolean T38Engine::SendStart(DataType _dataType, int param)
       break;
     case dtHdlc:
     case dtRaw:
-      ModParsOut = GetModPars(param);
+      ModParsOut = GetModPars(fastT38,param);
       ModParsOut.dataType = _dataType;
       ModParsOut.dataTypeT38 =
           (ModParsOut.msgType == T38D(e_v21) || t30.hdlcOnly()) ? dtHdlc : dtRaw;
@@ -915,7 +954,7 @@ PBoolean T38Engine::RecvWait(DataType _dataType, int param, int _callbackParam, 
       return FALSE;
   }
 
-  const MODPARS &ModParsIn = GetModPars(param);
+  const MODPARS &ModParsIn = GetModPars(fastT38,param);
 
   if (!ModParsIn.IsModValid())
     return FALSE;
@@ -1139,6 +1178,10 @@ int T38Engine::PreparePacket(HOWNEROUT hOwner, T38_IFP & ifp)
 
   ifp = T38_IFP();
   PBoolean doDalay = TRUE;
+  if (ModParsOut.msgType == T38D(e_v21))
+    PBoolean doDalay = TRUE;
+  else
+    PBoolean doDalay = FALSE;
   PTime preparePacketTimeoutEnd = (preparePacketTimeout > 0 ? (PTime() + preparePacketTimeout) : PTime(0));
 
   if (preparePacketPeriod > 0) {
@@ -1152,8 +1195,8 @@ int T38Engine::PreparePacket(HOWNEROUT hOwner, T38_IFP & ifp)
     PBoolean redo = FALSE;
 
     if (doDalay) {
-      //PTRACE(1, name << " +++++ stM=" << stateModem << " stO=" << stateOut << " "
-      //       << timeDelayEndOut.AsString("hh:mm:ss.uuu\t", PTime::Local));
+      PTRACE(6, name << " +++++ stM=" << stateModem << " stO=" << stateOut << " "
+             << timeDelayEndOut.AsString("hh:mm:ss.uuu\t", PTime::Local));
 
       for (;;) {
         PTimeInterval delay = timeDelayEndOut - PTime();
@@ -1177,6 +1220,7 @@ int T38Engine::PreparePacket(HOWNEROUT hOwner, T38_IFP & ifp)
         if (delay.GetMilliSeconds() > msMaxOutDelay)
           delay = msMaxOutDelay;
 
+        PTRACE(1, name << " +++++ delay " << delay.GetMilliSeconds() << " ms"); 
         mySleep(delay.GetMilliSeconds());
 
         if (hOwnerOut != hOwner || !IsModemOpen())
@@ -1331,7 +1375,8 @@ int T38Engine::PreparePacket(HOWNEROUT hOwner, T38_IFP & ifp)
             ////////////////////////////////////////////////////
             case stOutData:
               {
-                BYTE b[(msPerOut * 14400)/(8*1000)];
+                // Needs to be largest value in modsFast / (8*1000)
+                BYTE b[2764800/(8*1000)];
                 PINDEX len = (msPerOut * ModParsOut.br)/(8*1000);
                 if (len > PINDEX(sizeof(b)))
                   len = sizeof(b);
@@ -1726,7 +1771,7 @@ PBoolean T38Engine::HandlePacket(HOWNERIN hOwner, const T38_IFP & ifp)
         case T38I(e_v17_14400_short_training):
         case T38I(e_v17_14400_long_training):
           isCarrierIn = 1;
-          modStreamInSaved = new ModStream(GetModPars(type_of_msg, by_ind));
+          modStreamInSaved = new ModStream(GetModPars(fastT38,type_of_msg, by_ind));
           modStreamInSaved->PushBuf();
           countIn = 0;
 

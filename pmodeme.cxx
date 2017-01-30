@@ -819,7 +819,7 @@ class ModemEngineBody : public PObject
   /**@name Operations */
   //@{
     PBoolean Request(PStringToString &request);
-    EngineBase *NewPtrEngine(ModemClassEngine mce);
+    EngineBase *NewPtrEngine(ModemClassEngine mce, PBoolean useFastT38);
     void OnParentStop();
     void HandleData(const PBYTEArray &buf, PBYTEArray &bresp);
     void CheckState(PBYTEArray &bresp);
@@ -933,7 +933,7 @@ class ModemEngineBody : public PObject
       return TRUE;
     }
 
-    void _AttachEngine(ModemClassEngine mce);
+    void _AttachEngine(ModemClassEngine mce, PBoolean useFastT38);
     void _DetachEngine(ModemClassEngine mce);
     void _ClearCall();
 
@@ -1118,12 +1118,12 @@ PBoolean ModemEngine::IsReady() const
   return body && body->IsReady();
 }
 
-T38Engine *ModemEngine::NewPtrT38Engine() const
+T38Engine *ModemEngine::NewPtrT38Engine(PBoolean useFastT38) const
 {
   if (!body)
     return NULL;
 
-  EngineBase *engine = body->NewPtrEngine(mceT38);
+  EngineBase *engine = body->NewPtrEngine(mceT38, useFastT38);
 
   PAssert(engine == NULL || PIsDescendant(engine, T38Engine), PInvalidCast);
 
@@ -1135,7 +1135,8 @@ AudioEngine *ModemEngine::NewPtrAudioEngine() const
   if (!body)
     return NULL;
 
-  EngineBase *engine = body->NewPtrEngine(mceAudio);
+  PBoolean useFastT38 = false;
+  EngineBase *engine = body->NewPtrEngine(mceAudio, useFastT38);
 
   PAssert(engine == NULL || PIsDescendant(engine, AudioEngine), PInvalidCast);
 
@@ -1147,7 +1148,8 @@ EngineBase *ModemEngine::NewPtrUserInputEngine() const
   if (!body)
     return NULL;
 
-  return body->NewPtrEngine(mceAudio);
+  PBoolean useFastT38 = false;
+  return body->NewPtrEngine(mceAudio, useFastT38);
 }
 
 PBoolean ModemEngine::Request(PStringToString &request) const
@@ -1344,8 +1346,10 @@ void ModemEngineBody::_ClearCall()
     if (off_hook) {
       timerBusy.Start(1000);
 
-      if (!activeEngines[mceAudio])
-        _AttachEngine(mceAudio);
+      if (!activeEngines[mceAudio]) {
+        PBoolean useFastT38 = false;
+        _AttachEngine(mceAudio,useFastT38);
+      }
 
       for (int i = 0 ; i < mceNumberOfItems ; i++) {
         enableFakeIn[i] = TRUE;
@@ -1425,8 +1429,10 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
         SetState(stConnectHandle, chConnected);
         timerRing.Start(6000);
 
-        if (!activeEngines[mceAudio])
-          _AttachEngine(mceAudio);
+        if (!activeEngines[mceAudio]) {
+          PBoolean useFastT38 = false;
+          _AttachEngine(mceAudio,useFastT38);
+        }
 
         enableFakeIn[mceAudio] = TRUE;
         enableFakeOut[mceAudio] = TRUE;
@@ -1507,13 +1513,13 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
   return TRUE;
 }
 
-EngineBase *ModemEngineBody::NewPtrEngine(ModemClassEngine mce)
+EngineBase *ModemEngineBody::NewPtrEngine(ModemClassEngine mce, PBoolean useFastT38)
 {
   PAssert(mce == mceT38 || mce == mceAudio, "mce is not valid");
 
   PWaitAndSignal mutexWait(Mutex);
 
-  _AttachEngine(mce);
+  _AttachEngine(mce,useFastT38);
 
   if (activeEngines[mce]) {
     activeEngines[mce]->AddReference();
@@ -1524,7 +1530,7 @@ EngineBase *ModemEngineBody::NewPtrEngine(ModemClassEngine mce)
   return activeEngines[mce];
 }
 
-void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
+void ModemEngineBody::_AttachEngine(ModemClassEngine mce, PBoolean useFastT38)
 {
   PAssert(mce == mceT38 || mce == mceAudio, "mce is not valid");
 
@@ -1533,7 +1539,7 @@ void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
 
     switch (mce) {
       case mceT38:
-        engine = new T38Engine(parent.ptyName());
+        engine = new T38Engine(parent.ptyName(),useFastT38);
         break;
       case mceAudio:
         engine = new AudioEngine(parent.ptyName());
@@ -3778,7 +3784,6 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                         dataCount = 0;
                         break;
                       }
-
                       if (dataCount < 2 && (dataCount + count) >= 2 &&
                           (Buf[1 - dataCount] & 0x08) == 0)
                       {
@@ -4351,7 +4356,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
               currentClassEngine->RecvStop();
 
-              if (dataCount == 0 && P.ModemClassId() == EngineBase::mcFax)
+              if (dataCount == 0 && P.ModemClassId() == EngineBase::mcFax) 
                 dleData.GetDleData(Buf, sizeof(Buf));	// discard ...<DLE><ETX>
               break;
             case 0:

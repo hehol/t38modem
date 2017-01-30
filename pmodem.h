@@ -90,7 +90,7 @@ class PseudoModem : public ModemThread
     virtual PBoolean IsReady() const = 0;
     virtual PBoolean CheckRoute(const PString &number) const = 0;
     virtual PBoolean Request(PStringToString &request) const = 0;
-    virtual T38Engine *NewPtrT38Engine() const = 0;
+    virtual T38Engine *NewPtrT38Engine(PBoolean useFastT38) const = 0;
     virtual AudioEngine *NewPtrAudioEngine() const = 0;
     virtual EngineBase *NewPtrUserInputEngine() const = 0;
 

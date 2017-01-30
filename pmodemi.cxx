@@ -125,13 +125,13 @@ PBoolean PseudoModemBody::Request(PStringToString &request) const
   return engine && engine->Request(request);
 }
 
-T38Engine *PseudoModemBody::NewPtrT38Engine() const
+T38Engine *PseudoModemBody::NewPtrT38Engine(PBoolean useFastT38) const
 {
   PWaitAndSignal mutexWait(Mutex);
   if (engine == NULL)
     return NULL;
 
-  return engine->NewPtrT38Engine();
+  return engine->NewPtrT38Engine(useFastT38);
 }
 
 AudioEngine *PseudoModemBody::NewPtrAudioEngine() const

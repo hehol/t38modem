@@ -265,6 +265,8 @@ PString ModemEndPoint::ArgSpec()
     "-force-fax-mode."
     "-force-fax-mode-delay:"
     "-no-force-t38-mode."
+    "-fast-t38-mode."
+    "-fast-t38-mode-regex:"
   ;
 }
 
@@ -286,6 +288,9 @@ PStringArray ModemEndPoint::Descriptions()
       "                              default.\n"
       "  --no-force-t38-mode       : Use OPAL-No-Force-T38-Mode=true route option by\n"
       "                              default.\n"
+      "  --fast-t38-mode           : Use OPAL-Fast-T38-Mode=true route option by\n"
+      "                              default.\n"
+      "  --fast-t38-mode-regex     : regex for using fast T.38 mode by default\n"
       "Modem route options:\n"
       "  OPAL-Set-Up-Phase-Timeout=secs\n"
       "    Set timeout for outgoing call Set-Up phase to secs seconds.\n"
@@ -298,6 +303,8 @@ PStringArray ModemEndPoint::Descriptions()
       "    Set Force-Fax-Mode to delay secs seconds.\n"
       "  OPAL-No-Force-T38-Mode={true|false}\n"
       "    Not enable or not disable forcing T.38 mode.\n"
+      "  OPAL-Fast-T38-Mode={true|false}\n"
+      "    Enable or disable Fast T.38 mode.\n"
       "Modem drivers:\n"
   ).Lines();
 
@@ -364,6 +371,12 @@ PBoolean ModemEndPoint::Initialise(const PConfigArgs & args)
   if (args.HasOption("no-force-t38-mode"))
     defaultStringOptions.SetAt("No-Force-T38-Mode", "true");
 
+  if (args.HasOption("fast-t38-mode"))
+    defaultStringOptions.SetAt("Fast-T38-Mode", "true");
+
+  if (args.HasOption("fast-t38-mode-regex"))
+    defaultStringOptions.SetAt("Fast-T38-Mode-Regex", args.GetOptionString("fast-t38-mode-regex"));
+
   return TRUE;
 }
 
@@ -381,8 +394,9 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
     if (command == "dial") {
       PseudoModem *modem = pmodem_pool->Dequeue(modemToken);
       if (modem != NULL) {
+        PString dialedNumber = request("number");
         PString partyA = PString("modem:") + request("localpartyname");
-        PString partyB = request("number") + "@" + modem->ttyName();
+        PString partyB = dialedNumber + "@" + modem->ttyName();
 
         PString originalPartyB;
         long tries = request("trynextcount").AsInteger();
@@ -406,6 +420,25 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
             OpalConnection::StringOptions newOptions;
             newOptions.SetAt("Try-Next-Count", tries);
             newOptions.SetAt("Original-Party-B", originalPartyB);
+
+            PString regexString = pConn->GetStringOptions().GetString("Fast-T38-Mode-Regex");
+            PTRACE(3, "MyManager::OnMycallback Fast-T38-Mode-Regex=" << regexString);
+
+            PRegularExpression fastT38Regex;
+            if (!fastT38Regex.Compile(regexString,PRegularExpression::IgnoreCase|PRegularExpression::Extended)) {
+              PTRACE(3, "MyManager::OnMycallback regex compile fail: " << fastT38Regex.GetErrorText());
+            }
+            else {
+              PINDEX pos;
+              if (fastT38Regex.Execute(dialedNumber,pos)) {
+                PTRACE(3, "MyManager::OnMycallback Fast-T38-Mode-Regex match: " << dialedNumber);
+                newOptions.SetAt("Fast-T38-Mode", true);
+              }
+              else {
+                PTRACE(3, "MyManager::OnMycallback Fast-T38-Mode-Regex no match: " << dialedNumber);
+              }
+            }
+
             pConn->SetStringOptions(newOptions, false);
 
             request.SetAt("calltoken", pConn->GetToken());
@@ -656,7 +689,15 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
 
   if (mediaFormat == OpalT38) {
     if (pmodem != NULL) {
-      T38Engine *t38engine = pmodem->NewPtrT38Engine();
+
+      PBoolean useFastT38;
+      if (GetStringOptions().GetBoolean("Fast-T38-Mode"))
+        useFastT38 = true;
+      else
+        useFastT38 = false;
+      PTRACE(3, "ModemConnection::CreateMediaStream: Fast-T38-Mode=" << useFastT38);
+
+      T38Engine *t38engine = pmodem->NewPtrT38Engine(useFastT38);
 
       if (t38engine != NULL)
         return new T38ModemMediaStream(*this, sessionID, isSource, t38engine);

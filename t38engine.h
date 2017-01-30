@@ -213,11 +213,12 @@ class T38Engine : public EngineBase
 
   public:
 
-    enum { msPerOut = 30 };
+    int msPerOut;
+    PBoolean fastT38;
 
   /**@name Construction */
   //@{
-    T38Engine(const PString &_name);
+    T38Engine(const PString &_name, PBoolean useFastT38);
     ~T38Engine();
   //@}
 
