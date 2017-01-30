@@ -3759,25 +3759,25 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                 default:
                   switch( dt ) {
                     case EngineBase::dtHdlc:
-                       // if we find escape code +++ then go to command mode
-                       // '+' is 0x2B which is 0xD4 with the bits reversed
-                       if ((dataCount + count) >= 3 && Buf[0] == 0xD4 && Buf[1] == 0xD4 && Buf[2] == 0xD4) {
-                         PTRACE(4, "Found escape code +++");
-                         if (currentClassEngine)
-                           currentClassEngine->SendStop(FALSE, NextSeq());
-                         SetState(stCommand);
-                         if (currentClassEngine)
-                           currentClassEngine->ResetModemState();
-                         PString resp = RC_PREF();
-                         resp += RC_OK();
-                         PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
-                         myPTRACE(1, "<-- " << PRTHEX(_bresp));
-                         bresp.Concatenate(_bresp);
-                         moreFrames = FALSE;
-                         count = 0;
-                         dataCount = 0;
-                         break;
-                       }
+                      // if we find escape code +++ then go to command mode
+                      // '+' is 0x2B which is 0xD4 with the bits reversed
+                      if ((dataCount + count) >= 3 && Buf[0] == 0xD4 && Buf[1] == 0xD4 && Buf[2] == 0xD4) {
+                        PTRACE(4, "Found escape code +++");
+                        if (currentClassEngine)
+                          currentClassEngine->SendStop(FALSE, NextSeq());
+                        SetState(stCommand);
+                        if (currentClassEngine)
+                          currentClassEngine->ResetModemState();
+                        PString resp = RC_PREF();
+                        resp += RC_OK();
+                        PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
+                        myPTRACE(1, "<-- " << PRTHEX(_bresp));
+                        bresp.Concatenate(_bresp);
+                        moreFrames = FALSE;
+                        count = 0;
+                        dataCount = 0;
+                        break;
+                      }
 
                       if (dataCount < 2 && (dataCount + count) >= 2 &&
                           (Buf[1 - dataCount] & 0x08) == 0)
