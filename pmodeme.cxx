@@ -1080,7 +1080,7 @@ class ModemEngineBody : public PObject
     DLEData dleData;
     PINDEX dataCount;
     PBoolean moreFrames;
-    int consecRCPs = 0;
+    int consecRCPs;
     FCS fcs;
 
     Profile P;
@@ -1275,7 +1275,8 @@ ModemEngineBody::ModemEngineBody(ModemEngine &_parent, const PNotifier &_callbac
     state(stCommand),
     dataType(EngineBase::dtNone),
     sendOnIdle(EngineBase::dtNone),
-    pPlayTone(NULL)
+    pPlayTone(NULL),
+    consecRCPs(0) 
 {
   for (int i = 0 ; i < mceNumberOfItems ; i++) {
     activeEngines[i] = NULL;
