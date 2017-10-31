@@ -216,7 +216,7 @@ PStringArray MyManager::Descriptions(const PConfigArgs & args)
 PBoolean MyManager::Initialise(const PConfigArgs & args)
 {
   DisableDetectInBandDTMF(TRUE);
-  silenceDetectParams.m_mode = OpalSilenceDetector::NoSilenceDetection;
+  m_silenceDetectParams.m_mode = OpalSilenceDetector::NoSilenceDetection;
 
   if (args.HasOption("ports")) {
     PString p = args.GetOptionString("ports");

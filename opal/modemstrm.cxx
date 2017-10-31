@@ -268,8 +268,8 @@ PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
   T38_IFP ifp;
   int res;
 
-  packet.SetTimestamp(timestamp);
-  timestamp += 160;
+  packet.SetTimestamp(m_timestamp);
+  m_timestamp += 160;
 
   do {
     //PTRACE(4, "T38ModemMediaStream::ReadPacket ...");
@@ -277,7 +277,7 @@ PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
   } while (currentSequenceNumber == 0 && res < 0);
 
   packet[0] = 0x80;
-  packet.SetPayloadType(mediaFormat.GetPayloadType());
+  packet.SetPayloadType(m_mediaFormat.GetPayloadType());
 
   if (res > 0) {
     PTRACE(4, "T38ModemMediaStream::ReadPacket ifp = " << setprecision(2) << ifp);
@@ -322,7 +322,7 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
             " size=" << packet.GetPayloadSize() <<
             " " << packet.GetPayloadType());
 
-  if (mediaFormat.GetPayloadType() != packet.GetPayloadType()) {
+  if (m_mediaFormat.GetPayloadType() != packet.GetPayloadType()) {
     PTRACE(5, "T38ModemMediaStream::WritePacket: ignored packet with mismatched payload type");
     return TRUE;
   }

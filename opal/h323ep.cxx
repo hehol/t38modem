@@ -470,7 +470,7 @@ void MyH323Connection::OnApplyStringOptions()
 
     if (GetStringOptions().Contains("Enable-Audio")) {
       const PStringArray wildcards = GetStringOptions()("Enable-Audio").Tokenise(",", FALSE);
-      OpalMediaFormatList list = endpoint.GetMediaFormats();
+      OpalMediaFormatList list = m_endpoint.GetMediaFormats();
 
       for (PINDEX w = 0 ; w < wildcards.GetSize() ; w++) {
         OpalMediaFormatList::const_iterator f;

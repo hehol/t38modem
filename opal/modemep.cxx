@@ -514,7 +514,7 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
 
   for (int i = 0 ; i < 10000 ; i++) {
     token = remotePartyAddress + "/" + call.GetToken() + "/" + PString(i);
-    if (!connectionsActive.Contains(token)) {
+    if (!m_connectionsActive.Contains(token)) {
       ModemConnection * connection =
           new ModemConnection(call, *this, token, remotePartyAddress, userData, stringOptions);
 
@@ -543,6 +543,8 @@ OpalMediaFormatList ModemEndPoint::GetMediaFormats() const
   OpalMediaFormatList formats;
 
   formats += OpalPCM16;
+  formats += OpalG711_ULAW_64K;
+  formats += OpalG711_ALAW_64K;
   formats += OpalT38;
   formats += OpalRFC2833;
   formats += OpalCiscoNSE;
@@ -572,7 +574,7 @@ ModemConnection::ModemConnection(
   , phaseTimerPhase(NumPhases)
   , phaseWasTimeout(false)
 {
-  remotePartyNumber = GetPartyName(remoteParty);
+  m_remotePartyNumber = GetPartyName(remoteParty);
   PString remotePartyAddress = remoteParty;
 
   myPTRACE(4, "ModemConnection::ModemConnection " << *this);
@@ -614,7 +616,7 @@ ModemConnection::~ModemConnection()
             myPTRACE(1, "ModemConnection::~ModemConnection: Try-Next=" << num);
             request.SetAt("trynextcommand", "dial");
             request.SetAt("number", num);
-            request.SetAt("localpartyname", remotePartyNumber);
+            request.SetAt("localpartyname", m_remotePartyNumber);
             request.SetAt("trynextcount", GetStringOptions().Contains("Try-Next-Count") ? GetStringOptions()("Try-Next-Count") : "1");
             request.SetAt("originalpartyb", GetStringOptions().Contains("Original-Party-B") ? GetStringOptions()("Original-Party-B") : "unknown");
           }
@@ -671,6 +673,24 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
         return new AudioModemMediaStream(*this, sessionID, isSource, audioEngine);
     }
   }
+  else
+  if (mediaFormat == OpalG711_ULAW_64K) {
+    if (pmodem != NULL) {
+      AudioEngine *audioEngine = pmodem->NewPtrAudioEngine();
+
+      if (audioEngine != NULL)
+        return new AudioModemMediaStream(*this, sessionID, isSource, audioEngine);
+    }
+  }
+  else
+  if (mediaFormat == OpalG711_ALAW_64K) {
+    if (pmodem != NULL) {
+      AudioEngine *audioEngine = pmodem->NewPtrAudioEngine();
+
+      if (audioEngine != NULL)
+        return new AudioModemMediaStream(*this, sessionID, isSource, audioEngine);
+    }
+  }
 
   return OpalConnection::CreateMediaStream(mediaFormat, sessionID, isSource);
 }
@@ -691,8 +711,8 @@ PBoolean ModemConnection::SetUpConnection()
   if (GetCall().GetConnection(0) == this) {
     OpalConnection::StringOptions stringOptions;
 
-    if (!remotePartyNumber.IsEmpty())
-      stringOptions.SetAt(OPAL_OPT_CALLING_PARTY_NUMBER, remotePartyNumber);
+    if (!m_remotePartyNumber.IsEmpty())
+      stringOptions.SetAt(OPAL_OPT_CALLING_PARTY_NUMBER, m_remotePartyNumber);
 
     if (!OnIncomingConnection(0, &stringOptions)) {
       Release(EndedByCallerAbort);
@@ -820,7 +840,7 @@ OpalMediaFormatList ModemConnection::GetMediaFormats() const
 {
   PTRACE(4, "ModemConnection::GetMediaFormats " << *this);
 
-  OpalMediaFormatList mediaFormats = endpoint.GetMediaFormats();
+  OpalMediaFormatList mediaFormats = m_endpoint.GetMediaFormats();
 
   switch (requestedMode) {
     case pmmFax:
