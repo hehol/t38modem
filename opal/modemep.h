@@ -65,22 +65,23 @@
 
 #undef PACK_VERSION
 /////////////////////////////////////////////////////////////////////////////
-#include <opal/endpoint.h>
+#include <t38/t38proto.h>
 /////////////////////////////////////////////////////////////////////////////
 class PseudoModem;
 class PseudoModemQ;
 
-class ModemEndPoint : public OpalEndPoint
+class ModemEndPoint : public OpalFaxEndPoint
 {
-    PCLASSINFO(ModemEndPoint, OpalEndPoint);
+    PCLASSINFO(ModemEndPoint, OpalFaxEndPoint);
   public:
   /**@name Construction */
   //@{
     /**Create a new endpoint.
      */
     ModemEndPoint(
-      OpalManager & manager,        ///< Manager of all endpoints.
-      const char * prefix = "modem" ///< Prefix for URL style address strings
+      OpalManager & manager,            ///< Manager of all endpoints.
+      const char * g711Prefix = "fax",  ///< Prefix for URL style address strings
+      const char * t38Prefix = "t38"    ///< Prefix for URL style address strings
     );
   //@}
 

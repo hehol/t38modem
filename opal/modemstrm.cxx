@@ -320,12 +320,15 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
   PTRACE(5, "T38ModemMediaStream::WritePacket "
             " packet " << packet.GetSequenceNumber() <<
             " size=" << packet.GetPayloadSize() <<
-            " " << packet.GetPayloadType());
+            " " << packet.GetPayloadType() <<
+            " " << m_mediaFormat.GetPayloadType());
 
+#if 0
   if (m_mediaFormat.GetPayloadType() != packet.GetPayloadType()) {
     PTRACE(5, "T38ModemMediaStream::WritePacket: ignored packet with mismatched payload type");
     return TRUE;
   }
+#endif
 
   long packedSequenceNumber = (packet.GetSequenceNumber() & 0xFFFF) + (currentSequenceNumber & ~0xFFFFL);
   long lost = packedSequenceNumber - currentSequenceNumber;

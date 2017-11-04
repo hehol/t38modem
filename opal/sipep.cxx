@@ -529,7 +529,7 @@ PBoolean MySIPConnection::SetUpConnection()
 void MySIPConnection::OnApplyStringOptions()
 {
   SIPConnection::OnApplyStringOptions();
-
+#if 0
   if (LockReadWrite()) {
     mediaFormatList = OpalMediaFormatList();
 
@@ -567,12 +567,14 @@ void MySIPConnection::OnApplyStringOptions()
 
     UnlockReadWrite();
   }
+#endif
 }
 
 bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
 {
   PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << (enableFax ? "fax" : "audio"));
 
+#if 0
   bool res = false;
 
   if (!enableFax) {
@@ -602,6 +604,8 @@ bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
 
   PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << (res ? "OK" : "FAIL"));
   return res;
+#endif
+  return SIPConnection::SwitchFaxMediaStreams(enableFax);
 }
 
 void MySIPConnection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
@@ -612,11 +616,13 @@ void MySIPConnection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
 
   SIPConnection::OnSwitchedFaxMediaStreams(toT38, success);
 
+#if 0
   if (toT38 && !success) {
       PTRACE(3, "MySIPConnection::OnSwitchedFaxMediaStreams: fallback to audio");
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);
   }
+#endif
 }
 
 PBoolean MySIPConnection::OnOpenMediaStream(OpalMediaStream & stream)
@@ -637,6 +643,7 @@ OpalMediaFormatList MySIPConnection::GetMediaFormats() const
 
   PTRACE(4, "MySIPConnection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
+#if 0
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     PBoolean found = FALSE;
 
@@ -655,6 +662,7 @@ OpalMediaFormatList MySIPConnection::GetMediaFormats() const
   }
 
   PTRACE(4, "MySIPConnection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+#endif
 
   return mediaFormats;
 }
@@ -664,7 +672,7 @@ OpalMediaFormatList MySIPConnection::GetLocalMediaFormats()
   OpalMediaFormatList mediaFormats = SIPConnection::GetLocalMediaFormats();
 
   PTRACE(4, "MySIPConnection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
-
+#if 0
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     PBoolean found = FALSE;
 
@@ -684,6 +692,7 @@ OpalMediaFormatList MySIPConnection::GetLocalMediaFormats()
 
   PTRACE(4, "MySIPConnection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
+#endif
   return mediaFormats;
 }
 
@@ -696,6 +705,7 @@ void MySIPConnection::AdjustMediaFormats(
 
   SIPConnection::AdjustMediaFormats(local, otherConnection, mediaFormats);
 
+#if 0
   if (local) {
     PStringArray order;
 
@@ -708,6 +718,7 @@ void MySIPConnection::AdjustMediaFormats(
   }
 
   PTRACE(4, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+#endif
 }
 /////////////////////////////////////////////////////////////////////////////
 #endif // OPAL_SIP

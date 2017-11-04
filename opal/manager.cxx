@@ -215,6 +215,10 @@ PStringArray MyManager::Descriptions(const PConfigArgs & args)
 
 PBoolean MyManager::Initialise(const PConfigArgs & args)
 {
+  cout << "\n" << args << "\n";;
+
+  PTRACE_INITIALISE(args);
+
   DisableDetectInBandDTMF(TRUE);
   m_silenceDetectParams.m_mode = OpalSilenceDetector::NoSilenceDetection;
 
@@ -321,10 +325,7 @@ bool MyManager::OnRouteConnection(PStringSet & routesTried,
   PSafePtr<OpalConnection> dst_conn = call.GetConnection(1);
 
   if (dst_conn != NULL) {
-    if (dst_conn->GetPrefixName().NumCompare("sip") == EqualTo)
-      dst = dst_conn->GetRemotePartyURL();
-    else
-      dst = dst_conn->GetRemotePartyAddress();
+    dst = dst_conn->GetRemotePartyURL();
 
     if (dst.NumCompare(dst_conn->GetPrefixName() + ":") != EqualTo)
       dst = dst_conn->GetPrefixName() + ":" + dst;

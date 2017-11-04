@@ -155,17 +155,18 @@
 #define new PNEW
 
 /////////////////////////////////////////////////////////////////////////////
-class ModemConnection : public OpalConnection
+class ModemConnection : public OpalFaxConnection
 {
-    PCLASSINFO(ModemConnection, OpalConnection);
+    PCLASSINFO(ModemConnection, OpalFaxConnection);
   public:
 
     ModemConnection(
-      OpalCall & call,
+      OpalCall      & call,
       ModemEndPoint & ep,
-      const PString & token,
       const PString & remoteParty,
-      void *userData,
+      void          * userData,
+      bool            receiving,
+      bool            disableT38,
       StringOptions * stringOptions
     );
     ~ModemConnection();
@@ -248,8 +249,8 @@ static ostream & operator<<(ostream & out, ModemConnection::PseudoModemMode mode
 /////////////////////////////////////////////////////////////////////////////
 PStringToString ModemEndPoint::defaultStringOptions;
 
-ModemEndPoint::ModemEndPoint(OpalManager & mgr, const char * prefix)
-  : OpalEndPoint(mgr, prefix, NoAttributes)
+ModemEndPoint::ModemEndPoint(OpalManager & mgr, const char * g711Prefix, const char * t38Prefix)
+  : OpalFaxEndPoint(mgr, g711Prefix, t38Prefix)
 {
   myPTRACE(1, "ModemEndPoint::ModemEndPoint");
 
@@ -381,7 +382,7 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
     if (command == "dial") {
       PseudoModem *modem = pmodem_pool->Dequeue(modemToken);
       if (modem != NULL) {
-        PString partyA = PString("modem:") + request("localpartyname");
+        PString partyA = PString("t38:") + request("localpartyname");
         PString partyB = request("number") + "@" + modem->ttyName();
 
         PString originalPartyB;
@@ -509,6 +510,19 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
     }
   }
 
+  PINDEX prefixLength = remoteParty.Find(':');
+  PStringArray tokens = remoteParty.Mid(prefixLength+1).Tokenise(";", true);
+
+  bool receiving = false;
+  PString stationId = GetDefaultDisplayName();
+
+  for (PINDEX i = 1; i < tokens.GetSize(); ++i) {
+    if (tokens[i] *= "receive")
+      receiving = true;
+    else if (tokens[i].Left(10) *= "stationid=")
+      stationId = tokens[i].Mid(10);
+  }
+
   PWaitAndSignal wait(PMutex inUseFlag);
   PString token;
 
@@ -516,9 +530,15 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
     token = remotePartyAddress + "/" + call.GetToken() + "/" + PString(i);
     if (!m_connectionsActive.Contains(token)) {
       ModemConnection * connection =
-          new ModemConnection(call, *this, token, remotePartyAddress, userData, stringOptions);
+          new ModemConnection(call,
+                              *this,
+                              remotePartyAddress,
+                              userData,
+                              receiving,
+                              remoteParty.Left(prefixLength) *= GetPrefixName(),
+                              stringOptions);
 
-      PTRACE(6, "ModemEndPoint::MakeConnection new " << connection->GetClass() << ' ' << (void *)connection);
+      PTRACE(5, "ModemEndPoint::MakeConnection new " << connection->GetClass() << ' ' << (void *)connection);
 
       OpalConnection::StringOptions newOptions;
 
@@ -542,7 +562,7 @@ OpalMediaFormatList ModemEndPoint::GetMediaFormats() const
 
   OpalMediaFormatList formats;
 
-  formats += OpalPCM16;
+  //formats += OpalPCM16;
   formats += OpalG711_ULAW_64K;
   formats += OpalG711_ALAW_64K;
   formats += OpalT38;
@@ -555,11 +575,12 @@ OpalMediaFormatList ModemEndPoint::GetMediaFormats() const
 ModemConnection::ModemConnection(
     OpalCall & call,
     ModemEndPoint & ep,
-    const PString & token,
     const PString & remoteParty,
-    void *userData,
+    void          * userData,
+    bool            receiving,
+    bool            disableT38,
     StringOptions * stringOptions)
-  : OpalConnection(call, ep, token, 0, stringOptions)
+  : OpalFaxConnection(call, ep, "", receiving, disableT38, stringOptions)
 #ifdef _MSC_VER
 #pragma warning(disable:4355) // warning C4355: 'this' : used in base member initializer list
 #endif
