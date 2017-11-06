@@ -3978,7 +3978,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         if (engine->RecvUserInput(&c, 1) <= 0)
           break;
 
-        if (!P.ModemClassId() == EngineBase::mcAudio)
+        if ((!P.ModemClassId()) == EngineBase::mcAudio)
           continue;
 
         switch (c) {

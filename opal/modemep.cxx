@@ -136,8 +136,8 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 10, 0))
-  #error *** Incompatible OPAL version (required >= 3.10.0) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 16, 1))
+  #error *** Incompatible OPAL version (required >= 3.16.1) ***
 #endif
 
 #undef PACK_VERSION
@@ -685,6 +685,9 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
         return new T38ModemMediaStream(*this, sessionID, isSource, t38engine);
     }
   }
+#if 0
+  return new OpalNullMediaStream(*this, mediaFormat, sessionID, isSource, isSource, true);
+#else
   else
   if (mediaFormat == OpalPCM16) {
     if (pmodem != NULL) {
@@ -714,6 +717,7 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
   }
 
   return OpalConnection::CreateMediaStream(mediaFormat, sessionID, isSource);
+#endif
 }
 
 void ModemConnection::OnReleased()

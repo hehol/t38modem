@@ -114,7 +114,7 @@ PseudoModem *PseudoModemList::_Find(const PString &modemToken) const
 {
   PObject *object;
 
-  for (PINDEX i = 0 ; (object = GetAt(i)) != NULL ; i++) {
+  for (PINDEX i = 0 ; (object = ((PCollection*)this)->GetAt(i)) != NULL ; i++) {
     PAssert(PIsDescendant(object, PseudoModem), PInvalidCast);
     PseudoModem *modem = (PseudoModem *)object;
     if (modem->modemToken() == modemToken)
@@ -188,7 +188,7 @@ PseudoModem *PseudoModemQ::DequeueWithRoute(const PString &number)
   PWaitAndSignal mutexWait(Mutex);
   PObject *object;
   
-  for( PINDEX i = 0 ; (object = GetAt(i)) != NULL ; i++ ) {
+  for( PINDEX i = 0 ; (object = ((PCollection*)this)->GetAt(i)) != NULL ; i++ ) {
     PAssert(PIsDescendant(object, PseudoModem), PInvalidCast);
     PseudoModem *modem = (PseudoModem *)object;
     if (modem->CheckRoute(number) && modem->IsReady()) {
@@ -206,7 +206,7 @@ PseudoModem *PseudoModemQ::Find(const PString &modemToken) const
 {
   PObject *object;
 
-  for( PINDEX i = 0 ; (object = GetAt(i)) != NULL ; i++ ) {
+  for( PINDEX i = 0 ; (object = ((PCollection*)this)->GetAt(i)) != NULL ; i++ ) {
     PAssert(PIsDescendant(object, PseudoModem), PInvalidCast);
     PseudoModem *modem = (PseudoModem *)object;
     if( modem->modemToken() == modemToken ) {
