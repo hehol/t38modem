@@ -268,6 +268,12 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
   //  cout << endl;
   //}
 
+  // Set the QoS for Audio and T.38 to Expedited Forwarding (EF)
+  SetMediaQoS(OpalMediaType::Audio(), PIPSocket::ControlQoS);
+
+  // Set the QoS for SIP to Assured Forwarding (AF32)
+  // --> No way to do this with current Opal
+
   if (!ModemEndPoint::Create(*this, args))
     return FALSE;
 
