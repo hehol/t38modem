@@ -195,9 +195,11 @@ PBoolean T38Modem::Initialise()
 #endif
 
 #if PTRACING
-  PTrace::Initialise(args.GetOptionCount('t'),
-                     args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL,
-                     PTrace::DateAndTime | PTrace::Thread | PTrace::Blocks);
+  PTrace::Initialise(args, PTrace::GetOptions(), NULL, "1", "option", NULL, "0");
+
+//  PTrace::Initialise(args.GetOptionCount('t'),
+//                     args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL,
+//                     PTrace::DateAndTime | PTrace::Thread | PTrace::Blocks);
 #endif
 
   if (args.HasOption('h')) {
