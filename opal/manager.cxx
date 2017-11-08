@@ -274,6 +274,22 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
   // Set the QoS for SIP to Assured Forwarding (AF32)
   // --> No way to do this with current Opal
 
+  OpalConnection::StringOptions stringOptions;
+
+  // Set switch to T.38 on received CED
+  stringOptions.SetBoolean(OPAL_SWITCH_ON_CED, true);
+
+  // Set switch to T.38 to be forced after 7 seconds
+  stringOptions.SetInteger(OPAL_T38_SWITCH_TIME, 7);
+
+  // Set fallback to G.711 OK
+  stringOptions.SetBoolean(OPAL_NO_G111_FAX, false);
+
+  // Enable detecting CNG and CED
+  stringOptions.SetBoolean(OPAL_OPT_DETECT_INBAND_DTMF,true);
+
+  SetDefaultConnectionOptions(stringOptions);
+
   if (!ModemEndPoint::Create(*this, args))
     return FALSE;
 

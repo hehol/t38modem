@@ -1138,7 +1138,7 @@ int T38Engine::PreparePacket(HOWNEROUT hOwner, T38_IFP & ifp)
   //myPTRACE(1, name << " PreparePacket begin stM=" << stateModem << " stO=" << stateOut);
 
   ifp = T38_IFP();
-  PBoolean doDalay = TRUE;
+  PBoolean doDelay = TRUE;
   PTime preparePacketTimeoutEnd = (preparePacketTimeout > 0 ? (PTime() + preparePacketTimeout) : PTime(0));
 
   if (preparePacketPeriod > 0) {
@@ -1151,7 +1151,7 @@ int T38Engine::PreparePacket(HOWNEROUT hOwner, T38_IFP & ifp)
   for(;;) {
     PBoolean redo = FALSE;
 
-    if (doDalay) {
+    if (doDelay) {
       //PTRACE(1, name << " +++++ stM=" << stateModem << " stO=" << stateOut << " "
       //       << timeDelayEndOut.AsString("hh:mm:ss.uuu\t", PTime::Local));
 
@@ -1183,7 +1183,7 @@ int T38Engine::PreparePacket(HOWNEROUT hOwner, T38_IFP & ifp)
           return 0;
       }
     } else {
-      doDalay = TRUE;
+      doDelay = TRUE;
     }
 
     if (hOwnerOut != hOwner || !IsModemOpen())
@@ -1285,7 +1285,7 @@ int T38Engine::PreparePacket(HOWNEROUT hOwner, T38_IFP & ifp)
               if (hOwnerOut != hOwner || !IsModemOpen())
                 return 0;
 
-              doDalay = FALSE;
+              doDelay = FALSE;
               redo = TRUE;
               break;
             ////////////////////////////////////////////////////
@@ -1565,7 +1565,7 @@ int T38Engine::PreparePacket(HOWNEROUT hOwner, T38_IFP & ifp)
           myPTRACE(1, name << " PreparePacket DTE's data delay, reset " << hdlcOut.getRawCount());
           hdlcOut.resetRawCount();
           timeBeginOut = PTime() - PTimeInterval(msPerOut);
-          doDalay = FALSE;
+          doDelay = FALSE;
         }
       }
     }

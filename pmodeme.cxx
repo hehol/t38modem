@@ -405,7 +405,7 @@
 ///////////////////////////////////////////////////////////////
 #include "g711.c"
 ///////////////////////////////////////////////////////////////
-static const char Manufacturer[] = "Vyacheslav Frolov";
+static const char Manufacturer[] = "Frolov,Holtschneider,Davidson";
 static const char Model[] = "T38FAX";
 #define _TOSTR(s) #s
 #define TOSTR(s) _TOSTR(s)
