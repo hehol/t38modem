@@ -1533,6 +1533,11 @@ void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
 
     switch (mce) {
       case mceT38:
+#if 1
+        sendOnIdle = EngineBase::dtCng;
+        SetState(stReqModeAckWait);
+        SetSubState(chConnectionEstablished);
+#endif
         engine = new T38Engine(parent.ptyName());
         break;
       case mceAudio:

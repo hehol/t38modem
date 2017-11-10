@@ -66,11 +66,12 @@
 #undef PACK_VERSION
 /////////////////////////////////////////////////////////////////////////////
 #include <t38/t38proto.h>
+#include "manager.h"
 /////////////////////////////////////////////////////////////////////////////
 class PseudoModem;
 class PseudoModemQ;
 
-class ModemEndPoint : public OpalFaxEndPoint
+class ModemEndPoint : public OpalFaxEndPoint, public MyManagerEndPoint
 {
     PCLASSINFO(ModemEndPoint, OpalFaxEndPoint);
   public:
@@ -79,17 +80,13 @@ class ModemEndPoint : public OpalFaxEndPoint
     /**Create a new endpoint.
      */
     ModemEndPoint(
-      OpalManager & manager,            ///< Manager of all endpoints.
+      MyManager & manager,              ///< Manager of all endpoints.
       const char * g711Prefix = "fax",  ///< Prefix for URL style address strings
       const char * t38Prefix = "t38"    ///< Prefix for URL style address strings
     );
   //@}
-
-    static PString ArgSpec();
-    static PStringArray Descriptions();
-    static PStringArray Descriptions(const PConfigArgs & args);
-    static PBoolean Create(OpalManager & mgr, const PConfigArgs & args);
-    PBoolean Initialise(const PConfigArgs & args);
+    static PString GetArgumentSpec();
+    virtual bool Initialise(PArgList & args, bool verbose, const PString & defaultRoute);
 
     PseudoModem * PMAlloc(const PString &number) const;
     void PMFree(PseudoModem *pmodem) const;

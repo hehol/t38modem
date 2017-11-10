@@ -58,6 +58,7 @@
  *
  */
 
+#if 0
 #include <ptlib.h>
 
 #ifdef USE_OPAL
@@ -292,4 +293,4 @@ PBoolean T38Modem::Initialise()
   return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
-
+#endif

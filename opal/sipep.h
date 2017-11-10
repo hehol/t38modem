@@ -52,35 +52,50 @@
 #define _MY_SIPEP_H
 
 #include <sip/sipep.h>
+#include "manager.h"
 
 /////////////////////////////////////////////////////////////////////////////
-class MySIPEndPoint : public SIPEndPoint
+
+class OpalRTPEndPoint;
+
+class MyRTPEndPoint : public MyManagerEndPoint
 {
-  PCLASSINFO(MySIPEndPoint, SIPEndPoint);
+protected:
+  MyRTPEndPoint(MyManager & manager, OpalRTPEndPoint * endpoint);
 
-  public:
-  /**@name Construction */
-  //@{
-    MySIPEndPoint(
-      OpalManager & manager
-    )
-    : SIPEndPoint(manager)
-      {}
-  //@}
+  static PString GetArgumentSpec();
+  bool Initialise(PArgList & args, ostream & output, bool verbose);
 
-    static PString ArgSpec();
-    static PStringArray Descriptions();
-    static PStringArray Descriptions(const PConfigArgs & args);
-    static PBoolean Create(OpalManager & mgr, const PConfigArgs & args);
-    PBoolean Initialise(const PConfigArgs & args);
-    void OnRegistrationStatus(const RegistrationStatus & status);
+  bool SetUIMode(const PCaselessString & str);
 
-    virtual SIPConnection * CreateConnection(
-      const SIPConnection::Init & init
-    );
-
-    static PStringToString defaultStringOptions;
+protected:
+  OpalRTPEndPoint & m_endpoint;
 };
+
+/////////////////////////////////////////////////////////////////////////////
+
+class MySIPEndPoint : public SIPEndPoint, public MyRTPEndPoint
+{
+  PCLASSINFO(MySIPEndPoint, SIPEndPoint)
+public:
+  MySIPEndPoint(MyManager & manager);
+
+  static PString GetArgumentSpec();
+  virtual bool Initialise(PArgList & args, bool verbose, const PString & defaultRoute);
+
+  virtual void OnRegistrationStatus(const RegistrationStatus & status);
+  bool DoRegistration(ostream & output,
+                      bool verbose,
+                      const PString & aor,
+                      const PString & pwd,
+                      const PArgList & args,
+                      const char * authId,
+                      const char * realm,
+                      const char * proxy,
+                      const char * mode,
+                      const char * ttl);
+};
+
 /////////////////////////////////////////////////////////////////////////////
 
 #endif  // _MY_SIPEP_H

@@ -143,583 +143,238 @@
 
 #include "sipep.h"
 #include "fake_codecs.h"
+#include "manager.h"
 
 #define new PNEW
 
 /////////////////////////////////////////////////////////////////////////////
-class MySIPConnection : public SIPConnection
+
+MyRTPEndPoint::MyRTPEndPoint(MyManager & manager, OpalRTPEndPoint * endpoint)
+  : MyManagerEndPoint(manager)
+  , m_endpoint(*endpoint)
 {
-  PCLASSINFO(MySIPConnection, SIPConnection);
-
-  public:
-  /**@name Construction */
-  //@{
-    MySIPConnection(
-      const Init & init
-    )
-    : SIPConnection(init)
-    , switchingToFaxMode(false)
-    {}
-  //@}
-
-    virtual PBoolean SetUpConnection();
-    virtual void OnApplyStringOptions();
-
-    virtual bool SwitchFaxMediaStreams(
-      bool toT38                                ///< Enable FAX or return to audio mode
-    );
-
-    virtual void OnSwitchedFaxMediaStreams(
-      bool toT38,                               ///< Enabled FAX or audio mode
-      bool success                              ///< True if switch succeeded
-    );
-
-    virtual PBoolean OnOpenMediaStream(
-      OpalMediaStream & stream                  ///<  New media stream being opened
-    );
-
-    virtual OpalMediaFormatList GetMediaFormats() const;
-    virtual OpalMediaFormatList GetLocalMediaFormats();
-
-    virtual void AdjustMediaFormats(
-      bool local,                               ///<  Media formats a local ones to be presented to remote
-      OpalConnection * otherConnection,         ///<  Other connection we are adjusting media for
-      OpalMediaFormatList & mediaFormats        ///<  Media formats to use
-    ) const;
-
-  protected:
-    mutable OpalMediaFormatList mediaFormatList;
-    bool switchingToFaxMode;
-};
-/////////////////////////////////////////////////////////////////////////////
-//
-//  Implementation
-//
-/////////////////////////////////////////////////////////////////////////////
-PStringToString MySIPEndPoint::defaultStringOptions;
-
-PString MySIPEndPoint::ArgSpec()
-{
-  return
-    "-no-sip."
-    "-sip-audio:"
-    "-sip-audio-list."
-    "-sip-disable-t38-mode."
-    "-sip-t38-udptl-redundancy:"
-    "-sip-t38-udptl-keep-alive-interval:"
-    "-sip-t38-max-buffer:"
-    "-sip-t38-max-datagram:"
-    "-sip-proxy:"
-    "-sip-register:"
-    "-sip-listen:"
-    "-sip-retry-403-forbidden."
-    "-sip-no-listen."
-  ;
+  cout << "MyRTPEndPoint" << endl;
 }
 
-PStringArray MySIPEndPoint::Descriptions()
-{
-  PStringArray descriptions = PString(
-      "SIP options:\n"
-      "  --no-sip                  : Disable SIP protocol.\n"
-      "  --sip-audio str           : Use OPAL-Enable-Audio=str route option by\n"
-      "                              default. May be used multiple times.\n"
-      "  --sip-audio-list          : Display available audio formats.\n"
-      "  --sip-disable-t38-mode    : Use OPAL-Disable-T38-Mode=true route option by\n"
-      "                              default.\n"
-      "  --sip-t38-udptl-redundancy str\n"
-      "                            : Use OPAL-T38-UDPTL-Redundancy=str route option by\n"
-      "                              default.\n"
-      "  --sip-t38-udptl-keep-alive-interval ms\n"
-      "                            : Use OPAL-T38-UDPTL-Keep-Alive-Interval=ms route\n"
-      "                              option by default.\n"
-      "  --sip-t38-max-buffer bytes\n"
-      "                            : Set T38FaxMaxBuffer to bytes.\n"
-      "  --sip-t38-max-datagram bytes\n"
-      "                            : Set T38FaxMaxDatagram to bytes.\n"
-      "  --sip-proxy [user:[pwd]@]host\n"
-      "                            : Proxy information.\n"
-      "  --sip-register [user@]registrar[,pwd[,contact[,realm[,authID[,expire[,Compat[,resultFile]]]]]]]\n"
-      "                            : Registration information. Can be used multiple\n"
-      "                              times. Field Compat={Full|NoMulti|NoPrivate}, specifying \n"
-      "                              registration compatipiliby.  Full is the default and \n"
-      "                              means Fully Compliant.  NoMulti means that no multiple\n"
-      "                              contacts are used.  NoPrivate means that no private\n"
-      "                              contacts are used. The field resultFile specifies that the\n"
-      "                              registration result is stored in resultFile. \n"
-      "  --sip-listen iface        : Interface/port(s) to listen for SIP requests\n"
-      "                            : '*' is all interfaces (default tcp$*:5060 and\n"
-      "                            : udp$*:5060).\n"
-      "  --sip-no-listen           : Disable listen for incoming calls.\n"
-      "  --sip-retry-403-forbidden : Enable retrying on 403 Forbidden responses. This violates\n"
-      "                              RFC 3261, but is needed by some SIP servers.\n"
-      "\n"
-      "SIP route options:\n"
-      "  OPAL-Enable-Audio=[!]wildcard[,[!]...]\n"
-      "    Enable the audio format(s) matching the wildcard(s). The '*' character\n"
-      "    match any substring. The leading '!' character indicates a negative test.\n"
-      "    Default: " OPAL_G711_ULAW_64K "," OPAL_G711_ALAW_64K ".\n"
-      "  OPAL-Disable-T38-Mode={true|false}\n"
-      "    Enable or disable T.38 fax mode.\n"
-      "    Default: false (enable T.38 fax mode).\n"
-      "  OPAL-T38-UDPTL-Redundancy=[maxsize:redundancy[,maxsize:redundancy...]]\n"
-      "    Set error recovery redundancy for IFP packets dependent from their size.\n"
-      "    For example the string '2:I,9:L,32767:H' (where I, L and H are numbers)\n"
-      "    sets redundancy for (I)ndication, (L)ow speed and (H)igh speed IFP packets.\n"
-      "    Default: empty string (no redundancy).\n"
-      "  OPAL-T38-UDPTL-Redundancy-Interval=ms\n"
-      "    Continuously resend last UDPTL packet each ms milliseconds on idle till it\n"
-      "    contains IFP packets not sent redundancy times.\n"
-      "    Default: 50.\n"
-      "  OPAL-T38-UDPTL-Keep-Alive-Interval=ms\n"
-      "    Continuously resend last UDPTL packet each ms milliseconds on idle.\n"
-      "    Default: 0 (no resend).\n"
-      "  OPAL-T38-UDPTL-Optimise-On-Retransmit={true|false}\n"
-      "    Optimize UDPTL packets on resending in accordance with required redundancy\n"
-      "    (exclude redundancy IFP packets sent redundancy times).\n"
-      "    Default: true (optimize).\n"
-  ).Lines();
 
-  return descriptions;
+bool MyRTPEndPoint::SetUIMode(const PCaselessString & str)
+{
+  if (str.IsEmpty())
+    return true;
+
+  if (str == "inband")
+    m_endpoint.SetSendUserInputMode(OpalConnection::SendUserInputInBand);
+  else if (str == "rfc2833")
+    m_endpoint.SetSendUserInputMode(OpalConnection::SendUserInputAsRFC2833);
+  else if (str == "signal" || str == "info-tone" || str == "h245-signal")
+    m_endpoint.SetSendUserInputMode(OpalConnection::SendUserInputAsTone);
+  else if (str == "string" || str == "info-string" || str == "h245-string")
+    m_endpoint.SetSendUserInputMode(OpalConnection::SendUserInputAsString);
+  else
+    return false;
+
+  return true;
 }
 
-PStringArray MySIPEndPoint::Descriptions(const PConfigArgs & args)
+
+PString MyRTPEndPoint::GetArgumentSpec()
 {
-  PStringArray descriptions;
+  PString PrefixName = "sip";
 
-  if (args.HasOption("sip-audio-list"))
-    descriptions += FakeCodecs::GetAvailableAudioFormatsDescription("SIP", "sip");
-
-  return descriptions;
+  return  '-' + PrefixName + "-crypto:       Set crypto suites in priority order.\n"
+          "-" + PrefixName + "-bandwidth:    Set total bandwidth (both directions) to be used for call\n"
+          "-" + PrefixName + "-rx-bandwidth: Set receive bandwidth to be used for call\n"
+          "-" + PrefixName + "-tx-bandwidth: Set transmit bandwidth to be used for call\n"
+          "-" + PrefixName + "-ui:           Set User Indication mode (inband,rfc2833,signal,string)\n"
+          "-" + PrefixName + "-option:       Set string option (key[=value]), may be multiple occurrences\n";
 }
 
-PBoolean MySIPEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
+
+bool MyRTPEndPoint::Initialise(PArgList & args, ostream & output, bool verbose)
 {
-  if (args.HasOption("no-sip")) {
-    cout << "Disabled SIP protocol" << endl;
-    return TRUE;
+  PStringArray cryptoSuites = args.GetOptionString(m_endpoint.GetPrefixName() + "-crypto").Lines();
+  if (!cryptoSuites.IsEmpty())
+    m_endpoint.SetMediaCryptoSuites(cryptoSuites);
+
+  if (verbose)
+    output << m_endpoint.GetPrefixName().ToUpper() << " crypto suites: "
+            << setfill(',') << m_endpoint.GetMediaCryptoSuites() << setfill(' ') << '\n';
+
+
+  if (!m_endpoint.SetInitialBandwidth(OpalBandwidth::RxTx,
+                                      args.GetOptionAs(m_endpoint.GetPrefixName() + "-bandwidth",
+                                                       m_endpoint.GetInitialBandwidth(OpalBandwidth::RxTx))) ||
+      !m_endpoint.SetInitialBandwidth(OpalBandwidth::Rx,
+                                      args.GetOptionAs(m_endpoint.GetPrefixName() + "-rx-bandwidth",
+                                                       m_endpoint.GetInitialBandwidth(OpalBandwidth::Rx))) ||
+      !m_endpoint.SetInitialBandwidth(OpalBandwidth::Tx,
+                                      args.GetOptionAs(m_endpoint.GetPrefixName() + "-tx-bandwidth",
+                                                       m_endpoint.GetInitialBandwidth(OpalBandwidth::Tx)))) {
+    output << "Invalid bandwidth for " << m_endpoint.GetPrefixName() << endl;
+    return false;
   }
 
-  if ((new MySIPEndPoint(mgr))->Initialise(args))
-    return TRUE;
 
-  return FALSE;
+  if (!SetUIMode(args.GetOptionString(m_endpoint.GetPrefixName()+"-ui"))) {
+    output << "Unknown user indication mode for " << m_endpoint.GetPrefixName() << endl;
+    return false;
+  }
+
+  if (verbose)
+    output << m_endpoint.GetPrefixName() << "user input mode: " << m_endpoint.GetSendUserInputMode() << '\n';
+
+
+  m_endpoint.SetDefaultStringOptions(args.GetOptionString(m_endpoint.GetPrefixName() + "-option"));
+
+  PStringArray interfaces = args.GetOptionString(m_endpoint.GetPrefixName()).Lines();
+  if ((m_endpoint.GetListeners().IsEmpty() || !interfaces.IsEmpty()) && !m_endpoint.StartListeners(interfaces)) {
+    output << "Could not start listeners for " << m_endpoint.GetPrefixName() << endl;
+    return false;
+  }
+
+  if (verbose)
+    output << m_endpoint.GetPrefixName() << " listening on: " << setfill(',') << m_endpoint.GetListeners() << setfill(' ') << '\n';
+
+  return true;
 }
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+
+MySIPEndPoint::MySIPEndPoint(MyManager & manager)
+  : SIPEndPoint(manager)
+  , MyRTPEndPoint(manager, this)
+{
+  cout << "MySIPEndPoint" << endl;
+}
+
 
 void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
 {
-  PTime time;
   SIPEndPoint::OnRegistrationStatus(status);
-  PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() " << status.m_reason << " | " << status.m_userData);
-  if (status.m_userData) {
-    ofstream sipRegResultFile;
-    PString *outFilePString = (PString*) status.m_userData;
-    string outFile = *outFilePString;
-    sipRegResultFile.open(outFile.c_str(),ios::out | ios::trunc);
-    if (sipRegResultFile.is_open()) {
-      sipRegResultFile << status.m_reason << endl;
-      sipRegResultFile << status.m_addressofRecord << endl;
-      sipRegResultFile << time.AsString(PTime::LongISO8601) << endl;
-      sipRegResultFile << (status.m_reRegistering ? "Renewed registration" : "Initial registration") << endl;
-      sipRegResultFile << status.m_productInfo.AsString() << endl;
-      sipRegResultFile.close();
-      PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() file " << outFile << " written successfully");
-    }
-    else {
-      PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() open of " << outFile << " failed: " << strerror(errno));
-    }
-  }
-  else {
-    PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() No status.m_userData");
-  }
+
+  unsigned reasonClass = status.m_reason/100;
+  if (reasonClass == 1 || (status.m_reRegistering && reasonClass == 2))
+    return;
+
+   m_mgr.Broadcast(PSTRSTRM('\n' << status));
 }
 
-PBoolean MySIPEndPoint::Initialise(const PConfigArgs & args)
+
+bool MySIPEndPoint::DoRegistration(ostream & output,
+                                        bool verbose,
+                                        const PString & aor,
+                                        const PString & pwd,
+                                        const PArgList & args,
+                                        const char * authId,
+                                        const char * realm,
+                                        const char * proxy,
+                                        const char * mode,
+                                        const char * ttl)
 {
-  //bool retry403;
+  SIPRegister::Params params;
+  params.m_addressOfRecord  = aor;
+  params.m_password         = pwd;
+  params.m_authID           = args.GetOptionString(authId);
+  params.m_realm            = args.GetOptionString(realm);
+  params.m_proxyAddress     = args.GetOptionString(proxy);
 
-  if (args.HasOption("sip-audio")) {
-    PStringStream s;
-
-    s << setfill(',') << args.GetOptionString("sip-audio").Lines();
-
-    defaultStringOptions.SetAt("Enable-Audio", s);
+  PCaselessString str = args.GetOptionString(mode);
+  if (str == "normal")
+    params.m_compatibility = SIPRegister::e_FullyCompliant;
+  else if (str == "single")
+    params.m_compatibility = SIPRegister::e_CannotRegisterMultipleContacts;
+  else if (str == "public")
+    params.m_compatibility = SIPRegister::e_CannotRegisterPrivateContacts;
+  else if (str == "ALG")
+    params.m_compatibility = SIPRegister::e_HasApplicationLayerGateway;
+  else if (str == "RFC5626")
+    params.m_compatibility = SIPRegister::e_RFC5626;
+  else if (!str.IsEmpty()) {
+    output << "Unknown SIP registration mode \"" << str << '"' << endl;
+    return false;
   }
 
-  if (args.HasOption("sip-disable-t38-mode"))
-    defaultStringOptions.SetAt("Disable-T38-Mode", "true");
-
-  defaultStringOptions.SetAt("T38-UDPTL-Redundancy-Interval", "50");
-  defaultStringOptions.SetAt("T38-UDPTL-Optimise-On-Retransmit", "true");
-
-  defaultStringOptions.SetAt("T38-UDPTL-Redundancy",
-                             args.HasOption("sip-t38-udptl-redundancy")
-                             ? args.GetOptionString("sip-t38-udptl-redundancy")
-                             : "");
-
-  defaultStringOptions.SetAt("T38-UDPTL-Keep-Alive-Interval",
-                             args.HasOption("sip-t38-udptl-keep-alive-interval")
-                             ? args.GetOptionString("sip-t38-udptl-keep-alive-interval")
-                             : "0");
-
-  if ( (args.HasOption("sip-t38-max-datagram")) || (args.HasOption("sip-t38-max-buffer")) ) {
-    OpalMediaFormat t38 = OpalT38;
-
-    if (args.HasOption("sip-t38-max-datagram")) {
-      t38.SetOptionInteger("T38FaxMaxDatagram", args.GetOptionString("sip-t38-max-datagram").AsInteger());
-      PTRACE(2, "MySIPEndPoint::Initialise Set T38FaxMaxDatagram to " << args.GetOptionString("sip-t38-max-datagram"));
-    }
-
-    if (args.HasOption("sip-t38-max-buffer")) {
-      t38.SetOptionInteger("T38FaxMaxBuffer", args.GetOptionString("sip-t38-max-buffer").AsInteger());
-      PTRACE(2, "MySIPEndPoint::Initialise Set T38FaxMaxBuffer to " << args.GetOptionString("sip-t38-max-buffer"));
-    }
-
-    OpalMediaFormat::SetRegisteredMediaFormat(t38);
+  params.m_expire = args.GetOptionAs(ttl, 300);
+  if (params.m_expire < 30) {
+    output << "SIP registrar Time To Live must be more than 30 seconds\n";
+    return false;
   }
 
-  if (!args.HasOption("sip-no-listen")) {
-    PStringArray listeners;
+  if (verbose)
+    output << "SIP registrar: " << flush;
 
-    if (args.HasOption("sip-listen"))
-      listeners = args.GetOptionString("sip-listen").Lines();
-    else
-      listeners = GetDefaultListeners();
-
-    if (!StartListeners(listeners)) {
-      cerr << "Could not open any SIP listener from "
-           << setfill(',') << listeners << endl;
-      return FALSE;
-    }
-
-    cout << "Waiting for incoming SIP calls from "
-         << setfill(',') << listeners << endl;
+  PString finalAoR;
+  SIP_PDU::StatusCodes status;
+  if (!Register(params, finalAoR, &status)) {
+    output << "\nSIP registration to " << params.m_addressOfRecord
+            << " failed (" << status << ')' << endl;
+    return false;
   }
 
-  if (args.HasOption("sip-proxy"))
-    SetProxy(args.GetOptionString("sip-proxy"));
+  if (verbose)
+    output << finalAoR << endl;
 
-  //if (args.HasOption("sip-retry-403-forbidden"))
-  //  retry403=true;
-  //else
-  //  retry403=false;
-
-  if (args.HasOption("sip-register")) {
-    PString r = args.GetOptionString("sip-register");
-    PStringArray regs = r.Tokenise("\r\n", FALSE);
-
-    for (PINDEX i = 0 ; i < regs.GetSize() ; i++) {
-      PStringArray prms = regs[i].Tokenise(",", TRUE);
-
-      PAssert(prms.GetSize() >= 1, "empty registration information");
-
-      if (prms.GetSize() >= 1) {
-        SIPRegister::Params params;
-
-        params.m_expire = 300;
-
-        //params.m_retry403 = retry403;
-        
-        PString user;
-        PINDEX atLoc = prms[0].Find('@');
-        if (atLoc != P_MAX_INDEX) {
-          user = prms[0].Left(atLoc);
-          params.m_registrarAddress = prms[0].Right(prms[0].GetLength()-atLoc-1);
-        }
-        else {
-          user = "";
-          params.m_registrarAddress = prms[0];
-        }
-
-        params.m_addressOfRecord = user;
-
-        if (prms.GetSize() >= 2) {
-          params.m_password = prms[1];
-
-          if (prms.GetSize() >= 3) {
-            params.m_contactAddress = prms[2];
-
-            if (prms.GetSize() >= 4) {
-              params.m_realm = prms[3];
-              // If given a realm, change AOR to use it
-              if (params.m_realm.GetLength()) {
-                params.m_addressOfRecord = user+ '@' + params.m_realm;
-              }
-
-              if (prms.GetSize() >= 5) {
-                params.m_authID = prms[4];
-
-                if (prms.GetSize() >= 6) {
-                  params.m_expire = prms[5].AsInteger();
-
-                  if (prms.GetSize() >= 7) {
-                    if (prms[6] == "NoMulti") {
-                      params.m_compatibility = SIPRegister::e_CannotRegisterMultipleContacts;
-                    } else if (prms[6] == "NoPrivate") {
-                      params.m_compatibility = SIPRegister::e_CannotRegisterPrivateContacts;
-                    } else {
-                      params.m_compatibility = SIPRegister::e_FullyCompliant;
-                    }
-
-                    if (prms.GetSize() >= 8) {
-                      PString *pps = new PString();
-                      *pps = prms[7];
-                      params.m_userData = pps;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        if (!Register(params, regs[i])) {
-          cerr << "Could not start SIP registration to " << params.m_addressOfRecord << endl;
-          return FALSE;
-        }
-      }
-    }
-  }
-
-  return TRUE;
+  return true;
 }
 
-SIPConnection * MySIPEndPoint::CreateConnection(
-    const SIPConnection::Init & init)
+PString MySIPEndPoint::GetArgumentSpec()
 {
-  PTRACE(2, "MySIPEndPoint::CreateConnection for " << init.m_call);
-
-  MySIPConnection * connection = new MySIPConnection(init);
-
-  PTRACE(6, "MySIPEndPoint::CreateConnection new " << connection->GetClass() << ' ' << (void *)connection);
-
-  OpalConnection::StringOptions newOptions;
-
-  for (PINDEX i = 0 ; i < defaultStringOptions.GetSize() ; i++) {
-    if (!connection->GetStringOptions().Contains(defaultStringOptions.GetKeyAt(i)))
-      newOptions.SetAt(defaultStringOptions.GetKeyAt(i), defaultStringOptions.GetDataAt(i));
-  }
-
-  connection->SetStringOptions(newOptions, false);
-
-  return connection;
+  return "[SIP options:]"
+          "-no-sip.           Disable SIP\n"
+          "S-sip:             Listen on interface(s), defaults to udp$*:5060.\n"
+          + MyRTPEndPoint::GetArgumentSpec() +
+          "r-register:        Registration to server.\n"
+          "-register-auth-id: Registration authorisation id, default is username.\n"
+          "-register-realm:   Registration authorisation realm, default is any.\n"
+          "-register-proxy:   Registration proxy, default is none.\n"
+          "-register-ttl:     Registration Time To Live, default 300 seconds.\n"
+          "-register-mode:    Registration mode (normal, single, public, ALG, RFC5626).\n"
+          "-proxy:            Outbound proxy.\n";
 }
-/////////////////////////////////////////////////////////////////////////////
-PBoolean MySIPConnection::SetUpConnection()
+
+
+bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & defaultRoute)
 {
-  PTRACE(2, "MySIPConnection::SetUpConnection " << *this << " name=" << GetLocalPartyName());
+  MyManager::LockedStream lockedOutput(m_mgr);
+  ostream & output = lockedOutput;
 
-  PSafePtr<OpalConnection> conn = GetCall().GetConnection(0);
-
-  if (conn != NULL && conn != this) {
-    // Set the calling number of an outgoing connection
-
-    PString name = conn->GetRemotePartyNumber();
-
-    if (!name.IsEmpty() && name != "*") {
-      SetLocalPartyName(name);
-
-      PTRACE(1, "MySIPConnection::SetUpConnection new name=" << GetLocalPartyName());
-    }
+  // Set up SIP
+  if (args.HasOption("no-sip")) {
+    if (verbose)
+      output << "SIP protocol disabled.\n";
+    return true;
   }
 
-  return SIPConnection::SetUpConnection();
-}
+  if (!MyRTPEndPoint::Initialise(args, output, verbose))
+    return false;
 
-void MySIPConnection::OnApplyStringOptions()
-{
-  SIPConnection::OnApplyStringOptions();
-#if 0
-  if (LockReadWrite()) {
-    mediaFormatList = OpalMediaFormatList();
-
-    if (GetStringOptions().Contains("Enable-Audio")) {
-      const PStringArray wildcards = GetStringOptions()("Enable-Audio").Tokenise(",", FALSE);
-      OpalMediaFormatList list = m_endpoint.GetMediaFormats();
-
-      for (PINDEX w = 0 ; w < wildcards.GetSize() ; w++) {
-        OpalMediaFormatList::const_iterator f;
-
-        while ((f = list.FindFormat(wildcards[w], f)) != list.end()) {
-          if (f->GetMediaType() == OpalMediaType::Audio() && f->IsValidForProtocol("sip") && f->IsTransportable())
-             mediaFormatList += *f;
-
-          if (++f == list.end())
-            break;
-        }
-      }
-    } else {
-      mediaFormatList += OpalG711_ULAW_64K;
-      mediaFormatList += OpalG711_ALAW_64K;
-    }
-
-    if (GetStringOptions().GetBoolean("Disable-T38-Mode")) {
-      PTRACE(3, "MySIPConnection::OnApplyStringOptions: Disable-T38-Mode=true");
-    } else {
-      mediaFormatList += OpalT38;
-    }
-
-    mediaFormatList += OpalRFC2833;
-    mediaFormatList += OpalCiscoNSE;
-
-    PTRACE(4, "MySIPConnection::OnApplyStringOptions Enabled formats (in preference order):\n"
-           << setfill('\n') << mediaFormatList << setfill(' '));
-
-    UnlockReadWrite();
-  }
-#endif
-}
-
-bool MySIPConnection::SwitchFaxMediaStreams(bool enableFax)
-{
-  PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << (enableFax ? "fax" : "audio"));
-
-#if 0
-  bool res = false;
-
-  if (!enableFax) {
-    OpalMediaFormatList::iterator i = mediaFormatList.begin();
-
-    while (i != mediaFormatList.end()) {
-      if (i->GetMediaType() != OpalMediaType::Audio() || *i == OpalG711_ULAW_64K || *i == OpalG711_ALAW_64K)
-        ++i;
-      else
-        mediaFormatList -= *i++;
-    }
+  if (args.HasOption("proxy")) {
+    SetProxy(args.GetOptionString("proxy"), args.GetOptionString("user"), args.GetOptionString("password"));
+    if (verbose)
+      output << "SIP proxy: " << GetProxy() << '\n';
   }
 
-  OpalMediaFormatList mediaFormats = GetMediaFormats();
-  AdjustMediaFormats(true, NULL, mediaFormats);
-
-  PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams:\n" << setfill('\n') << mediaFormats << setfill(' '));
-
-  const OpalMediaType &mediaType = enableFax ? OpalMediaType::Fax() : OpalMediaType::Audio();
-
-  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-    if (mediaFormats[i].GetMediaType() == mediaType) {
-      res = SIPConnection::SwitchFaxMediaStreams(switchingToFaxMode = enableFax);
-      break;
-    }
+  output << args << endl;
+  if (args.HasOption("register")) {
+    output << "Register\n";
+    if (!DoRegistration(output, verbose,
+                        args.GetOptionString("register"),
+                        args.GetOptionString("password"),
+                        args,
+                        "register-auth-id",
+                        "register-realm",
+                        "register-proxy",
+                        "register-mode",
+                        "register-ttl"))
+      return false;
   }
 
-  PTRACE(3, "MySIPConnection::SwitchFaxMediaStreams: " << (res ? "OK" : "FAIL"));
-  return res;
-#endif
-  return SIPConnection::SwitchFaxMediaStreams(enableFax);
+  AddRoutesFor(this, defaultRoute);
+  return true;
 }
 
-void MySIPConnection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
-{
-  PTRACE(3, "MySIPConnection::OnSwitchedFaxMediaStreams: "
-         << (success ? "succeeded" : "NOT ") << "switched to "
-         << (toT38 ? "T.38" : "audio"));
-
-  SIPConnection::OnSwitchedFaxMediaStreams(toT38, success);
-
-#if 0
-  if (toT38 && !success) {
-      PTRACE(3, "MySIPConnection::OnSwitchedFaxMediaStreams: fallback to audio");
-      mediaFormatList -= OpalT38;
-      SwitchFaxMediaStreams(false);
-  }
-#endif
-}
-
-PBoolean MySIPConnection::OnOpenMediaStream(OpalMediaStream & stream)
-{
-  PTRACE(4, "MySIPConnection::OnOpenMediaStream: " << stream);
-
-  //OpalRTP_Session *session = GetSession(stream.GetSessionID());
-
-  //if (session)
-  //  OpalRTP_Session::EncodingLock(*session)->ApplyStringOptions(GetStringOptions());
-
-  return SIPConnection::OnOpenMediaStream(stream);
-}
-
-OpalMediaFormatList MySIPConnection::GetMediaFormats() const
-{
-  OpalMediaFormatList mediaFormats = SIPConnection::GetMediaFormats();
-
-  PTRACE(4, "MySIPConnection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
-
-#if 0
-  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-    PBoolean found = FALSE;
-
-    for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
-      if (mediaFormats[i] == mediaFormatList[j]) {
-        found = TRUE;
-        break;
-      }
-    }
-
-    if (!found) {
-      PTRACE(3, "MySIPConnection::GetMediaFormats Remove " << mediaFormats[i]);
-      mediaFormats -= mediaFormats[i];
-      i--;
-    }
-  }
-
-  PTRACE(4, "MySIPConnection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
-#endif
-
-  return mediaFormats;
-}
-
-OpalMediaFormatList MySIPConnection::GetLocalMediaFormats()
-{
-  OpalMediaFormatList mediaFormats = SIPConnection::GetLocalMediaFormats();
-
-  PTRACE(4, "MySIPConnection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
-#if 0
-  for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-    PBoolean found = FALSE;
-
-    for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++) {
-      if (mediaFormats[i] == mediaFormatList[j]) {
-        found = TRUE;
-        break;
-      }
-    }
-
-    if (!found) {
-      PTRACE(3, "MySIPConnection::GetLocalMediaFormats Remove " << mediaFormats[i]);
-      mediaFormats -= mediaFormats[i];
-      i--;
-    }
-  }
-
-  PTRACE(4, "MySIPConnection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
-
-#endif
-  return mediaFormats;
-}
-
-void MySIPConnection::AdjustMediaFormats(
-    bool local,
-    OpalConnection * otherConnection,
-    OpalMediaFormatList & mediaFormats) const
-{
-  PTRACE(4, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
-
-  SIPConnection::AdjustMediaFormats(local, otherConnection, mediaFormats);
-
-#if 0
-  if (local) {
-    PStringArray order;
-
-    for (PINDEX j = 0 ; j < mediaFormatList.GetSize() ; j++)
-      order += mediaFormatList[j].GetName();
-
-    mediaFormats.Reorder(order);
-
-    PTRACE(4, "MySIPConnection::AdjustMediaFormats: reordered");
-  }
-
-  PTRACE(4, "MySIPConnection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
-#endif
-}
 /////////////////////////////////////////////////////////////////////////////
 #endif // OPAL_SIP
 /////////////////////////////////////////////////////////////////////////////

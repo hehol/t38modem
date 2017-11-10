@@ -469,7 +469,7 @@ void ModStream::Move(ModStream &from)
 }
 ///////////////////////////////////////////////////////////////
 MODPARS::MODPARS(int _val, unsigned _ind, int _lenInd, unsigned _msgType, int _br)
-      : dataType(EngineBase::dtNone), dataTypeT38(EngineBase::dtNone),
+      : dataType(EngineBase::dtCed), dataTypeT38(EngineBase::dtCed),
         val(_val), ind(_ind), lenInd(_lenInd),
         msgType(_msgType), br(_br)
 {

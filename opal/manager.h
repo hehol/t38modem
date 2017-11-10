@@ -53,17 +53,81 @@
 #include <opal/manager.h>
 
 /////////////////////////////////////////////////////////////////////////////
+/**Create a process for OpalManagerConsole based applications.
+  */
+template <class Manager,                   ///< Class of OpalManagerConsole derived class
+          const char Manuf[],              ///< Name of manufacturer
+          const char Name[],               ///< Name of product
+          unsigned MajorVersion = OPAL_MAJOR,  ///< Major version number of the product
+          unsigned MinorVersion = OPAL_MINOR,  ///< Minor version number of the product
+          PProcess::CodeStatus Status = PProcess::ReleaseCode, ///< Development status of the product
+          unsigned BuildNumber = OPAL_BUILD,   ///< Build number of the product
+          bool Verbose = true>
+
+class MyManagerProcess : public PProcess
+{
+    PCLASSINFO(MyManagerProcess, PProcess)
+  public:
+    MyManagerProcess()
+      : PProcess(Manuf, Name, MajorVersion, MinorVersion, Status, BuildNumber)
+      , m_manager(NULL)
+    {
+    }
+
+    ~MyManagerProcess()
+    {
+      delete this->m_manager;
+    }
+
+    virtual void Main()
+    {
+      this->SetTerminationValue(1);
+      this->m_manager = new Manager;
+      if (this->m_manager->Initialise(this->GetArguments(), Verbose)) {
+        this->SetTerminationValue(0);
+        this->m_manager->Run();
+      }
+    }
+
+    virtual bool OnInterrupt(bool)
+    {
+      if (this->m_manager == NULL)
+        return false;
+
+      this->m_manager->EndRun(true);
+      return true;
+    }
+
+  private:
+    Manager * m_manager;
+};
+
+
+/////////////////////////////////////////////////////////////////////////////
+
+class MyManagerEndPoint;
+
 class MyManager : public OpalManager
 {
   PCLASSINFO(MyManager, OpalManager);
 
   public:
-    MyManager();
+    MyManager()
+    //  : m_endpointPrefixes(PConstString(endpointPrefixes).Tokenise(" \t\n"))
+      : m_interrupted(false)
+      , m_verbose(false)
+      , m_outputStream(&cout)
+    {
+        cout << "MyManager" << endl;
+    }
 
-    static PString ArgSpec();
-    static PStringArray Descriptions();
-    static PStringArray Descriptions(const PConfigArgs & args);
-    PBoolean Initialise(const PConfigArgs & args);
+    virtual PString GetArgumentSpec();
+    virtual void Usage(ostream & strm, const PArgList & args);
+    virtual bool PreInitialise(PArgList & args, bool verbose = false);
+    virtual bool Initialise(PArgList & args, bool verbose, const PString & defaultRoute = PString::Empty());
+    virtual void Run();
+    virtual void EndRun(bool interrupt = false);
+    virtual void Broadcast(const PString & msg);
 
     virtual bool OnRouteConnection(
       PStringSet & routesTried,     ///< Set of routes already tried
@@ -80,8 +144,72 @@ class MyManager : public OpalManager
     virtual void OnClosedMediaStream(const OpalMediaStream & stream);
 
     virtual PString ApplyRouteTable(const PString & proto, const PString & addr, PINDEX & entry);
+
+    class LockedStream : PWaitAndSignal
+    {
+      protected:
+        ostream & m_stream;
+      public:
+        LockedStream(const MyManager & mgr)
+          : PWaitAndSignal(mgr.m_outputMutex)
+          , m_stream(*mgr.m_outputStream)
+        {
+        }
+
+        ostream & operator *() const { return m_stream; }
+        operator  ostream & () const { return m_stream; }
+    };
+    friend class LockedStream;
+    __inline LockedStream LockedOutput() const { return *this; }
+
+  protected:
+    PMutex              m_outputMutex;
+    PSimpleTimer        m_competionTimeout;
+    bool                m_showProgress;
+    PSyncPoint          m_endRun;
+    PStringArray        m_endpointPrefixes;
+    bool                m_interrupted;
+    bool                m_verbose;
+    ostream           * m_outputStream;
+    MyManagerEndPoint * epSIP;
+    MyManagerEndPoint * epFAX;
 };
 /////////////////////////////////////////////////////////////////////////////
+
+/**This class allows for each end point class, e.g. SIPEndPoint, to add it's
+   set of parameters/commands to to the console application.
+  */
+class MyManagerEndPoint
+{
+protected:
+  MyManagerEndPoint(MyManager & manager) : m_mgr(manager) { cout << "MyManagerEndPoint" << endl; }
+
+  void AddRoutesFor(const OpalEndPoint * endpoint, const PString & defaultRoute)
+    {
+      if (defaultRoute.IsEmpty())
+        return;
+    
+      PStringList prefixes = m_mgr.GetPrefixNames(endpoint);
+    
+      for (PINDEX i = 0; i < prefixes.GetSize(); ++i)
+        m_mgr.AddRouteEntry(prefixes[i] + ":.* = " + defaultRoute);
+    }
+
+
+public:
+  virtual ~MyManagerEndPoint() { }
+  enum InitResult {
+    InitFailed,
+    InitDisabled,
+    InitSuccess
+  };
+  virtual bool Initialise(PArgList & args, bool verbose, const PString & defaultRoute) = 0;
+
+protected:
+  MyManager & m_mgr;
+};
+
+
 
 #endif  // _PM_MANAGER_H
 

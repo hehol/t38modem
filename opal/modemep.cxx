@@ -249,26 +249,28 @@ static ostream & operator<<(ostream & out, ModemConnection::PseudoModemMode mode
 /////////////////////////////////////////////////////////////////////////////
 PStringToString ModemEndPoint::defaultStringOptions;
 
-ModemEndPoint::ModemEndPoint(OpalManager & mgr, const char * g711Prefix, const char * t38Prefix)
+ModemEndPoint::ModemEndPoint(MyManager & mgr, const char * g711Prefix, const char * t38Prefix)
   : OpalFaxEndPoint(mgr, g711Prefix, t38Prefix)
+  , MyManagerEndPoint(mgr)
 {
   myPTRACE(1, "ModemEndPoint::ModemEndPoint");
 
   pmodem_pool = new PseudoModemQ();
 }
 
-PString ModemEndPoint::ArgSpec()
+PString ModemEndPoint::GetArgumentSpec()
 {
-  return
+  return 
     PseudoModemDrivers::ArgSpec() +
-    "-no-modem."
-    "p-ptty:"
-    "-force-fax-mode."
-    "-force-fax-mode-delay:"
-    "-no-force-t38-mode."
-  ;
+    "[Modem Options:]"
+    "-no-modem.              Disable MODEM protocol.\n"
+    "-ptty:                  Pseudo ttys. Can be used multiple times.\n"
+    "-force-fax-mode.        Use OPAL-Force-Fax-Mode=true route option by defalt\n"
+    "-force-fax-mode-delay:  Number of seconds to delay Force Fax Mode.\n"
+    "-no-force-t38-mode.     Use OPAL-No-Force-T38-Mode=true route option by default\n";
 }
 
+#if 0
 PStringArray ModemEndPoint::Descriptions()
 {
   PStringArray descriptions = PString(
@@ -318,21 +320,9 @@ PStringArray ModemEndPoint::Descriptions(const PConfigArgs & /*args*/)
 
   return descriptions;
 }
+#endif
 
-PBoolean ModemEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
-{
-  if (args.HasOption("no-modem")) {
-    cout << "Disabled MODEM protocol" << endl;
-    return TRUE;
-  }
-
-  if ((new ModemEndPoint(mgr))->Initialise(args))
-    return TRUE;
-
-  return FALSE;
-}
-
-PBoolean ModemEndPoint::Initialise(const PConfigArgs & args)
+bool ModemEndPoint::Initialise(PArgList & args, bool verbose, const PString & defaultRoute)
 {
   if (args.HasOption("ptty")) {
     PString tty = args.GetOptionString("ptty");
@@ -685,7 +675,7 @@ OpalMediaStream * ModemConnection::CreateMediaStream(
         return new T38ModemMediaStream(*this, sessionID, isSource, t38engine);
     }
   }
-#if 0
+#if 1
   return new OpalNullMediaStream(*this, mediaFormat, sessionID, isSource, isSource, true);
 #else
   else
