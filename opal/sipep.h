@@ -93,7 +93,8 @@ public:
                       const char * realm,
                       const char * proxy,
                       const char * mode,
-                      const char * ttl);
+                      const char * ttl,
+                      const char * resultFile);
 };
 
 /////////////////////////////////////////////////////////////////////////////

@@ -108,6 +108,7 @@ class ModemEndPoint : public OpalFaxEndPoint, public MyManagerEndPoint
 
   protected:
     PseudoModemQ *pmodem_pool;
+    PString m_prefix;
 
     PDECLARE_NOTIFIER(PObject, ModemEndPoint, OnMyCallback);
 };

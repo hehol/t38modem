@@ -445,14 +445,13 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
 
   PString prefix = args.HasOption('a') && !args.HasOption('A') ?  "fax" : "t38";
 
+  AddRouteEntry(prefix + ":.*([0-9]{1,3}\\*){3,5}[0-9]{1,3}.*=sip:<dn2ip>");
+  AddRouteEntry(prefix + ":.*=sip:<dn>@10.196.238.132");
+  AddRouteEntry("sip:.*\\t.*=" + prefix + ":<dn>;receive");
+ 
   bool quiet = args.HasOption('q');
   if (quiet)
     output.rdbuf(NULL);
-
-#if 0
-  if (!OpalManagerConsole::Initialise(args, !quiet, prefix + ":" + args[0] + ";receive"))
-    return false;
-#endif
 
   if (args.HasOption("user")) {
     SetDefaultUserName(args.GetOptionString("user"));
@@ -464,11 +463,13 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
     output << '\n';
   }
 
+#if 0
   {
     OpalMediaType::AutoStartMap autoStart;
     if (autoStart.Add(args.GetOptionString("auto-start")))
       autoStart.SetGlobalAutoStart();
   }
+#endif
 
   if (args.HasOption("jitter")) {
     PStringArray params = args.GetOptionString("jitter").Tokenise("-,:",true);
@@ -623,10 +624,6 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   epSIP->Initialise(args,verbose,"");
   epFAX->Initialise(args,verbose,"");
 
-  AddRouteEntry("t38:.*([0-9]{1,3}\\*){3,5}[0-9]{1,3}.*=sip:<dn2ip>");
-  AddRouteEntry("t38:.*=sip:<dn>@10.196.238.132");
-  AddRouteEntry("sip:.*\\t.*=t38:<dn>;receive");
-
   if (verbose)
     output << "---------------------------------\n";
 
@@ -717,6 +714,14 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   SetDefaultConnectionOptions(stringOptions);
 
   m_showProgress = args.HasOption('v');
+
+  cout << "Route table:" << endl;
+
+  const RouteTable &routeTable = GetRouteTable();
+
+  for (PINDEX i=0 ; i < routeTable.GetSize() ; i++) {
+    cout << "  " << routeTable[i].GetPartyA() << "," << routeTable[i].GetPartyB() << "=" << routeTable[i].GetDestination() << endl;
+  }
 
   return true;
 }

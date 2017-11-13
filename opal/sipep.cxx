@@ -252,7 +252,31 @@ MySIPEndPoint::MySIPEndPoint(MyManager & manager)
 
 void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
 {
+  PTime time;
   SIPEndPoint::OnRegistrationStatus(status);
+  PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() " << status.m_reason << " | " << status.m_userData);
+  if (status.m_userData) {
+    ofstream sipRegResultFile;
+    PString *outFilePString = (PString*) status.m_userData;
+    string outFile = *outFilePString;
+    sipRegResultFile.open(outFile.c_str(),ios::out | ios::trunc);
+    if (sipRegResultFile.is_open()) {
+      sipRegResultFile << status.m_reason << endl; 
+      sipRegResultFile << status.m_addressofRecord << endl; 
+      sipRegResultFile << time.AsString(PTime::LongISO8601) << endl;
+      sipRegResultFile << (status.m_reRegistering ? "Renewed registration" : "Initial registration") << endl;
+      sipRegResultFile << status.m_productInfo.AsString() << endl;
+      sipRegResultFile.close();
+      PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() file " << outFile << " written successfully");
+    }
+    else {
+      PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() open of " << outFile << " failed: " << strerror(errno));
+    }
+  }
+  else {
+    PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() No status.m_userData");
+  }
+
 
   unsigned reasonClass = status.m_reason/100;
   if (reasonClass == 1 || (status.m_reRegistering && reasonClass == 2))
@@ -271,7 +295,8 @@ bool MySIPEndPoint::DoRegistration(ostream & output,
                                         const char * realm,
                                         const char * proxy,
                                         const char * mode,
-                                        const char * ttl)
+                                        const char * ttl,
+                                        const char * resultFile)
 {
   SIPRegister::Params params;
   params.m_addressOfRecord  = aor;
@@ -302,6 +327,8 @@ bool MySIPEndPoint::DoRegistration(ostream & output,
     return false;
   }
 
+  params.m_userData = new PString(args.GetOptionString(resultFile));
+
   if (verbose)
     output << "SIP registrar: " << flush;
 
@@ -331,6 +358,7 @@ PString MySIPEndPoint::GetArgumentSpec()
           "-register-proxy:   Registration proxy, default is none.\n"
           "-register-ttl:     Registration Time To Live, default 300 seconds.\n"
           "-register-mode:    Registration mode (normal, single, public, ALG, RFC5626).\n"
+          "-register-result:  Filename for registration result.\n"
           "-proxy:            Outbound proxy.\n";
 }
 
@@ -367,7 +395,8 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
                         "register-realm",
                         "register-proxy",
                         "register-mode",
-                        "register-ttl"))
+                        "register-ttl",
+                        "register-result"))
       return false;
   }
 
