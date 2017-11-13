@@ -32,18 +32,6 @@ https://github.com/PeteDavidson/t38modem
 2.1. Building for Unix
 ----------------------
 
-Building with Open H323 Library:
-
-  $ export PWLIBDIR=$path_to_libs/pwlib
-  $ export OPENH323DIR=$path_to_libs/openh323
-  $ make NO_PBOOLEAN=1 opt
-
-Building with H323 Plus Library:
-
-  $ export PTLIBDIR=$path_to_libs/ptlib
-  $ export OPENH323DIR=$path_to_libs/h323plus
-  $ make opt
-
 Building with Open Phone Abstraction Library (OPAL):
 
   $ export PTLIBDIR=$path_to_libs/ptlib
@@ -52,18 +40,6 @@ Building with Open Phone Abstraction Library (OPAL):
 
 2.2. Building for Windows
 -------------------------
-
-Building with Open H323 Library:
-
-  Start Microsoft Visual C++ 2005 with h323lib\t38modem_openh323_2005.vcproj file.
-  Set Active Configuration to "t38modem - Win32 Release".
-  Build t38modem.exe.
-
-Building with H323 Plus Library:
-
-  Start Microsoft Visual C++ 2005 with h323lib\t38modem_2005.vcproj file.
-  Set Active Configuration to "t38modem - Win32 Release".
-  Build t38modem.exe.
 
 Building with Open Phone Abstraction Library (OPAL):
 

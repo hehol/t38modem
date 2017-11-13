@@ -73,81 +73,11 @@
 #include <asn/t38.h>
 #include <opal/patch.h>
 
-#include "../audio.h"
 #include "../t38engine.h"
 #include "modemstrm.h"
 
 #define new PNEW
 
-/////////////////////////////////////////////////////////////////////////////
-AudioModemMediaStream::AudioModemMediaStream(
-    OpalConnection & conn,
-    unsigned sessionID,
-    PBoolean isSource,
-    AudioEngine *engine)
-  : OpalMediaStream(conn, OpalPCM16, sessionID, isSource)
-  , audioEngine(engine)
-{
-  PTRACE(4, "AudioModemMediaStream::AudioModemMediaStream " << *this);
-
-  PAssert(audioEngine != NULL, "audioEngine is NULL");
-}
-
-AudioModemMediaStream::~AudioModemMediaStream()
-{
-  ReferenceObject::DelPointer(audioEngine);
-}
-
-PBoolean AudioModemMediaStream::Open()
-{
-  if (m_isOpen)
-    return TRUE;
-
-  PTRACE(3, "AudioModemMediaStream::Open " << *this);
-
-  if (IsSink())
-    audioEngine->OpenIn(EngineBase::HOWNERIN(this));
-  else
-    audioEngine->OpenOut(EngineBase::HOWNEROUT(this));
-
-  return OpalMediaStream::Open();
-}
-
-void AudioModemMediaStream::InternalClose()
-{
-  if (m_isOpen) {
-    PTRACE(3, "AudioModemMediaStream::Close " << *this);
-
-    if (IsSink())
-      audioEngine->CloseIn(EngineBase::HOWNERIN(this));
-    else
-      audioEngine->CloseOut(EngineBase::HOWNEROUT(this));
-  }
-}
-
-PBoolean AudioModemMediaStream::ReadData(BYTE * data, PINDEX size, PINDEX & length)
-{
-  if (!m_isOpen || !audioEngine->Read(EngineBase::HOWNEROUT(this), data, size)) {
-    length = 0;
-    return false;
-  }
-
-  length = size;
-
-  return true;
-}
-
-PBoolean AudioModemMediaStream::WriteData(const BYTE * data, PINDEX length, PINDEX & written)
-{
-  if (!m_isOpen || !audioEngine->Write(EngineBase::HOWNERIN(this), data, length)) {
-    written = 0;
-    return false;
-  }
-
-  written = length;
-
-  return true;
-}
 /////////////////////////////////////////////////////////////////////////////
 T38ModemMediaStream::T38ModemMediaStream(
     OpalConnection & conn,

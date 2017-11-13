@@ -399,7 +399,6 @@
 #include "dle.h"
 #include "fcs.h"
 #include "t38engine.h"
-#include "audio.h"
 #include "version.h"
 
 ///////////////////////////////////////////////////////////////
@@ -1130,18 +1129,6 @@ T38Engine *ModemEngine::NewPtrT38Engine() const
   return (T38Engine *)engine;
 }
 
-AudioEngine *ModemEngine::NewPtrAudioEngine() const
-{
-  if (!body)
-    return NULL;
-
-  EngineBase *engine = body->NewPtrEngine(mceAudio);
-
-  PAssert(engine == NULL || PIsDescendant(engine, AudioEngine), PInvalidCast);
-
-  return (AudioEngine *)engine;
-}
-
 EngineBase *ModemEngine::NewPtrUserInputEngine() const
 {
   if (!body)
@@ -1540,9 +1527,6 @@ void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
 #endif
         engine = new T38Engine(parent.ptyName());
         break;
-      case mceAudio:
-        engine = new AudioEngine(parent.ptyName());
-        break;
       default:
         myPTRACE(1, parent.ptyName() << " ModemEngineBody::_AttachEngine Invalid mce " << mce);
         return;
@@ -1574,16 +1558,6 @@ void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
 
       if (state == stReqModeAckWait) {
         SetState(stReqModeAckHandle);
-        timeout.Stop();
-        parent.SignalDataReady();
-      }
-      break;
-    case mceAudio:
-      if (P.ModemClassId() == EngineBase::mcAudio)
-        currentClassEngine = activeEngines[mce];
-
-      if (state == stConnectHandle && subState == chWaitAudioEngine) {
-        SetSubState(chAudioEngineAttached);
         timeout.Stop();
         parent.SignalDataReady();
       }
@@ -4093,6 +4067,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
     case stConnectHandle:
       {
         switch(subState) {
+#if 0
           case chConnected:
             if (!activeEngines[mceAudio]) {
               SetSubState(chWaitAudioEngine);
@@ -4151,6 +4126,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               break;
             }
             SetSubState(chConnectionEstablished);
+#endif
           case chConnectionEstablished:
             if (callDirection == cdOutgoing && P.ModemClassId() == EngineBase::mcFax)
               SendOnIdle(EngineBase::dtCng);

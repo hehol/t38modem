@@ -134,15 +134,6 @@ T38Engine *PseudoModemBody::NewPtrT38Engine() const
   return engine->NewPtrT38Engine();
 }
 
-AudioEngine *PseudoModemBody::NewPtrAudioEngine() const
-{
-  PWaitAndSignal mutexWait(Mutex);
-  if (engine == NULL)
-    return NULL;
-
-  return engine->NewPtrAudioEngine();
-}
-
 EngineBase *PseudoModemBody::NewPtrUserInputEngine() const
 {
   PWaitAndSignal mutexWait(Mutex);

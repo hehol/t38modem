@@ -265,13 +265,8 @@
  */
 
 #include <ptlib.h>
-
-#ifdef USE_OPAL
-  #include <opal_config.h>
-  #include <asn/t38.h>
-#else
-  #include <t38.h>
-#endif
+#include <opal_config.h>
+#include <asn/t38.h>
 
 #include "t38engine.h"
 

@@ -300,9 +300,6 @@ PStringArray MyH323EndPoint::Descriptions(const PConfigArgs & args)
 {
   PStringArray descriptions;
 
-  if (args.HasOption("h323-audio-list"))
-    descriptions += FakeCodecs::GetAvailableAudioFormatsDescription("H.323", "h323");
-
   return descriptions;
 }
 
