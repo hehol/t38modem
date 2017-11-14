@@ -237,8 +237,7 @@ PString MyManager::GetArgumentSpec()
          "-rtp-max:          Set RTP port max (default base+199)\n"
          "-rtp-tos:          Set RTP packet IP TOS bits to n\n"
          "-rtp-size:         Set RTP maximum payload size in bytes.\n"
-         "-aud-qos:          Set Audio RTP Quality of Service to n\n"
-         "-vid-qos:          Set Video RTP Quality of Service to n\n"
+         "-aud-qos:          Set Audio RTP and T.38 Quality of Service to DSCP value or name (e.g. AF32)\rDefaults to ExpeditedForwarding (EF)\n"
          "[Debug & General:]"
 #if OPAL_STATISTICS
          "-statistics.       Output statistics periodically\n"
@@ -547,8 +546,14 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
     SetMediaTypeOfService(tos);
   }
 
-  if (args.HasOption("aud-qos"))
-    SetMediaQoS(OpalMediaType::Audio(), args.GetOptionString("aud-qos"));
+  if (args.HasOption("aud-qos")) {
+    output << "Audio QoS set to " << args.GetOptionString("aud-qos") << ".\n";
+    SetMediaQoS(OpalMediaType::Audio(), DSCP(args.GetOptionString("aud-qos")).String());
+  }
+  else {
+    // By default set the QoS for Audio and T.38 to Expedited Forwarding (EF)
+    SetMediaQoS(OpalMediaType::Audio(), DSCP("ExpeditedForwarding").String());
+  }
 
   if (args.HasOption("rtp-size")) {
     unsigned size = args.GetOptionString("rtp-size").AsUnsigned();
