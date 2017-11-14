@@ -352,6 +352,7 @@ PString MySIPEndPoint::GetArgumentSpec()
           "-no-sip.           Disable SIP\n"
           "S-sip:             Listen on interface(s), defaults to udp$*:5060.\n"
           + MyRTPEndPoint::GetArgumentSpec() +
+          "-sip-qos:          Set SIP Quality of Service to DSCP value or name.\n" 
           "r-register:        Registration to server.\n"
           "-register-auth-id: Registration authorisation id, default is username.\n"
           "-register-realm:   Registration authorisation realm, default is any.\n"
@@ -399,6 +400,16 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
                         "register-result"))
       return false;
   }
+
+  if (args.HasOption("sip-qos")) {
+    output << "SIP QoS set to " << args.GetOptionString("sip-qos") << ".\n";
+    SetMediaQoS(OpalMediaType::Audio(), args.GetOptionString("sip-qos"));
+  }
+  else {
+    // By default set the QoS for Audio and T.38 to Expedited Forwarding (EF)
+    SetMediaQoS(OpalMediaType::Audio(), PString("AF32"));
+  }
+
 
   AddRoutesFor(this, defaultRoute);
   return true;
