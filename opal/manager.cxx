@@ -104,7 +104,27 @@ extern const char Application[] = "T38Modem";
 typedef MyManagerProcess<MyManager, Manufacturer, Application> MyApp;
 PCREATE_PROCESS(MyApp);
 
-
+/////////////////////////////////////////////////////////////////////////////
+static PString GetListOfLibs()
+{
+  return
+    PString("OPAL-")
+    + PString(OPAL_VERSION)
+    + PString("/")
+    + OpalGetVersion()
+#ifdef PTLIB_VERSION
+    + PString(", PTLIB-")
+    + PString(PTLIB_VERSION)
+  #if PTLIB_MAJOR > 2 || (PTLIB_MAJOR == 2 && PTLIB_MINOR >= 6)
+    + PString("/")
+    + PProcess::GetLibVersion()
+  #endif
+#endif
+#ifdef PWLIB_VERSION
+    + PString(", PWLIB-") + PString(PWLIB_VERSION)
+#endif
+  ;
+}
 /////////////////////////////////////////////////////////////////////////////
 
 static bool SetMediaFormatOption(ostream & output, bool verbose, const PString & format, const PString & name, const PString & value)
@@ -420,6 +440,7 @@ bool MyManager::PreInitialise(PArgList & args, bool verbose)
 
 bool MyManager::Initialise(PArgList & args, bool verbose, const PString &defaultRoute)
 {
+  const PProcess & process = PProcess::Current();
 
   if (!PreInitialise(args, verbose))
     return false;
@@ -427,8 +448,15 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   LockedStream lockedOutput(*this);
   ostream & output = lockedOutput;
 
+  output << endl;
   PrintVersion(output);
+  output << endl;
 
+  PTRACE(1, process.GetName()
+      << " Version " << process.GetVersion(TRUE)
+      << " (" << GetListOfLibs() << ")"
+      << " on " << process.GetOSClass() << " " << process.GetOSName()
+      << " (" << process.GetOSVersion() << '-' << process.GetOSHardware() << ")");
 
   //if (!args.Parse(global + GetArgumentSpec() + sip + fax)) {
   //  Usage(output, args);
@@ -442,7 +470,9 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   }
 #endif
 
+  output << "args:" << endl;
   args.PrintOn(output);
+  output << endl;
   output << endl;
 
   static char const * FormatMask[] = { "!G.711*", "!@fax", "!@userinput" };
@@ -631,12 +661,6 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
                << setfill('\n') << interfaceTable << setfill(' ');
   }
 
-  epSIP = new MySIPEndPoint(*this);
-  epFAX = new ModemEndPoint(*this);
-
-  epSIP->Initialise(args,verbose,"");
-  epFAX->Initialise(args,verbose,"");
-
   if (verbose)
     output << "---------------------------------\n";
 
@@ -728,7 +752,16 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
 
   m_showProgress = args.HasOption('v');
 
-  cout << "Route table:" << endl;
+  output << "---------------------------------\n";
+
+  epSIP = new MySIPEndPoint(*this);
+  epFAX = new ModemEndPoint(*this);
+
+  epSIP->Initialise(args,verbose,"");
+  epFAX->Initialise(args,verbose,"");
+
+  output << "---------------------------------\n\n";
+  output << "Route table:" << endl;
 
   const RouteTable &routeTable = GetRouteTable();
 
@@ -893,7 +926,6 @@ void MyManager::Run()
   map<PString, OpalMediaStatistics> lastStatisticsByToken;
 #endif
 
-  *LockedOutput() << "Run..." << endl;
   while (!m_endRun.Wait(1000)) {
   }
 

@@ -152,7 +152,6 @@ MyRTPEndPoint::MyRTPEndPoint(MyManager & manager, OpalRTPEndPoint * endpoint)
   : MyManagerEndPoint(manager)
   , m_endpoint(*endpoint)
 {
-  cout << "MyRTPEndPoint" << endl;
 }
 
 
@@ -245,7 +244,6 @@ MySIPEndPoint::MySIPEndPoint(MyManager & manager)
   : SIPEndPoint(manager)
   , MyRTPEndPoint(manager, this)
 {
-  cout << "MySIPEndPoint" << endl;
 }
 
 
@@ -404,8 +402,6 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
     if (verbose)
       output << "SIP proxy: " << GetProxy() << '\n';
   }
-
-  output << args << endl;
 
   if (args.HasOption("register")) {
     output << "Register\n";

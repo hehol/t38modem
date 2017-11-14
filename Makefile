@@ -117,7 +117,7 @@
 
 PROG		= t38modem
 OBJECTS		:= pmutils.o dle.o pmodem.o pmodemi.o drivers.o \
-		   hdlc.o t30.o fcs.o \
+		   t30.o hdlc.o fcs.o \
 		   pmodeme.o enginebase.o t38engine.o \
 		   drv_pty.o \
 		   opal/opalutils.o \

@@ -51,17 +51,18 @@
 #define _PM_MANAGER_H
 
 #include <opal/manager.h>
+#include "../version.h"
 
 /////////////////////////////////////////////////////////////////////////////
 /**Create a process for OpalManagerConsole based applications.
   */
-template <class Manager,                   ///< Class of OpalManagerConsole derived class
-          const char Manuf[],              ///< Name of manufacturer
-          const char Name[],               ///< Name of product
-          unsigned MajorVersion = OPAL_MAJOR,  ///< Major version number of the product
-          unsigned MinorVersion = OPAL_MINOR,  ///< Minor version number of the product
-          PProcess::CodeStatus Status = PProcess::ReleaseCode, ///< Development status of the product
-          unsigned BuildNumber = OPAL_BUILD,   ///< Build number of the product
+template <class Manager,                          ///< Class of OpalManagerConsole derived class
+          const char Manuf[],                     ///< Name of manufacturer
+          const char Name[],                      ///< Name of product
+          unsigned MajorVersion = MAJOR_VERSION,  ///< Major version number of the product
+          unsigned MinorVersion = MINOR_VERSION,  ///< Minor version number of the product
+          PProcess::CodeStatus Status = BUILD_TYPE, ///< Development status of the product
+          unsigned BuildNumber = BUILD_NUMBER,    ///< Build number of the product
           bool Verbose = true>
 
 class MyManagerProcess : public PProcess
@@ -118,7 +119,6 @@ class MyManager : public OpalManager
       , m_verbose(false)
       , m_outputStream(&cout)
     {
-        cout << "MyManager" << endl;
     }
 
     virtual PString GetArgumentSpec();
@@ -182,7 +182,7 @@ class MyManager : public OpalManager
 class MyManagerEndPoint
 {
 protected:
-  MyManagerEndPoint(MyManager & manager) : m_mgr(manager) { cout << "MyManagerEndPoint" << endl; }
+  MyManagerEndPoint(MyManager & manager) : m_mgr(manager) { }
 
   void AddRoutesFor(const OpalEndPoint * endpoint, const PString & defaultRoute)
     {
