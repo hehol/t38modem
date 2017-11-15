@@ -110,7 +110,6 @@ ostream & operator<<(ostream & out, EngineBase::ModemClass modemClass)
 {
   switch (modemClass) {
     case EngineBase::mcUndefined:       return out << "mcUndefined";
-    case EngineBase::mcAudio:           return out << "mcAudio";
     case EngineBase::mcFax:             return out << "mcFax";
   }
 
@@ -392,14 +391,9 @@ void EngineBase::ChangeModemClass(ModemClass newModemClass)
 
 void EngineBase::OnChangeModemClass()
 {
-  if (modemClass == mcAudio) {
-    if (!recvUserInput)
-      recvUserInput = new DataStream(64);
-  } else {
-    if (recvUserInput) {
-      delete recvUserInput;
-      recvUserInput = NULL;
-    }
+  if (recvUserInput) {
+    delete recvUserInput;
+    recvUserInput = NULL;
   }
 
   myPTRACE(1, name << " OnChangeModemClass to " << modemClass);

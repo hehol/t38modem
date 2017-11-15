@@ -120,18 +120,11 @@ OBJECTS		:= pmutils.o dle.o pmodem.o pmodemi.o drivers.o \
 		   hdlc.o t30.o fcs.o \
 		   pmodeme.o enginebase.o t38engine.o \
 		   drv_pty.o \
-		   \
 		   opal/opalutils.o \
 		   opal/modemep.o opal/modemstrm.o \
 		   opal/h323ep.o \
 		   opal/sipep.o \
 		   opal/manager.o
-#Renamed SOURCES - no explicit rules
-#SOURCES	:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
-#		   t30tone.cxx tone_gen.cxx hdlc.cxx t30.cxx fcs.cxx \
-#		   pmodeme.cxx enginebase.cxx t38engine.cxx audio.cxx \
-#		   drv_pty.cxx \
-#		   main_process.cxx
 
 CPPFLAGS += `pkg-config --cflags opal`
 LDFLAGS  += `pkg-config --libs opal`

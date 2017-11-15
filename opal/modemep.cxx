@@ -660,7 +660,7 @@ OpalMediaFormatList ModemConnection::GetMediaFormats() const
 
 void ModemConnection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
 {
-  myPTRACE(1, "ModemConnection::OnSwitchedFaxMediaStreams toT38:" << toT38 << "success:" << success);
+  myPTRACE(1, "ModemConnection::OnSwitchedFaxMediaStreams toT38:" << toT38 << " success:" << success);
   if (success) {
     m_switchTimer.Stop(false);
     m_finalStatistics.m_fax.m_result = OpalMediaStatistics::FaxNotStarted;

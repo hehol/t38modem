@@ -142,7 +142,6 @@
 #include <sip/sipcon.h>
 
 #include "sipep.h"
-#include "fake_codecs.h"
 #include "manager.h"
 
 #define new PNEW

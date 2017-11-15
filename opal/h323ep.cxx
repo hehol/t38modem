@@ -132,7 +132,6 @@
 #include <h323/h323pdu.h>
 
 #include "h323ep.h"
-#include "fake_codecs.h"
 
 #define new PNEW
 
@@ -216,8 +215,6 @@ PString MyH323EndPoint::ArgSpec()
 {
   return
     "-no-h323."
-    "-h323-audio:"
-    "-h323-audio-list."
     "-h323-disable-t38-mode."
     "-h323-t38-udptl-redundancy:"
     "-h323-t38-udptl-keep-alive-interval:"
@@ -237,9 +234,6 @@ PStringArray MyH323EndPoint::Descriptions()
   PStringArray descriptions = PString(
       "H.323 options:\n"
       "  --no-h323                 : Disable H.323 protocol.\n"
-      "  --h323-audio str          : Use OPAL-Enable-Audio=str route option by\n"
-      "                              default. May be used multiple times.\n"
-      "  --h323-audio-list         : Display available audio formats.\n"
       "  --h323-disable-t38-mode   : Use OPAL-Disable-T38-Mode=true route option by\n"
       "                              default.\n"
       "  --h323-t38-udptl-redundancy str\n"
@@ -318,14 +312,6 @@ PBoolean MyH323EndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
 
 PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
 {
-  if (args.HasOption("h323-audio")) {
-    PStringStream s;
-
-    s << setfill(',') << args.GetOptionString("h323-audio").Lines();
-
-    defaultStringOptions.SetAt("Enable-Audio", s);
-  }
-
   if (args.HasOption("h323-disable-t38-mode"))
     defaultStringOptions.SetAt("Disable-T38-Mode", "true");
 

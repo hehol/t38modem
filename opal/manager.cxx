@@ -96,7 +96,6 @@
 
 #include "modemep.h"
 #include "manager.h"
-#include "fake_codecs.h"
 
 #define new PNEW
 

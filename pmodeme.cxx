@@ -402,8 +402,6 @@
 #include "version.h"
 
 ///////////////////////////////////////////////////////////////
-#include "g711.c"
-///////////////////////////////////////////////////////////////
 static const char Manufacturer[] = "Frolov,Holtschneider,Davidson";
 static const char Model[] = "T38FAX";
 #define _TOSTR(s) #s
@@ -545,10 +543,12 @@ class Profile
       if (modemClass == "1") {
         modemClassId = EngineBase::mcFax;
       }
+#ifdef AUD
       else
       if (modemClass == "8") {
         modemClassId = EngineBase::mcAudio;
       }
+#endif
       else {
         modemClassId = EngineBase::mcUndefined;
       }
@@ -738,10 +738,12 @@ static ostream & operator<<(ostream & out, State state)
 ///////////////////////////////////////////////////////////////
 enum SubStateConnectHandle {
   chConnected,
+#ifdef AUD
   chWaitAudioEngine,
   chAudioEngineAttached,
   chWaitPlayTone,
   chTonePlayed,
+#endif
   chConnectionEstablishDelay,
   chConnectionEstablished,
 };
@@ -751,10 +753,12 @@ static ostream & operator<<(ostream & out, SubStateConnectHandle subState)
 {
   switch (subState) {
     case chConnected:                   return out << "chConnected";
+#ifdef AUD
     case chWaitAudioEngine:             return out << "chWaitAudioEngine";
     case chAudioEngineAttached:         return out << "chAudioEngineAttached";
     case chWaitPlayTone:                return out << "chWaitPlayTone";
     case chTonePlayed:                  return out << "chTonePlayed";
+#endif
     case chConnectionEstablishDelay:    return out << "chConnectionEstablishDelay";
     case chConnectionEstablished:       return out << "chConnectionEstablished";
   }
@@ -783,7 +787,9 @@ static ostream & operator<<(ostream & out, const StateAndSubState &stateAndSubSt
 #endif
 ///////////////////////////////////////////////////////////////
 enum ModemClassEngine {
+#ifdef AUD
   mceAudio,
+#endif
   mceT38,
   mceNumberOfItems,
 };
@@ -792,7 +798,9 @@ enum ModemClassEngine {
 static ostream & operator<<(ostream & out, ModemClassEngine mce)
 {
   switch (mce) {
+#ifdef AUD
     case mceAudio:           return out << "mceAudio";
+#endif
     case mceT38:             return out << "mceT38";
     default:                 break;
   }
@@ -855,6 +863,7 @@ class ModemEngineBody : public PObject
 
     PBoolean SetBitRevDleData() {
       switch (P.ModemClassId()) {
+#ifdef AUD
       case EngineBase::mcAudio:
         dleData.BitRev(
 #ifdef ALAW_132_BIT_REVERSE
@@ -862,6 +871,7 @@ class ModemEngineBody : public PObject
 #endif
           FALSE);
         break;
+#endif
       case EngineBase::mcFax:
         dleData.BitRev(TRUE);
         break;
@@ -1032,9 +1042,11 @@ class ModemEngineBody : public PObject
       }
 
       switch (P.ModemClassId()) {
+#ifdef AUD
         case EngineBase::mcAudio:
           currentClassEngine = activeEngines[mceAudio];
           break;
+#endif
         case EngineBase::mcFax:
           currentClassEngine = activeEngines[mceT38];
           break;
@@ -1134,7 +1146,11 @@ EngineBase *ModemEngine::NewPtrUserInputEngine() const
   if (!body)
     return NULL;
 
+#ifdef AUD
   return body->NewPtrEngine(mceAudio);
+#else
+  return body->NewPtrEngine(mceT38);
+#endif
 }
 
 PBoolean ModemEngine::Request(PStringToString &request) const
@@ -1303,7 +1319,9 @@ void ModemEngineBody::OnHook()
     state = stCommand;
     subState = 0;
     _DetachEngine(mceT38);
+#ifdef AUD
     _DetachEngine(mceAudio);
+#endif
     TRACE_STATE(4, "ModemEngineBody::OnHook:");
   }
 
@@ -1331,16 +1349,20 @@ void ModemEngineBody::_ClearCall()
     if (off_hook) {
       timerBusy.Start(1000);
 
+#ifdef AUD
       if (!activeEngines[mceAudio])
         _AttachEngine(mceAudio);
+#endif
 
       for (int i = 0 ; i < mceNumberOfItems ; i++) {
         enableFakeIn[i] = TRUE;
         enableFakeOut[i] = TRUE;
       }
 
+#ifdef AUD
       if (activeEngines[mceAudio])
         activeEngines[mceAudio]->RecvOnIdle(EngineBase::dtBusy);
+#endif
     }
   }
 
@@ -1408,6 +1430,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     if (CallToken().IsEmpty() || CallToken() == request("calltoken")) {
       SetCallState(cstAlerted);
 
+#ifdef AUD
       if (state == stConnectWait && !pPlayTone && P.ModemClassId() == EngineBase::mcAudio) {
         SetState(stConnectHandle, chConnected);
         timerRing.Start(6000);
@@ -1424,6 +1447,16 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
         parent.SignalDataReady();
         request.SetAt("response", "confirm");
       }
+#else
+      myPTRACE(1, "ModemEngineBody::Request: P.ModemClassId(): " << P.ModemClassId());
+      if (state == stConnectWait && !pPlayTone) {
+        SetState(stConnectHandle, chConnected);
+        timerRing.Start(6000);
+
+        parent.SignalDataReady();
+        request.SetAt("response", "confirm");
+      }
+#endif
     }
     else {
       myPTRACE(1, "ModemEngineBody::Request: line already in use by " << CallToken());
@@ -1444,8 +1477,10 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     if (CallToken().IsEmpty() || CallToken() == request("calltoken")) {
       timerRing.Stop();
 
+#ifdef AUD
       if (activeEngines[mceAudio])
         activeEngines[mceAudio]->RecvOnIdle(EngineBase::dtNone);
+#endif
 
       SetCallState(cstEstablished);
 
@@ -1496,7 +1531,11 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
 
 EngineBase *ModemEngineBody::NewPtrEngine(ModemClassEngine mce)
 {
+#ifdef AUD
   PAssert(mce == mceT38 || mce == mceAudio, "mce is not valid");
+#else
+  PAssert(mce == mceT38, "mce is not valid");
+#endif
 
   PWaitAndSignal mutexWait(Mutex);
 
@@ -1513,7 +1552,11 @@ EngineBase *ModemEngineBody::NewPtrEngine(ModemClassEngine mce)
 
 void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
 {
+#ifdef AUD
   PAssert(mce == mceT38 || mce == mceAudio, "mce is not valid");
+#else
+  PAssert(mce == mceT38, "mce is not valid");
+#endif
 
   if (activeEngines[mce] == NULL) {
     EngineBase *engine;
@@ -1571,7 +1614,11 @@ void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
 
 void ModemEngineBody::_DetachEngine(ModemClassEngine mce)
 {
+#ifdef AUD
   PAssert(mce == mceT38 || mce == mceAudio, "mce is not valid");
+#else
+  PAssert(mce == mceT38, "mce is not valid");
+#endif
 
   if (activeEngines[mce] == NULL)
     return;
@@ -1610,12 +1657,14 @@ void ModemEngineBody::_DetachEngine(ModemClassEngine mce)
         parent.SignalDataReady();
       }
       break;
+#ifdef AUD
     case mceAudio:
       if (P.ModemClassId() == EngineBase::mcAudio) {
         currentClassEngine = NULL;
         parent.SignalDataReady();
       }
       break;
+#endif
     default:
       break;
   }
@@ -1660,12 +1709,14 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
             SetState(stRecvBegHandle);
             timeout.Stop();
             break;
+#ifdef AUD
           case stConnectHandle:
             if (subState == chWaitPlayTone) {
               SetSubState(chTonePlayed);
               timeout.Stop();
             }
             break;
+#endif
           default:
             break;
         }
@@ -1857,6 +1908,7 @@ PBoolean ModemEngineBody::HandleClass1Cmd(const char **ppCmd, PString &resp, PBo
   return TRUE;
 }
 
+#ifdef AUD
 PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBoolean &ok, PBoolean &crlf)
 {
   PBoolean T;
@@ -2081,7 +2133,8 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                   SetState(stCommand);
                   return FALSE;
                 }
-              } else {
+              } else 
+              {
                 return FALSE;
               }
           }
@@ -2112,7 +2165,8 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
           PThread::Sleep(100);	// workaround
 
         return res;
-      } else {
+      } else 
+      {
         return FALSE;
       }
     default:
@@ -2121,6 +2175,7 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
 
   return TRUE;
 }
+#endif
 
 PBoolean ModemEngineBody::Answer()
 {
@@ -2671,7 +2726,11 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                         switch( *pCmd ) {
                           case '?':
                             pCmd++;
+#ifdef AUD
                             resp += "\r\n1,8";
+#else
+                            resp += "\r\n1";
+#endif
                             crlf = TRUE;
                             break;
                           default: {
@@ -2684,9 +2743,11 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                               case 1:
                                 modemClass = "1";
                                 break;
+#ifdef AUD
                               case 8:
                                 modemClass = "8";
                                 break;
+#endif
                               default:
                                 modemClass = NULL;
                                 err = TRUE;
@@ -2920,6 +2981,7 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                   err = TRUE;
               }
               break;
+#ifdef AUD
             case 'V':	// Voice
               switch (*pCmd++) {
                 case 'C':
@@ -3409,6 +3471,7 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                   err = TRUE;
               }
               break;
+#endif
             default:
               err = TRUE;
           }
@@ -3745,6 +3808,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                       }
                   }
                   dataCount += count;
+#ifdef AUD
                   if (P.ModemClassId() == EngineBase::mcAudio) {
                     if (currentClassEngine) {
                       const signed char *pb = (const signed char *)Buf;
@@ -3780,6 +3844,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
                     }
                   }
                   else
+#endif
                   if (P.ModemClassId() == EngineBase::mcFax) {
                     if (currentClassEngine)
                       currentClassEngine->Send(Buf, count);
@@ -3809,7 +3874,11 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             PWaitAndSignal mutexWait(Mutex);
             timeout.Stop();
 
+#ifdef AUD
             if (state == stRecv && (dataCount || P.ModemClassId() == EngineBase::mcAudio)) {
+#else
+            if (state == stRecv && dataCount) {
+#endif
               PBYTEArray _bresp((const BYTE *)"\x10\x03", 2); // add <DLE><ETX>
 
               myPTRACE(1, "<-- " << PRTHEX(_bresp));
@@ -3820,7 +3889,11 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 
             PString resp = RC_PREF();
 
+#ifdef AUD
             if (currentClassEngine || P.ModemClassId() == EngineBase::mcAudio) {
+#else
+            if (currentClassEngine) {
+#endif
               if (currentClassEngine)
                 currentClassEngine->ResetModemState();
 
@@ -3846,14 +3919,17 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
   if (cmd.IsEmpty()) {
     if (timerBusy.Get()) {
+#ifdef AUD
       if (P.ModemClassId() == EngineBase::mcAudio) {
         PBYTEArray _bresp((const BYTE *)"\x10" "b", 2);		// <DLE>b
         bresp.Concatenate(_bresp);
         myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
       }
+#endif
     }
 
     if (timerRing.Get()) {
+#ifdef AUD
       if (off_hook && !pPlayTone && P.ModemClassId() == EngineBase::mcAudio) {
         BYTE b[2] = {'\x10', 'r'};
         PBYTEArray _bresp(b, sizeof(b));
@@ -3861,6 +3937,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
       }
       else
+#endif
       if (!off_hook && callState == cstCalled) {
         resp = RC_RING();
         BYTE ringCount = P.RingCount();
@@ -3957,8 +4034,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         if (engine->RecvUserInput(&c, 1) <= 0)
           break;
 
+#ifdef AUD
         if ((!P.ModemClassId()) == EngineBase::mcAudio)
           continue;
+#endif
 
         switch (c) {
           case '0':
@@ -4132,10 +4211,16 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               SendOnIdle(EngineBase::dtCng);
 
             connectionEstablished = TRUE;
+#ifdef AUD
             enableFakeIn[mceAudio] = TRUE;
             enableFakeOut[mceAudio] = TRUE;
+#endif
 
+#ifdef AUD
             if (P.ModemClassId() == EngineBase::mcAudio || callDirection == cdUndefined) {
+#else
+            if (callDirection == cdUndefined) {
+#endif
               SetState(stCommand);
               timeout.Stop();
 
@@ -4248,12 +4333,14 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           SetState(stCommand);
         }
         else
+#ifdef AUD
         if (P.ModemClassId() == EngineBase::mcAudio) {
           resp = RC_CONNECT();
           SetState(stRecv);
           parent.SignalDataReady();	// try to Recv w/o delay
         }
         else
+#endif
         if (P.ModemClassId() == EngineBase::mcFax) {
           if ((currentClassEngine->RecvDiag() & EngineBase::diagDiffSig) == 0) {
             if (dataType != EngineBase::dtRaw) {
@@ -4283,8 +4370,10 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
         for(;;) {
           if (!currentClassEngine) {
+#ifdef AUD
             if (P.ModemClassId() != EngineBase::mcAudio)
               dleData.SetDiag(EngineBase::diagError);
+#endif
 
             dleData.PutEof();
             count = -1;
@@ -4295,9 +4384,12 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
           switch (count) {
             case -1:
+#ifdef AUD
               if (P.ModemClassId() == EngineBase::mcAudio) {
                 dleData.PutEof();
-              } else {
+              } else 
+#endif
+              {
                 int diag = currentClassEngine->RecvDiag();
 
                 if (dataType == EngineBase::dtHdlc) {
@@ -4348,7 +4440,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
                 default:
                   myPTRACE(1, "Unexpected dataType=" << dataType);
                 }
-              } else {
+              } 
+#ifdef AUD
+              else {
                 const PInt16 *ps = (const PInt16 *)Buf;
                 signed char *pb = (signed char *)Buf;
 
@@ -4381,6 +4475,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
                 dleData.PutData(Buf, count);
               }
+#endif
 
               dataCount += count;
           }
@@ -4388,6 +4483,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             break;
         }
 
+#ifdef AUD
         if (P.ModemClassId() == EngineBase::mcAudio) {
           if (count < 0) {
             PBYTEArray _bresp((const BYTE *)"\x10" "b", 2);	// <DLE>b
@@ -4395,6 +4491,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
           }
         }
+#endif
 
         for(;;) {
           count = dleData.GetDleData(Buf, sizeof(Buf));
@@ -4404,10 +4501,12 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
               {
                 SetState(stCommand);
 
+#ifdef AUD
                 if (P.ModemClassId() == EngineBase::mcAudio) {
                   resp = RC_OK();
                 }
                 else
+#endif
                 if (dataType == EngineBase::dtHdlc) {
                   int diag = dleData.GetDiag();
 
