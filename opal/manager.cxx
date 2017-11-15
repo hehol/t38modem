@@ -237,7 +237,14 @@ PString MyManager::GetArgumentSpec()
          "-rtp-max:          Set RTP port max (default base+199)\n"
          "-rtp-tos:          Set RTP packet IP TOS bits to n\n"
          "-rtp-size:         Set RTP maximum payload size in bytes.\n"
-         "-aud-qos:          Set Audio RTP and T.38 Quality of Service to DSCP value or name (e.g. AF32)\rDefaults to ExpeditedForwarding (EF)\n"
+         "-aud-qos:          Set Audio RTP and T.38 Quality of Service to DSCP value or name\rDefaults to DF (Default Forwarding)\r"
+         "Value can be 0-63\r"
+         "Name as defined by RFC4594:\r"
+         "    EF for Expedited Forwarding\r"
+         "    DF for Default Forwarding\r"
+         "    AFxx for Assured Forwarding, valid AF names:\r"
+         "       AF11, AF12, AF13, AF21, AF22, AF23, AF31, AF32, AF33, AF41, AF42, AF43\r"
+         "    CSn for Class Selector (n is 0-7)\n"
          "[Debug & General:]"
 #if OPAL_STATISTICS
          "-statistics.       Output statistics periodically\n"
@@ -546,13 +553,15 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
     SetMediaTypeOfService(tos);
   }
 
+  // Set the QoS for g.711 and T.38
   if (args.HasOption("aud-qos")) {
     output << "Audio QoS set to " << args.GetOptionString("aud-qos") << ".\n";
-    SetMediaQoS(OpalMediaType::Audio(), DSCP(args.GetOptionString("aud-qos")).String());
+    //SetMediaQoS(OpalMediaType::Audio(), DSCP(args.GetOptionString("aud-qos")).String());
+    SetMediaQoS(OpalMediaType::Audio(), args.GetOptionString("aud-qos"));
   }
   else {
-    // By default set the QoS for Audio and T.38 to Expedited Forwarding (EF)
-    SetMediaQoS(OpalMediaType::Audio(), DSCP("ExpeditedForwarding").String());
+    // By default set the QoS for Audio and T.38 to Default Forwarding (DF)
+    SetMediaQoS(OpalMediaType::Audio(), PString("DF"));
   }
 
   if (args.HasOption("rtp-size")) {

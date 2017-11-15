@@ -209,34 +209,5 @@ protected:
   MyManager & m_mgr;
 };
 
-/////////////////////////////////////////////////////////////////////////////
-
-class DSCP
-{
-  public:
-    DSCP(PString dscp) {
-      if (dscp == "BE" || dscp == "BestEffort")               string = PString("0");
-      else if (dscp == "AF11")                                string = PString("10");
-      else if (dscp == "AF12")                                string = PString("12");
-      else if (dscp == "AF13")                                string = PString("14");
-      else if (dscp == "AF21")                                string = PString("18");
-      else if (dscp == "AF22")                                string = PString("20");
-      else if (dscp == "AF23")                                string = PString("22");
-      else if (dscp == "AF31")                                string = PString("26");
-      else if (dscp == "AF32")                                string = PString("28");
-      else if (dscp == "AF33")                                string = PString("30");
-      else if (dscp == "AF41")                                string = PString("34");
-      else if (dscp == "AF42")                                string = PString("36");
-      else if (dscp == "AF43")                                string = PString("38");
-      else if (dscp == "EF" || dscp == "ExpeditedForwarding") string = PString("46");
-      else                                                    string = PString(dscp);
-    }
-
-    PString String() { return string; }
-
-  private:
-    PString string;
-};
-
 #endif  // _PM_MANAGER_H
 

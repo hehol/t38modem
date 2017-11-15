@@ -352,7 +352,15 @@ PString MySIPEndPoint::GetArgumentSpec()
           "-no-sip.           Disable SIP\n"
           "S-sip:             Listen on interface(s), defaults to udp$*:5060.\n"
           + MyRTPEndPoint::GetArgumentSpec() +
-          "-sip-qos:          Set SIP Quality of Service to DSCP value or name.\n" 
+          "-sip-qos:          Set SIP Quality of Service to DSCP value or name\rDefaults to DF (Default Forwarding)\r"
+          "Value can be 0-63\r"
+          "Name as defined by RFC4594:\r"
+          "    EF for Expedited Forwarding\r"
+          "    DF for Default Forwarding\r"
+          "    AFxx for Assured Forwarding, valid AF names:\r"
+          "       AF11, AF12, AF13, AF21, AF22, AF23, AF31, AF32, AF33, AF41, AF42, AF43\r"
+          "    CSn for Class Selector (n is 0-7)\n"
+
           "r-register:        Registration to server.\n"
           "-register-auth-id: Registration authorisation id, default is username.\n"
           "-register-realm:   Registration authorisation realm, default is any.\n"
@@ -401,6 +409,7 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
       return false;
   }
 
+#if 0
   if (args.HasOption("sip-qos")) {
     output << "SIP QoS set to " << args.GetOptionString("sip-qos") << ".\n";
     SetMediaQoS(OpalMediaType::Audio(), args.GetOptionString("sip-qos"));
@@ -409,6 +418,7 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
     // By default set the QoS for Audio and T.38 to Expedited Forwarding (EF)
     SetMediaQoS(OpalMediaType::Audio(), PString("AF32"));
   }
+#endif
 
 
   AddRoutesFor(this, defaultRoute);
