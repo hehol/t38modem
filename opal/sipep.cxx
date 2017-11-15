@@ -383,6 +383,19 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
     return true;
   }
 
+  if (args.HasOption("sip-qos")) {
+    output << "SIP QoS set to " << args.GetOptionString("sip-qos") << ".\n";
+    PTRACE(1, "SIP QoS set to " << args.GetOptionString("sip-qos"));
+    SetSignalQoS(args.GetOptionString("sip-qos"));
+  }
+  else {
+    // By default set the QoS for SIP to Default Forwarding (DF)
+    SetSignalQoS(PString("DF"));
+  }
+
+  PTRACE(1, "SIP QoS: " << GetSignalQoS());
+  output << "SIP QoS: " << GetSignalQoS() << "\n";
+
   if (!MyRTPEndPoint::Initialise(args, output, verbose))
     return false;
 
@@ -393,6 +406,7 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
   }
 
   output << args << endl;
+
   if (args.HasOption("register")) {
     output << "Register\n";
     if (!DoRegistration(output, verbose,
@@ -408,16 +422,6 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
       return false;
   }
 
-#if 0
-  if (args.HasOption("sip-qos")) {
-    output << "SIP QoS set to " << args.GetOptionString("sip-qos") << ".\n";
-    SetMediaQoS(OpalMediaType::Audio(), args.GetOptionString("sip-qos"));
-  }
-  else {
-    // By default set the QoS for Audio and T.38 to Expedited Forwarding (EF)
-    SetMediaQoS(OpalMediaType::Audio(), PString("AF32"));
-  }
-#endif
 
 
   AddRoutesFor(this, defaultRoute);
