@@ -199,7 +199,7 @@ ModemEndPoint::ModemEndPoint(MyManager & mgr, const char * g711Prefix, const cha
   : OpalFaxEndPoint(mgr, g711Prefix, t38Prefix)
   , MyManagerEndPoint(mgr)
 {
-  myPTRACE(1, "ModemEndPoint::ModemEndPoint");
+  myPTRACE(1, "T38Modem\tModemEndPoint::ModemEndPoint");
 
   pmodem_pool = new PseudoModemQ();
 }
@@ -263,7 +263,7 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
     PStringToString &request = (PStringToString &)from;
     PString command = request("command");
 
-    myPTRACE(1, "ModemEndPoint::OnMyCallback command=" << command << " extra=" << extra);
+    myPTRACE(1, "T38Modem\tModemEndPoint::OnMyCallback command=" << command << " extra=" << extra);
 
     PString modemToken = request("modemtoken");
     PString response = "reject";
@@ -280,12 +280,12 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
         if (tries++ > 0) {
           originalPartyB = request("originalpartyb");
           cout << "Trying alternate route " << tries << " to " << partyB << " instead " << originalPartyB << endl;
-          PTRACE(1, "Trying alternate route " << tries << " to " << partyB << " instead " << originalPartyB);
+          myPTRACE(1, "T38Modem\tTrying alternate route " << tries << " to " << partyB << " instead " << originalPartyB);
         } else {
           originalPartyB = partyB;
         }
 
-        myPTRACE(1, "MyManager::OnMyCallback SetUpCall(" << partyA << ", " << partyB << ")");
+        myPTRACE(1, "T38Modem\tMyManager::OnMyCallback SetUpCall(" << partyA << ", " << partyB << ")");
 
         PSafePtr<OpalCall> call = GetManager().SetUpCall(partyA, partyB, modem);
 
@@ -330,9 +330,9 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
 
     request.SetAt("response", response);
 
-    myPTRACE(1, "ModemEndPoint::OnMyCallback request={\n" << request << "}");
+    myPTRACE(1, "T38Modem\tModemEndPoint::OnMyCallback request={\n" << request << "}");
   } else {
-    myPTRACE(1, "ModemEndPoint::OnMyCallback unknown class " << from.GetClass() << " extra=" << extra);
+    myPTRACE(1, "T38Modem\tModemEndPoint::OnMyCallback unknown class " << from.GetClass() << " extra=" << extra);
   }
 }
 
@@ -355,7 +355,7 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
     OpalConnection::StringOptions * stringOptions
     )
 {
-  myPTRACE(1, "ModemEndPoint::MakeConnection " << remoteParty);
+  myPTRACE(1, "T38Modem\tModemEndPoint::MakeConnection " << remoteParty);
 
   OpalConnection::StringOptions localOptions;
 
@@ -408,7 +408,7 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
                               remoteParty.Left(prefixLength) *= GetPrefixName(),
                               stringOptions);
 
-      PTRACE(5, "ModemEndPoint::MakeConnection new " << connection->GetClass() << ' ' << (void *)connection);
+      myPTRACE(5, "T38Modem\tModemEndPoint::MakeConnection new " << connection->GetClass() << ' ' << (void *)connection);
 
       OpalConnection::StringOptions newOptions;
 
@@ -428,10 +428,9 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
 
 OpalMediaFormatList ModemEndPoint::GetMediaFormats() const
 {
-  myPTRACE(1, "ModemEndPoint::GetMediaFormats");
-
   OpalMediaFormatList formats;
   formats += OpalT38;
+  myPTRACE(1, "T38Modem\tModemEndPoint::GetMediaFormats: " << formats);
   return formats;
 }
 
@@ -439,7 +438,7 @@ OpalMediaFormatList ModemEndPoint::GetMediaFormats() const
 
 PBoolean ModemConnection::SetUpConnection()
 {
-  myPTRACE(1, "ModemConnection::SetUpConnection " << *this);
+  myPTRACE(1, "T38Modem\tModemConnection::SetUpConnection " << *this);
 
   SetPhase(SetUpPhase);
 
@@ -454,7 +453,7 @@ PBoolean ModemConnection::SetUpConnection()
       return FALSE;
     }
 
-    PTRACE(2, "Outgoing call routed to " << GetCall().GetPartyB() << " for " << *this);
+    myPTRACE(2, "T38Modem\tOutgoing call routed to " << GetCall().GetPartyB() << " for " << *this);
 
     if (!GetCall().OnSetUp(*this)) {
       Release(EndedByNoAccept);
@@ -479,7 +478,7 @@ PBoolean ModemConnection::SetUpConnection()
 
   PString dstNum = GetRemotePartyNumber();
 
-  myPTRACE(1, "ModemConnection::SetUpConnection"
+  myPTRACE(1, "T38Modem\tModemConnection::SetUpConnection"
            << " dstNum=" << dstNum
            << " srcNum=" << srcNum
            << " srcName=" << srcName
@@ -489,7 +488,7 @@ PBoolean ModemConnection::SetUpConnection()
   PseudoModem *_pmodem = ep.PMAlloc(dstNum);
 
   if (_pmodem == NULL) {
-    myPTRACE(1, "... denied (all modems busy)");
+    myPTRACE(1, "T38Modem\t... denied (all modems busy)");
     // LXK change -- Use EndedByLocalBusy instead of EndedByLocalUser
     // so that caller receives a normal busy signal instead of a
     // fast busy (congestion) or recorded message.
@@ -498,7 +497,7 @@ PBoolean ModemConnection::SetUpConnection()
   }
 
   if (pmodem != NULL) {
-    myPTRACE(1, "... denied (internal error)");
+    myPTRACE(1, "T38Modem\t... denied (internal error)");
     ep.PMFree(_pmodem);
     Release(EndedByLocalBusy);  // LXK change -- see above
     return FALSE;
@@ -514,18 +513,18 @@ PBoolean ModemConnection::SetUpConnection()
   request.SetAt("dstnum", dstNum);
 
   if (!pmodem->Request(request)) {
-    myPTRACE(1, "... denied (modem is not ready)");	// or we can try other modem
+    myPTRACE(1, "T38Modem\t... denied (modem is not ready)");	// or we can try other modem
     Release(EndedByLocalBusy);  // LXK change -- see above
     return FALSE;
   }
 
   if (request("response") != "confirm") {
-    myPTRACE(1, "... denied (no confirm)");
+    myPTRACE(1, "T38Modem\t... denied (no confirm)");
     Release(EndedByLocalUser);
     return FALSE;
   }
 
-  myPTRACE(1, "... Ok");
+  myPTRACE(1, "T38Modem\t... Ok");
 
   SetPhase(AlertingPhase);
   OnAlerting();
@@ -537,7 +536,7 @@ PBoolean ModemConnection::SetAlerting(
     const PString & myPTRACE_PARAM(calleeName),
     PBoolean myPTRACE_PARAM(withMedia))
 {
-  myPTRACE(1, "ModemConnection::SetAlerting " << *this << " " << calleeName << " " << withMedia);
+  myPTRACE(1, "T38Modem\tModemConnection::SetAlerting " << *this << " " << calleeName << " " << withMedia);
 
   SetPhase(AlertingPhase);
 
@@ -547,7 +546,7 @@ PBoolean ModemConnection::SetAlerting(
   request.SetAt("command", "alerting");
   request.SetAt("calltoken", GetToken());
   if (!pmodem->Request(request)) {
-    myPTRACE(1, "ModemConnection::SetAlerting error request={\n" << request << "}");
+    myPTRACE(1, "T38Modem\tModemConnection::SetAlerting error request={\n" << request << "}");
   }
 
   return TRUE;
@@ -567,12 +566,12 @@ ModemConnection::ModemConnection(OpalCall        & call,
   m_remotePartyNumber = GetPartyName(remoteParty);
   PString remotePartyAddress = remoteParty;
 
-  myPTRACE(4, "ModemConnection::ModemConnection " << *this);
+  myPTRACE(4, "T38Modem\tModemConnection::ModemConnection " << *this);
 }
 
 ModemConnection::~ModemConnection()
 {
-  myPTRACE(4, "ModemConnection::~ModemConnection " << *this << " " << GetCallEndReason());
+  myPTRACE(4, "T38Modem\tModemConnection::~ModemConnection " << *this << " " << GetCallEndReason());
 
   if (pmodem != NULL) {
     PseudoModem *pmodemTmp = pmodem;
@@ -601,7 +600,7 @@ ModemConnection::~ModemConnection()
         case EndedByTransportFail:
           if (GetStringOptions().Contains("Try-Next")) {
             PString num = GetStringOptions()("Try-Next");
-            myPTRACE(1, "ModemConnection::~ModemConnection: Try-Next=" << num);
+            myPTRACE(1, "T38Modem\tModemConnection::~ModemConnection: Try-Next=" << num);
             request.SetAt("trynextcommand", "dial");
             request.SetAt("number", num);
             request.SetAt("localpartyname", m_remotePartyNumber);
@@ -615,14 +614,14 @@ ModemConnection::~ModemConnection()
     }
 
     if (!pmodemTmp->Request(request)) {
-      myPTRACE(1, "ModemConnection::~ModemConnection error request={\n" << request << "}");
+      myPTRACE(1, "T38Modem\tModemConnection::~ModemConnection error request={\n" << request << "}");
     }
   }
 }
 
 OpalMediaStream * ModemConnection::CreateMediaStream(const OpalMediaFormat & mediaFormat, unsigned sessionID, bool isSource)
 {
-  myPTRACE(2, "ModemConnection::CreateMediaStream " << *this <<
+  myPTRACE(2, "T38Modem\tModemConnection::CreateMediaStream " << *this <<
       " mediaFormat=" << mediaFormat << " sessionID=" << sessionID << " isSource=" << isSource);
 
   if (mediaFormat == OpalT38) {
@@ -633,6 +632,8 @@ OpalMediaStream * ModemConnection::CreateMediaStream(const OpalMediaFormat & med
         return new T38ModemMediaStream(*this, sessionID, isSource, t38engine);
     }
   }
+
+  myPTRACE(2, "T38Modem\tStarting Null Media Stream");
   return new OpalNullMediaStream(*this, mediaFormat, sessionID, isSource, isSource, true);
 }
 
@@ -654,20 +655,20 @@ OpalMediaFormatList ModemConnection::GetMediaFormats() const
     formats += OpalCiscoNSE;
   }
 
-  PTRACE(2, "ModemConnection::GetMediaFormats " << formats);
+  myPTRACE(1, "T38Modem\tModemConnection::GetMediaFormats: " << formats);
   return formats;
 }
 
 void ModemConnection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
 {
-  myPTRACE(1, "ModemConnection::OnSwitchedFaxMediaStreams toT38:" << toT38 << " success:" << success);
+  myPTRACE(1, "T38Modem\tModemConnection::OnSwitchedFaxMediaStreams toT38:" << toT38 << " success:" << success);
   if (success) {
     m_switchTimer.Stop(false);
     m_finalStatistics.m_fax.m_result = OpalMediaStatistics::FaxNotStarted;
   }
   else {
     if (toT38 && m_stringOptions.GetBoolean(OPAL_NO_G711_FAX)) {
-      PTRACE(4, "FAX\tSwitch request to fax failed, checking for fall back to G.711");
+      myPTRACE(4, "T38Modem\tSwitch request to fax failed, checking for fall back to G.711");
       InternalOnFaxCompleted();
     }
 

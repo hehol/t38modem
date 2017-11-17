@@ -989,7 +989,7 @@ class ModemEngineBody : public PObject
     int subState;
 
     #define TRACE_STATE(level, header) \
-        PTRACE(level, header \
+        myPTRACE(level, "T38Modem\t" << header \
                   " " << (off_hook ? "off" : "on") << "-hook" \
                   " " << CallStateAndSubState(callState, callSubState) << \
                   " " << StateAndSubState(state, subState))
@@ -1059,7 +1059,7 @@ class ModemEngineBody : public PObject
       if (sendOnIdle != dt) {
         sendOnIdle = dt;
 
-        PTRACE(4, "ModemEngineBody::SendOnIdle " << sendOnIdle);
+        myPTRACE(4, "T38Modem\tModemEngineBody::SendOnIdle " << sendOnIdle);
 
         for (int i = 0 ; i < mceNumberOfItems ; i++) {
           if (activeEngines[i])
@@ -1162,9 +1162,9 @@ void ModemEngine::Main()
 {
   RenameCurrentThread(ptyName() + "(e)");
 
-  myPTRACE(1, "<-> Started");
+  myPTRACE(1, "T38Modem\t<-> Started");
   if( !body ) {
-    myPTRACE(1, "<-> no body" << ptyName());
+    myPTRACE(1, "T38Modem\t<-> no body" << ptyName());
     SignalStop();
     return;
   }
@@ -1212,7 +1212,7 @@ void ModemEngine::Main()
 
   body->OnParentStop();
 
-  myPTRACE(1, "<-> Stopped" << GetThreadTimes(", CPU usage: "));
+  myPTRACE(1, "T38Modem\t<-> Stopped" << GetThreadTimes(", CPU usage: "));
 }
 
 ///////////////////////////////////////////////////////////////
@@ -1386,7 +1386,7 @@ void ModemEngineBody::_ClearCall()
 
 PBoolean ModemEngineBody::Request(PStringToString &request)
 {
-  myPTRACE(3, "ModemEngineBody::Request: " << state << " request={\n" << request << "}");
+  myPTRACE(3, "T38Modem\tModemEngineBody::Request: " << state << " request={\n" << request << "}");
 
   PString command = request("command");
 
@@ -1396,11 +1396,11 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     PWaitAndSignal mutexWait(Mutex);
 
     if (callState != cstCleared) {
-      myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: call already in " << callState << " state");
     }
     else
     if (off_hook) {
-      myPTRACE(1, "ModemEngineBody::Request: line already in off-hook state");
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: line already in off-hook state");
     }
     else {
       SetCallState(cstCalled);
@@ -1420,11 +1420,11 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     PWaitAndSignal mutexWait(Mutex);
 
     if (callState != cstDialing) {
-      myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: call already in " << callState << " state");
     }
     else
     if (!off_hook) {
-      myPTRACE(1, "ModemEngineBody::Request: line already in on-hook state");
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: line already in on-hook state");
     }
     else
     if (CallToken().IsEmpty() || CallToken() == request("calltoken")) {
@@ -1448,7 +1448,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
         request.SetAt("response", "confirm");
       }
 #else
-      myPTRACE(1, "ModemEngineBody::Request: P.ModemClassId(): " << P.ModemClassId());
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: P.ModemClassId(): " << P.ModemClassId());
       if (state == stConnectWait && !pPlayTone) {
         SetState(stConnectHandle, chConnected);
         timerRing.Start(6000);
@@ -1459,7 +1459,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
 #endif
     }
     else {
-      myPTRACE(1, "ModemEngineBody::Request: line already in use by " << CallToken());
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: line already in use by " << CallToken());
     }
   }
   else
@@ -1467,11 +1467,11 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     PWaitAndSignal mutexWait(Mutex);
 
     if (callState != cstDialing && callState != cstAlerted && callState != cstAnswering) {
-      myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: call already in " << callState << " state");
     }
     else
     if (!off_hook) {
-      myPTRACE(1, "ModemEngineBody::Request: line already in on-hook state");
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: line already in on-hook state");
     }
     else
     if (CallToken().IsEmpty() || CallToken() == request("calltoken")) {
@@ -1491,7 +1491,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       }
     }
     else {
-      myPTRACE(1, "ModemEngineBody::Request: line already in use by " << CallToken());
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: line already in use by " << CallToken());
     }
   }
   else
@@ -1499,7 +1499,7 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
     PWaitAndSignal mutexWait(Mutex);
 
     if (callState == cstCleared || callState == cstReleasing) {
-      myPTRACE(1, "ModemEngineBody::Request: call already in " << callState << " state");
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: call already in " << callState << " state");
     }
     else
     if (CallToken().IsEmpty() || CallToken() == request("calltoken")) {
@@ -1520,11 +1520,11 @@ PBoolean ModemEngineBody::Request(PStringToString &request)
       request.SetAt("response", "confirm");
     }
     else {
-      myPTRACE(1, "ModemEngineBody::Request: line already in use by " << CallToken());
+      myPTRACE(1, "T38Modem\tModemEngineBody::Request: line already in use by " << CallToken());
     }
   }
   else {
-    myPTRACE(1, "ModemEngineBody::Request: unknown request " << command);
+    myPTRACE(1, "T38Modem\tModemEngineBody::Request: unknown request " << command);
   }
   return TRUE;
 }
@@ -1544,7 +1544,7 @@ EngineBase *ModemEngineBody::NewPtrEngine(ModemClassEngine mce)
   if (activeEngines[mce]) {
     activeEngines[mce]->AddReference();
 
-    myPTRACE(1, "ModemEngineBody::NewPtrEngine created pointer for engine " << mce);
+    myPTRACE(1, "T38Modem\tModemEngineBody::NewPtrEngine created pointer for engine " << mce);
   }
 
   return activeEngines[mce];
@@ -1571,13 +1571,13 @@ void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
         engine = new T38Engine(parent.ptyName());
         break;
       default:
-        myPTRACE(1, parent.ptyName() << " ModemEngineBody::_AttachEngine Invalid mce " << mce);
+        myPTRACE(1, "T38Modem\t" << parent.ptyName() << " ModemEngineBody::_AttachEngine Invalid mce " << mce);
         return;
     }
 
     if (engine->TryLockModemCallback()) {
       if (!engine->Attach(engineCallback)) {
-        myPTRACE(1, parent.ptyName() << " ModemEngineBody::_AttachEngine Can't attach engineCallback to " << mce);
+        myPTRACE(1, "T38Modem\t" << parent.ptyName() << " ModemEngineBody::_AttachEngine Can't attach engineCallback to " << mce);
         engine->UnlockModemCallback();
         ReferenceObject::DelPointer(engine);
         return;
@@ -1585,7 +1585,7 @@ void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
       engine->UnlockModemCallback();
       activeEngines[mce] = engine;
     } else {
-      myPTRACE(1, parent.ptyName() << " ModemEngineBody::_AttachEngine Can't lock ModemCallback for " << mce);
+      myPTRACE(1, "T38Modem\t" << parent.ptyName() << " ModemEngineBody::_AttachEngine Can't lock ModemCallback for " << mce);
       ReferenceObject::DelPointer(engine);
       return;
     }
@@ -1609,7 +1609,7 @@ void ModemEngineBody::_AttachEngine(ModemClassEngine mce)
       break;
   }
 
-  myPTRACE(1, "ModemEngineBody::_AttachEngine Attached " << mce);
+  myPTRACE(1, "T38Modem\tModemEngineBody::_AttachEngine Attached " << mce);
 }
 
 void ModemEngineBody::_DetachEngine(ModemClassEngine mce)
@@ -1625,7 +1625,7 @@ void ModemEngineBody::_DetachEngine(ModemClassEngine mce)
 
   if (!CallToken().IsEmpty() && activeEngines[mce]->SendingNotCompleted()) {
     Mutex.Signal();
-    myPTRACE(2, "ModemEngineBody::_DetachEngine: sending is not completed for " << mce);
+    myPTRACE(2, "T38Modem\tModemEngineBody::_DetachEngine: sending is not completed for " << mce);
     PThread::Sleep(100);
     Mutex.Wait();
 
@@ -1669,12 +1669,12 @@ void ModemEngineBody::_DetachEngine(ModemClassEngine mce)
       break;
   }
 
-  myPTRACE(1, "ModemEngineBody::_DetachEngine Detached " << mce);
+  myPTRACE(1, "T38Modem\tModemEngineBody::_DetachEngine Detached " << mce);
 }
 
 void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
 {
-  PTRACE(extra < 0 ? 2 : 4, "ModemEngineBody::OnEngineCallback "
+  myPTRACE(extra < 0 ? 2 : 4, "T38Modem\tModemEngineBody::OnEngineCallback "
       << from.GetClass() << " " << EngineBase::ModemCallbackParam(extra)
       << " (" << seq << ", " << state << ")");
 
@@ -1721,7 +1721,7 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
             break;
         }
       } else {
-        myPTRACE(1, "ModemEngineBody::OnEngineCallback extra(" << extra << ") != seq(" << seq << ")");
+        myPTRACE(1, "T38Modem\tModemEngineBody::OnEngineCallback extra(" << extra << ") != seq(" << seq << ")");
       }
     }
   }
@@ -1731,7 +1731,7 @@ void ModemEngineBody::OnEngineCallback(PObject & PTRACE_PARAM(from), INT extra)
 
 void ModemEngineBody::OnTimerCallback(PObject & PTRACE_PARAM(from), INT PTRACE_PARAM(extra))
 {
-  PTRACE(2, "ModemEngineBody::OnTimerCallback " << state << " " << from.GetClass() << " " << extra);
+  myPTRACE(2, "T38Modem\tModemEngineBody::OnTimerCallback " << state << " " << from.GetClass() << " " << extra);
 
   parent.SignalDataReady();
 }
@@ -1962,7 +1962,7 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                       f1 = ParseNum(ppCmd, 0, 5, TONE_FREQUENCY_MAX, f1);
 
                       if (f1 && f1 < TONE_FREQUENCY_MIN) {
-                        myPTRACE(1, "Parse error: wrong f1 before " << *ppCmd);
+                        myPTRACE(1, "T38Modem\tParse error: wrong f1 before " << *ppCmd);
                         return FALSE;
                       }
 
@@ -1971,7 +1971,7 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                         f2 = ParseNum(ppCmd, 0, 5, TONE_FREQUENCY_MAX, f2);
 
                         if (f2 && f2 < TONE_FREQUENCY_MIN) {
-                          myPTRACE(1, "Parse error: wrong f2 before " << *ppCmd);
+                          myPTRACE(1, "T38Modem\tParse error: wrong f2 before " << *ppCmd);
                           return FALSE;
                         }
 
@@ -1980,14 +1980,14 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                           dms = ParseNum(ppCmd, 0, 5, TONE_DMS_MAX, dms);
 
                           if (dms < 0) {
-                            myPTRACE(1, "Parse error: wrong dms before " << *ppCmd);
+                            myPTRACE(1, "T38Modem\tParse error: wrong dms before " << *ppCmd);
                             return FALSE;
                           }
                         }
                       }
 
                       if (**ppCmd != ']') {
-                        myPTRACE(1, "Parse error: no ']' before " << *ppCmd);
+                        myPTRACE(1, "T38Modem\tParse error: no ']' before " << *ppCmd);
                         return FALSE;
                       }
 
@@ -2013,11 +2013,11 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                         }
 
                         if (!tone.Generate(op, f1, f2, ms, TONE_VOLUME)) {
-                          myPTRACE(1, "Cannot encode tone \"" << f1 << op << f2 << ":" << ms << "\"");
+                          myPTRACE(1, "T38Modem\tCannot encode tone \"" << f1 << op << f2 << ":" << ms << "\"");
                           return FALSE;
                         }
 
-                        myPTRACE(2, "Encoded tone \"" << f1 << op << f2 << ":" << ms << "\", size=" << tone.GetSize());
+                        myPTRACE(2, "T38Modem\tEncoded tone \"" << f1 << op << f2 << ":" << ms << "\", size=" << tone.GetSize());
                       }
 
                       (*ppCmd)++;
@@ -2038,13 +2038,13 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                         dms = ParseNum(ppCmd, 0, 5, TONE_DMS_MAX, dms);
 
                         if (dms < 0) {
-                          myPTRACE(1, "Parse error: wrong dms before " << *ppCmd);
+                          myPTRACE(1, "T38Modem\tParse error: wrong dms before " << *ppCmd);
                           return FALSE;
                         }
                       }
 
                       if (**ppCmd != '}') {
-                        myPTRACE(1, "Parse error: no '}' before " << *ppCmd);
+                        myPTRACE(1, "T38Modem\tParse error: no '}' before " << *ppCmd);
                         return FALSE;
                       }
 
@@ -2053,14 +2053,14 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
 
                         if (dtmf == ' ') {
                           if (!tone.Generate(' ', 0, 0, ms)) {
-                            myPTRACE(1, "Cannot encode tone \"0 0:" << ms << "\"");
+                            myPTRACE(1, "T38Modem\tCannot encode tone \"0 0:" << ms << "\"");
                             return FALSE;
                           }
 
-                          myPTRACE(2, "Encoded tone \"0 0:" << ms << "\", size=" << tone.GetSize());
+                          myPTRACE(2, "T38Modem\tEncoded tone \"0 0:" << ms << "\", size=" << tone.GetSize());
                         } else {
                           tone.AddTone(dtmf, ms);
-                          myPTRACE(2, "Encoded DTMF tone \"" << dtmf << ":" << ms << "\", size=" << tone.GetSize());
+                          myPTRACE(2, "T38Modem\tEncoded DTMF tone \"" << dtmf << ":" << ms << "\", size=" << tone.GetSize());
                         }
                       }
 
@@ -2087,18 +2087,18 @@ PBoolean ModemEngineBody::HandleClass8Cmd(const char **ppCmd, PString &resp, PBo
                       unsigned ms = dms*10;
 
                       tone.AddTone(dtmf, ms);
-                      myPTRACE(2, "Encoded DTMF tone \"" << dtmf << ":" << ms << "\", size=" << tone.GetSize());
+                      myPTRACE(2, "T38Modem\tEncoded DTMF tone \"" << dtmf << ":" << ms << "\", size=" << tone.GetSize());
                       break;
                     }
                     case ',': {
                       unsigned ms = dms*10;
 
                       if (!tone.Generate(' ', 0, 0, ms)) {
-                        myPTRACE(1, "Cannot encode tone \"0 0:" << ms << "\"");
+                        myPTRACE(1, "T38Modem\tCannot encode tone \"0 0:" << ms << "\"");
                         return FALSE;
                       }
 
-                      myPTRACE(2, "Encoded tone \"0 0:" << ms << "\", size=" << tone.GetSize());
+                      myPTRACE(2, "T38Modem\tEncoded tone \"0 0:" << ms << "\", size=" << tone.GetSize());
                       break;
                     }
                     default:
@@ -2228,7 +2228,7 @@ void ModemEngineBody::HandleCmd(PString &resp)
     i = cmd.FindOneOf("Aa", i);
 
     if (i == P_MAX_INDEX) {
-      myPTRACE(1, "--> " << cmd.GetLength() << " bytes of binary");
+      myPTRACE(1, "T38Modem\t--> " << cmd.GetLength() << " bytes of binary");
       cmd.MakeEmpty();
       return;
     }
@@ -2243,7 +2243,7 @@ void ModemEngineBody::HandleCmd(PString &resp)
   if (i) {
     PBYTEArray bin((const BYTE *)(const char *)cmd, i);
 
-    myPTRACE(1, "--> " << PRTHEX(bin));
+    myPTRACE(1, "T38Modem\t--> " << PRTHEX(bin));
   }
 #endif
 
@@ -2251,7 +2251,7 @@ void ModemEngineBody::HandleCmd(PString &resp)
 
   pCmd = ((const char *)cmd) + i;
 
-  myPTRACE(1, "--> " << pCmd);
+  myPTRACE(1, "T38Modem\t--> " << pCmd);
 
   pCmd += 2;  // skip AT
 
@@ -2328,7 +2328,7 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
               addNumTone = FALSE;
 
               if (pPlayTone) {
-                myPTRACE(1, "ModemEngineBody::HandleCmd pPlayTone is not NULL");
+                myPTRACE(1, "T38Modem\tModemEngineBody::HandleCmd pPlayTone is not NULL");
                 delete pPlayTone;
                 pPlayTone = NULL;
               }
@@ -2428,7 +2428,7 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                 numTone += ch;
             }
 
-            myPTRACE(2, "Dial string: " << num << "@" << numTone << "L" << LocalPartyName << (setForceFaxMode ? "F" : "V") << (err ? "" : " - OK"));
+            myPTRACE(2, "T38Modem\tDial string: " << num << "@" << numTone << "L" << LocalPartyName << (setForceFaxMode ? "F" : "V") << (err ? "" : " - OK"));
 
             if (!err) {
               PDTMFEncoder playTone;
@@ -2441,16 +2441,16 @@ void ModemEngineBody::HandleCmdRest(PString &resp)
                     unsigned ms = unsigned(P.DialTimeComma()) * 1000;
 
                     playTone.Generate(' ', 0, 0, ms);
-                    myPTRACE(2, "Encoded tone \"0 0:" << ms << "\", size=" << playTone.GetSize());
+                    myPTRACE(2, "T38Modem\tEncoded tone \"0 0:" << ms << "\", size=" << playTone.GetSize());
                     break;
                   }
                   default: {
                     unsigned ms = P.DialTimeDTMF();
 
                     playTone.AddTone(ch, ms);
-                    myPTRACE(2, "Encoded DTMF tone \"" << ch << ":" << ms << "\", size=" << playTone.GetSize());
+                    myPTRACE(2, "T38Modem\tEncoded DTMF tone \"" << ch << ":" << ms << "\", size=" << playTone.GetSize());
                     playTone.Generate(' ', 0, 0, ms);
-                    myPTRACE(2, "Encoded tone \"0 0:" << ms << "\", size=" << playTone.GetSize());
+                    myPTRACE(2, "T38Modem\tEncoded tone \"0 0:" << ms << "\", size=" << playTone.GetSize());
                     break;
                   }
                 }
@@ -3762,7 +3762,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
               if (resp.GetLength()) {
                 PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
 
-                myPTRACE(1, "<-- " << PRTHEX(_bresp));
+                myPTRACE(1, "T38Modem\t<-- " << PRTHEX(_bresp));
                 bresp.Concatenate(_bresp);
               }
             }
@@ -3773,7 +3773,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
             int lendone = dleData.PutDleData(pBuf, len);
 
             if (lendone > 0) {
-                PTRACE(4, "--> DLE " << lendone << " bytes");
+                myPTRACE(4, "T38Modem\t--> DLE " << lendone << " bytes");
 
                 len -= lendone;
                 pBuf += lendone;
@@ -3855,7 +3855,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
           }
           break;
         case stSendAckWait:
-          myPTRACE(1, "Reset state stSendAckWait");
+          myPTRACE(1, "T38Modem\tReset state stSendAckWait");
           {
             PWaitAndSignal mutexWait(Mutex);
             SetState(stCommand);
@@ -3866,7 +3866,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
           }
           break;
         default:
-          myPTRACE(1, "Reset state " << state);
+          myPTRACE(1, "T38Modem\tReset state " << state);
 
           len--;
           pBuf++;
@@ -3881,7 +3881,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 #endif
               PBYTEArray _bresp((const BYTE *)"\x10\x03", 2); // add <DLE><ETX>
 
-              myPTRACE(1, "<-- " << PRTHEX(_bresp));
+              myPTRACE(1, "T38Modem\t<-- " << PRTHEX(_bresp));
               bresp.Concatenate(_bresp);
             }
 
@@ -3905,7 +3905,7 @@ void ModemEngineBody::HandleData(const PBYTEArray &buf, PBYTEArray &bresp)
 
             PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
 
-            myPTRACE(1, "<-- " << PRTHEX(_bresp));
+            myPTRACE(1, "T38Modem\t<-- " << PRTHEX(_bresp));
             bresp.Concatenate(_bresp);
           }
       }
@@ -3923,7 +3923,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
       if (P.ModemClassId() == EngineBase::mcAudio) {
         PBYTEArray _bresp((const BYTE *)"\x10" "b", 2);		// <DLE>b
         bresp.Concatenate(_bresp);
-        myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+        myPTRACE(2, "T38Modem\t<-- DLE " << PRTHEX(_bresp));
       }
 #endif
     }
@@ -3934,7 +3934,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
         BYTE b[2] = {'\x10', 'r'};
         PBYTEArray _bresp(b, sizeof(b));
         bresp.Concatenate(_bresp);
-        myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+        myPTRACE(2, "T38Modem\t<-- DLE " << PRTHEX(_bresp));
       }
       else
 #endif
@@ -4060,7 +4060,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             BYTE b[6] = {'\x10', '/', '\x10', c, '\x10', '~'};
             PBYTEArray _bresp(b, sizeof(b));
             bresp.Concatenate(_bresp);
-            myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+            myPTRACE(2, "T38Modem\t<-- DLE " << PRTHEX(_bresp));
             break;
           }
           default: {
@@ -4068,7 +4068,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
             BYTE b[2] = {'\x10', c};
             PBYTEArray _bresp(b, sizeof(b));
             bresp.Concatenate(_bresp);
-            myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+            myPTRACE(2, "T38Modem\t<-- DLE " << PRTHEX(_bresp));
             break;
           }
         }
@@ -4229,7 +4229,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
               PBYTEArray _bresp((const BYTE *)(const char *)_resp, _resp.GetLength());
 
-              myPTRACE(1, "<-- " << PRTHEX(_bresp));
+              myPTRACE(1, "T38Modem\t<-- " << PRTHEX(_bresp));
               bresp.Concatenate(_bresp);
             }
             else
@@ -4316,7 +4316,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           }
           break;
         default:
-          myPTRACE(1, "Unexpected dataType=" << dataType);
+          myPTRACE(1, "T38Modem\tUnexpected dataType=" << dataType);
       }
       break;
     case stRecvBegHandle:
@@ -4433,12 +4433,12 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
                     PBYTEArray _bresp((const BYTE *)(const char *)_resp, _resp.GetLength());
 
-                    myPTRACE(1, "<-- " << PRTHEX(_bresp));
+                    myPTRACE(1, "T38Modem\t<-- " << PRTHEX(_bresp));
                     bresp.Concatenate(_bresp);
                   }
                   break;
                 default:
-                  myPTRACE(1, "Unexpected dataType=" << dataType);
+                  myPTRACE(1, "T38Modem\tUnexpected dataType=" << dataType);
                 }
               } 
 #ifdef AUD
@@ -4488,7 +4488,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
           if (count < 0) {
             PBYTEArray _bresp((const BYTE *)"\x10" "b", 2);	// <DLE>b
             bresp.Concatenate(_bresp);
-            myPTRACE(2, "<-- DLE " << PRTHEX(_bresp));
+            myPTRACE(2, "T38Modem\t<-- DLE " << PRTHEX(_bresp));
           }
         }
 #endif
@@ -4529,9 +4529,9 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 #if PTRACING
               if (PTrace::CanTrace(4)) {
                  if (count <= 16) {
-                   PTRACE(4, "<-- DLE " << PRTHEX(_bresp));
+                   myPTRACE(4, "T38Modem\t<-- DLE " << PRTHEX(_bresp));
                  } else {
-                   PTRACE(4, "<-- DLE " << count << " bytes");
+                   myPTRACE(4, "T38Modem\t<-- DLE " << count << " bytes");
                  }
               }
 #endif
@@ -4551,7 +4551,7 @@ void ModemEngineBody::CheckState(PBYTEArray & bresp)
 
     PBYTEArray _bresp((const BYTE *)(const char *)resp, resp.GetLength());
 
-    myPTRACE(1, "<-- " << PRTHEX(_bresp));
+    myPTRACE(1, "T38Modem\t<-- " << PRTHEX(_bresp));
     bresp.Concatenate(_bresp);
   }
 }

@@ -135,7 +135,7 @@ static PString strError(DWORD err)
 static void TraceLastError(const PString &head)
 {
   DWORD err = ::GetLastError();
-  myPTRACE(1, head << " ERROR " << strError(err));
+  myPTRACE(1, "T38Modem\t" << head << " ERROR " << strError(err));
 }
 #else
 #define TraceLastError(head)
@@ -206,7 +206,7 @@ InC0C::InC0C(PseudoModemC0C &_parent, HANDLE _hC0C)
 void InC0C::Main()
 {
   RenameCurrentThread(Parent().ptyName() + "(i)");
-  myPTRACE(1, "--> Started");
+  myPTRACE(1, "T38Modem\t--> Started");
 
   enum {
     EVENT_READ,
@@ -245,7 +245,7 @@ void InC0C::Main()
       if (!ReadFile(hC0C, cbuf, sizeof(cbuf), &undef, &overlaps[EVENT_READ])) {
         DWORD err = ::GetLastError();
         if (err != ERROR_IO_PENDING) {
-          myPTRACE(1, "ReadFile() ERROR " << strError(err));
+          myPTRACE(1, "T38Modem\tReadFile() ERROR " << strError(err));
           SignalStop();
           break;
         }
@@ -257,7 +257,7 @@ void InC0C::Main()
       if (!WaitCommEvent(hC0C, &maskStat, &overlaps[EVENT_STAT])) {
         DWORD err = ::GetLastError();
         if (err != ERROR_IO_PENDING) {
-          myPTRACE(1, "WaitCommEvent() ERROR " << strError(err));
+          myPTRACE(1, "T38Modem\tWaitCommEvent() ERROR " << strError(err));
           SignalStop();
           break;
         }
@@ -273,7 +273,7 @@ void InC0C::Main()
       }
 
       if (!(stat & MS_DSR_ON)) {
-        myPTRACE(1, "DSR is OFF");
+        myPTRACE(1, "T38Modem\tDSR is OFF");
         Parent().reset = FALSE;
         SignalStop();
         break;
@@ -290,7 +290,7 @@ void InC0C::Main()
 
       if (changedErrors & CE_BREAK) {
         if ((errors & CE_BREAK)) {
-          myPTRACE(1, "BREAK is detected");
+          myPTRACE(1, "T38Modem\tBREAK is detected");
           SignalStop();
           break;
         }
@@ -315,7 +315,7 @@ void InC0C::Main()
           SignalStop();
         }
         waitingStat = FALSE;
-        PTRACE(6, "EVENT_STAT " << hex << maskStat);
+        myPTRACE(6, "T38Modem\tEVENT_STAT " << hex << maskStat);
         break;
       case WAIT_TIMEOUT:
         break;
@@ -328,7 +328,7 @@ void InC0C::Main()
     }
 
     if (!waitingRead && cbufRead) {
-      PTRACE(6, "--> " << PRTHEX(PBYTEArray((const BYTE *)cbuf, cbufRead)));
+      myPTRACE(6, "T38Modem\t--> " << PRTHEX(PBYTEArray((const BYTE *)cbuf, cbufRead)));
       Parent().ToInPtyQ(cbuf, cbufRead);
       cbufRead = 0;
     }
@@ -338,7 +338,7 @@ void InC0C::Main()
 
   CloseEvents(EVENT_NUM, hEvents);
 
-  myPTRACE(1, "--> Stopped" << GetThreadTimes(", CPU usage: "));
+  myPTRACE(1, "T38Modem\t--> Stopped" << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
 OutC0C::OutC0C(PseudoModemC0C &_parent, HANDLE _hC0C)
@@ -349,7 +349,7 @@ OutC0C::OutC0C(PseudoModemC0C &_parent, HANDLE _hC0C)
 void OutC0C::Main()
 {
   RenameCurrentThread(Parent().ptyName() + "(o)");
-  myPTRACE(1, "<-- Started");
+  myPTRACE(1, "T38Modem\t<-- Started");
 
   enum {
     EVENT_WRITE,
@@ -386,7 +386,7 @@ void OutC0C::Main()
       if (!WriteFile(hC0C, (const BYTE *)*buf + done, buf->GetSize() - done, &written, &overlaps[EVENT_WRITE])) {
         DWORD err = ::GetLastError();
         if (err != ERROR_IO_PENDING) {
-          myPTRACE(1, "WriteFile() ERROR " << strError(err));
+          myPTRACE(1, "T38Modem\tWriteFile() ERROR " << strError(err));
           SignalStop();
           break;
         }
@@ -404,7 +404,7 @@ void OutC0C::Main()
         waitingWrite = FALSE;
         break;
       case WAIT_TIMEOUT:
-        myPTRACE(6, "TIMEOUT");
+        myPTRACE(6, "T38Modem\tTIMEOUT");
 
 //#if PTRACING
 //        if (PTrace::CanTrace(6)) {
@@ -412,8 +412,8 @@ void OutC0C::Main()
 //          COMSTAT comstat;
 //
 //          if (ClearCommError(hC0C, &errors, &comstat)) {
-//            PTRACE(1,
-//                "errors="       << hex << errors << dec << " "
+//            myPTRACE(1,
+//                "T38Modem\terrors="       << hex << errors << dec << " "
 //                "fCtsHold="     << comstat.fCtsHold << " "
 //                "fDsrHold="     << comstat.fDsrHold << " "
 //                "fRlsdHold="    << comstat.fRlsdHold << " "
@@ -437,13 +437,13 @@ void OutC0C::Main()
     }
 
     if (!waitingWrite && written) {
-      PTRACE(6, "<-- " << PRTHEX(PBYTEArray((const BYTE *)*buf + done, written)));
+      myPTRACE(6, "T38Modem\t<-- " << PRTHEX(PBYTEArray((const BYTE *)*buf + done, written)));
 
       done += written;
 
       if (buf->GetSize() <= done) {
         if (buf->GetSize() < done) {
-          myPTRACE(1, "<-- " << buf->GetSize() << "(size) < (done)" << done << " " << written);
+          myPTRACE(1, "T38Modem\t<-- " << buf->GetSize() << "(size) < (done)" << done << " " << written);
         }
         delete buf;
         buf = NULL;
@@ -456,13 +456,13 @@ void OutC0C::Main()
 
   if (buf) {
     if (buf->GetSize() != done)
-      myPTRACE(1, "<-- Not sent " << PRTHEX(PBYTEArray((const BYTE *)*buf + done, buf->GetSize() - done)));
+      myPTRACE(1, "T38Modem\t<-- Not sent " << PRTHEX(PBYTEArray((const BYTE *)*buf + done, buf->GetSize() - done)));
     delete buf;
   }
 
   CloseEvents(EVENT_NUM, hEvents);
 
-  myPTRACE(1, "<-- Stopped" << GetThreadTimes(", CPU usage: "));
+  myPTRACE(1, "T38Modem\t<-- Stopped" << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
 PseudoModemC0C::PseudoModemC0C(
@@ -482,7 +482,7 @@ PseudoModemC0C::PseudoModemC0C(
     ptyname = ptypath.Mid(4);
     valid = TRUE;
   } else {
-    myPTRACE(1, "PseudoModemC0C::PseudoModemC0C bad on " << _tty);
+    myPTRACE(1, "T38Modem\tPseudoModemC0C::PseudoModemC0C bad on " << _tty);
     valid = FALSE;
   }
 }
@@ -538,7 +538,7 @@ PBoolean PseudoModemC0C::StartAll()
 {
   reset = TRUE;
 
-  PTRACE(3, "PseudoModemC0C::StartAll");
+  myPTRACE(3, "T38Modem\tPseudoModemC0C::StartAll");
 
   if (IsOpenC0C()
      && (inC0C = new InC0C(*this, hC0C)) != NULL
@@ -558,7 +558,7 @@ void PseudoModemC0C::StopAll()
 {
   ready = FALSE;
 
-  PTRACE(3, "PseudoModemC0C::StopAll reset=" << reset << " stop=" << stop << " childstop=" << childstop);
+  myPTRACE(3, "T38Modem\tPseudoModemC0C::StopAll reset=" << reset << " stop=" << stop << " childstop=" << childstop);
 
   if (inC0C) {
     inC0C->SignalStop();
@@ -611,7 +611,7 @@ BOOL PseudoModemC0C::OpenC0C()
   dcb.XonLim = 64;
 
   if (GetCommProperties(hC0C, &commProp)) {
-    myPTRACE(1, "CurrentRxQueue=" << commProp.dwCurrentRxQueue);
+    myPTRACE(1, "T38Modem\tCurrentRxQueue=" << commProp.dwCurrentRxQueue);
     dcb.XoffLim = WORD(commProp.dwCurrentRxQueue - 128);
   }
 
@@ -662,7 +662,7 @@ BOOL PseudoModemC0C::OpenC0C()
     return FALSE;
   }
 
-  myPTRACE(1, "PseudoModemBody::OpenC0C opened " << ptypath);
+  myPTRACE(1, "T38Modem\tPseudoModemBody::OpenC0C opened " << ptypath);
 
   return TRUE;
 }
@@ -729,7 +729,7 @@ BOOL PseudoModemC0C::OutPnpId()
     checkSum += devID[i];
   }
 
-  myPTRACE(1, "checkSum = 0x" << hex << (checkSum & 0xFF));
+  myPTRACE(1, "T38Modem\tcheckSum = 0x" << hex << (checkSum & 0xFF));
 
   static char digs[] = "0123456789ABCDEF";
 
@@ -747,7 +747,7 @@ BOOL PseudoModemC0C::OutPnpId()
       if (err == ERROR_IO_PENDING) {
         waitingWrite = TRUE;
       } else {
-        myPTRACE(1, "WriteFile() ERROR " << strError(err));
+        myPTRACE(1, "T38Modem\tWriteFile() ERROR " << strError(err));
       }
     }
   }
@@ -761,7 +761,7 @@ BOOL PseudoModemC0C::OutPnpId()
       waitingWrite = FALSE;
     break;
     case WAIT_TIMEOUT:
-      myPTRACE(6, "TIMEOUT");
+      myPTRACE(6, "T38Modem\tTIMEOUT");
       break;
     default:
       TraceLastError("WaitForMultipleObjects()");
@@ -769,13 +769,13 @@ BOOL PseudoModemC0C::OutPnpId()
   }
 
   if (!waitingWrite && written) {
-    myPTRACE(6, "<-- " << PRTHEX(PBYTEArray((const BYTE *)*buf + done, written)));
+    myPTRACE(6, "T38Modem\t<-- " << PRTHEX(PBYTEArray((const BYTE *)*buf + done, written)));
 
     done += written;
 
     if (buf->GetSize() <= done) {
       if (buf->GetSize() < done) {
-        myPTRACE(1, "<-- " << buf->GetSize() << "(size) < (done)" << done << " " << written);
+        myPTRACE(1, "T38Modem\t<-- " << buf->GetSize() << "(size) < (done)" << done << " " << written);
       }
       delete buf;
       buf = NULL;
@@ -788,7 +788,7 @@ BOOL PseudoModemC0C::OutPnpId()
 
   if (buf) {
     if (buf->GetSize() != done)
-      myPTRACE(1, "<-- Not sent " << PRTHEX(PBYTEArray((const BYTE *)*buf + done, buf->GetSize() - done)));
+      myPTRACE(1, "T38Modem\t<-- Not sent " << PRTHEX(PBYTEArray((const BYTE *)*buf + done, buf->GetSize() - done)));
     delete buf;
   }
 
@@ -834,7 +834,7 @@ BOOL PseudoModemC0C::WaitReady()
       if (!WaitCommEvent(hC0C, &maskStat, &overlaps[EVENT_STAT])) {
         DWORD err = ::GetLastError();
         if (err != ERROR_IO_PENDING) {
-          myPTRACE(1, "WaitCommEvent() ERROR " << strError(err));
+          myPTRACE(1, "T38Modem\tWaitCommEvent() ERROR " << strError(err));
           fault = TRUE;
           break;
         }
@@ -859,7 +859,7 @@ BOOL PseudoModemC0C::WaitReady()
           PInt64 msSinceDSR = (PTime() - TimeDSR).GetMilliSeconds();
 
           if (msSinceDSR > 150 && msSinceDSR < 250) {
-            myPTRACE(1, "PnP Enumerator detected");
+            myPTRACE(1, "T38Modem\tPnP Enumerator detected");
             enumerator = TRUE;
           }
 
@@ -879,7 +879,7 @@ BOOL PseudoModemC0C::WaitReady()
           fault = TRUE;
         }
         waitingStat = FALSE;
-        myPTRACE(6, "EVENT_STAT " << hex << maskStat);
+        myPTRACE(6, "T38Modem\tEVENT_STAT " << hex << maskStat);
         break;
       case WAIT_TIMEOUT:
         break;

@@ -136,7 +136,7 @@ PBoolean HDLC::skipFlag(BYTE b)
 
 PBoolean HDLC::unpack(BYTE b)
 {
-  //myPTRACE(1, "unpack det " << hex << (WORD)b);
+  //myPTRACE(1, "T38Modem\tunpack det " << hex << (WORD)b);
   WORD w = WORD(((WORD)rawByte << 8) | (b & 0xFF));
   PINDEX j = 8 - rawByteLen;
 
@@ -165,7 +165,7 @@ PBoolean HDLC::unpack(BYTE b)
     if (hdlcChunkLen == 24) {
       BYTE b = BYTE(hdlcChunk >> 16);
       outData.PutData(&b, 1);
-      //myPTRACE(1, "unpack put " << hex << (WORD)hdlcChunk);
+      //myPTRACE(1, "T38Modem\tunpack put " << hex << (WORD)hdlcChunk);
       hdlcChunkLen = 16;
     }
   }
@@ -301,7 +301,7 @@ int HDLC::GetHdlcData(void *_pBuf, PINDEX count)
         outData.PutEof();
         inData = NULL;
         hdlcState = stEof;
-        //myPTRACE(1, "hdlcState=stEof EOF");
+        //myPTRACE(1, "T38Modem\thdlcState=stEof EOF");
       }
       else {
         lastChar = b;
@@ -310,23 +310,23 @@ int HDLC::GetHdlcData(void *_pBuf, PINDEX count)
         case stSync:
           if (sync(b)) {
             hdlcState = stSkipFlags;
-            //myPTRACE(1, "hdlcState=stSkipFlags " << hex << (int)b);
+            //myPTRACE(1, "T38Modem\thdlcState=stSkipFlags " << hex << (int)b);
           }
           break;
         case stSkipFlags:
           if (skipFlag(b))
             break;
           hdlcState = stData;
-          //myPTRACE(1, "hdlcState=stData " << hex << (int)b);
+          //myPTRACE(1, "T38Modem\thdlcState=stData " << hex << (int)b);
         case stData:
           if (!unpack(b)) {
             outData.PutEof();
             hdlcState = stEof;
-            //myPTRACE(1, "hdlcState=stEof " << hex << (int)b);
+            //myPTRACE(1, "T38Modem\thdlcState=stEof " << hex << (int)b);
           }
           break;
         default:
-          myPTRACE(1, "HDLC::GetHdlcData(): unexpected hdlcState=" << hdlcState);
+          myPTRACE(1, "T38Modem\tHDLC::GetHdlcData(): unexpected hdlcState=" << hdlcState);
         }
       }
 
@@ -364,12 +364,12 @@ HDLC::HDLC() :
 PBoolean HDLC::isFcsOK()
 {
   if (hdlcChunkLen != 16) {
-    myPTRACE(1, "isFcsOK(): hdlcChunkLen(" << hdlcChunkLen << ") != 16");
+    myPTRACE(1, "T38Modem\tisFcsOK(): hdlcChunkLen(" << hdlcChunkLen << ") != 16");
     return FALSE;
   }
 
   if ((WORD)hdlcChunk != fcs) {
-    myPTRACE(1, "isFcsOK(): hdlcChunk(" << hex << (WORD)hdlcChunk << ") != fcs(" << (WORD)fcs << ")");
+    myPTRACE(1, "T38Modem\tisFcsOK(): hdlcChunk(" << hex << (WORD)hdlcChunk << ") != fcs(" << (WORD)fcs << ")");
     return FALSE;
   }
 
@@ -414,7 +414,7 @@ void HDLC::GetHdlcStart(PBoolean sync)
     if (!sync)
       rawCount += 4;	// count FCS, flags, zeros
   }
-  //myPTRACE(1, "hdlcState=" << (sync ? "stSync" : "stSkipFlags") << " START");
+  //myPTRACE(1, "T38Modem\thdlcState=" << (sync ? "stSync" : "stSkipFlags") << " START");
 }
 
 int HDLC::GetData(void *pBuf, PINDEX count)
@@ -425,7 +425,7 @@ int HDLC::GetData(void *pBuf, PINDEX count)
   case EngineBase::dtRaw:
     return GetRawData(pBuf, count);
   default:
-    myPTRACE(1, "HDLC::GetData bad outDataType=" << outDataType);
+    myPTRACE(1, "T38Modem\tHDLC::GetData bad outDataType=" << outDataType);
   }
   return -1;
 }

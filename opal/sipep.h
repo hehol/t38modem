@@ -53,6 +53,7 @@
 
 #include <sip/sipep.h>
 #include "manager.h"
+#include "../pmutils.h"
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -95,6 +96,7 @@ public:
                       const char * mode,
                       const char * ttl,
                       const char * resultFile);
+  SIPRegisterHandler * CreateRegisterHandler(const SIPRegister::Params & params);
 };
 
 /////////////////////////////////////////////////////////////////////////////

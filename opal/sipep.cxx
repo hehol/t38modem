@@ -251,7 +251,7 @@ void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
 {
   PTime time;
   SIPEndPoint::OnRegistrationStatus(status);
-  PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() " << status.m_reason << " | " << status.m_userData);
+  myPTRACE(2, "T38Modem\tMySIPEndPoint::OnRegistrationStatus() " << status.m_reason << " | " << status.m_userData);
   if (status.m_userData) {
     ofstream sipRegResultFile;
     PString *outFilePString = (PString*) status.m_userData;
@@ -264,14 +264,14 @@ void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
       sipRegResultFile << (status.m_reRegistering ? "Renewed registration" : "Initial registration") << endl;
       sipRegResultFile << status.m_productInfo.AsString() << endl;
       sipRegResultFile.close();
-      PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() file " << outFile << " written successfully");
+      myPTRACE(2, "T38Modem\tMySIPEndPoint::OnRegistrationStatus() file " << outFile << " written successfully");
     }
     else {
-      PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() open of " << outFile << " failed: " << strerror(errno));
+      myPTRACE(2, "T38Modem\tMySIPEndPoint::OnRegistrationStatus() open of " << outFile << " failed: " << strerror(errno));
     }
   }
   else {
-    PTRACE(2, "MySIPEndPoint::OnRegistrationStatus() No status.m_userData");
+    myPTRACE(2, "T38Modem\tMySIPEndPoint::OnRegistrationStatus() No status.m_userData");
   }
 
 
@@ -383,7 +383,7 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
 
   if (args.HasOption("sip-qos")) {
     output << "SIP QoS set to " << args.GetOptionString("sip-qos") << ".\n";
-    PTRACE(1, "SIP QoS set to " << args.GetOptionString("sip-qos"));
+    myPTRACE(1, "T38Modem\tSIP QoS set to " << args.GetOptionString("sip-qos"));
     SetSignalQoS(args.GetOptionString("sip-qos"));
   }
   else {
@@ -391,7 +391,7 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
     SetSignalQoS(PString("DF"));
   }
 
-  PTRACE(1, "SIP QoS: " << GetSignalQoS());
+  myPTRACE(1, "T38Modem\tSIP QoS: " << GetSignalQoS());
   output << "SIP QoS: " << GetSignalQoS() << "\n";
 
   if (!MyRTPEndPoint::Initialise(args, output, verbose))
@@ -423,6 +423,12 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
   AddRoutesFor(this, defaultRoute);
   return true;
 }
+
+SIPRegisterHandler * MySIPEndPoint::CreateRegisterHandler(const SIPRegister::Params & params)
+{
+  return new SIPRegisterHandler(*this, params);
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 #endif // OPAL_SIP

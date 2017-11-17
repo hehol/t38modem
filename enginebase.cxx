@@ -138,23 +138,23 @@ EngineBase::~EngineBase()
     delete recvUserInput;
 
   if (hOwnerIn != NULL)
-    myPTRACE(1, name << " ~EngineBase WARNING: (In) still open by " << hOwnerIn);
+    myPTRACE(1, "T38Modem\t" << name << " ~EngineBase WARNING: (In) still open by " << hOwnerIn);
 
   if (hOwnerOut != NULL)
-    myPTRACE(1, name << " ~EngineBase WARNING: (Out) still open by " << hOwnerOut);
+    myPTRACE(1, "T38Modem\t" << name << " ~EngineBase WARNING: (Out) still open by " << hOwnerOut);
 
   if (!modemCallback.IsNULL())
-    myPTRACE(1, name << " ~EngineBase WARNING: !modemCallback.IsNULL()");
+    myPTRACE(1, "T38Modem\t" << name << " ~EngineBase WARNING: !modemCallback.IsNULL()");
 }
 
 PBoolean EngineBase::Attach(const PNotifier &callback)
 {
-  PTRACE(1, name << " Attach");
+  myPTRACE(1, "T38Modem\t" << name << " Attach");
 
   PWaitAndSignal mutexWait(Mutex);
 
   if (!modemCallback.IsNULL()) {
-    myPTRACE(1, name << " Attach !modemCallback.IsNULL()");
+    myPTRACE(1, "T38Modem\t" << name << " Attach !modemCallback.IsNULL()");
 
     return FALSE;
   }
@@ -168,25 +168,25 @@ PBoolean EngineBase::Attach(const PNotifier &callback)
 
 void EngineBase::OnAttach()
 {
-  PTRACE(1, name << " OnAttach Attached");
+  myPTRACE(1, "T38Modem\t" << name << " OnAttach Attached");
 
   OnResetModemState();
 }
 
 void EngineBase::Detach(const PNotifier &callback)
 {
-  PTRACE(1, name << " Detach");
+  myPTRACE(1, "T38Modem\t" << name << " Detach");
 
   PWaitAndSignal mutexWait(Mutex);
 
   if (modemCallback.IsNULL()) {
-    myPTRACE(1, name << " Detach Already Detached");
+    myPTRACE(1, "T38Modem\t" << name << " Detach Already Detached");
 
     return;
   }
 
   if (modemCallback != callback) {
-    myPTRACE(1, name << " Detach modemCallback != callback");
+    myPTRACE(1, "T38Modem\t" << name << " Detach modemCallback != callback");
 
     return;
   }
@@ -200,7 +200,7 @@ void EngineBase::Detach(const PNotifier &callback)
 
 void EngineBase::OnDetach()
 {
-  myPTRACE(1, name << " OnDetach Detached");
+  myPTRACE(1, "T38Modem\t" << name << " OnDetach Detached");
 
   OnResetModemState();
 }
@@ -214,7 +214,7 @@ void EngineBase::ResetModemState() {
 
 void EngineBase::OnResetModemState()
 {
-  myPTRACE(1, name << " OnResetModemState");
+  myPTRACE(1, "T38Modem\t" << name << " OnResetModemState");
 }
 
 void EngineBase::OpenIn(HOWNERIN hOwner, PBoolean fake)
@@ -223,22 +223,22 @@ void EngineBase::OpenIn(HOWNERIN hOwner, PBoolean fake)
 
   while (hOwnerIn != NULL) {
     if (hOwnerIn == hOwner) {
-      myPTRACE(1, name << " OpenIn: re-open " << hOwner);
+      myPTRACE(1, "T38Modem\t" << name << " OpenIn: re-open " << hOwner);
       return;
     }
 
     if (fake) {
-      myPTRACE(1, name << " OpenIn: disabled close " << hOwnerIn << " by fake " << hOwner);
+      myPTRACE(1, "T38Modem\t" << name << " OpenIn: disabled close " << hOwnerIn << " by fake " << hOwner);
       return;
     }
 
-    myPTRACE(1, name << " OpenIn " << (isFakeOwnerIn ? ": close fake " : "WARNING: close ") << hOwnerIn << " by " << hOwner);
+    myPTRACE(1, "T38Modem\t" << name << " OpenIn " << (isFakeOwnerIn ? ": close fake " : "WARNING: close ") << hOwnerIn << " by " << hOwner);
 
     hOwnerIn = NULL;
     OnCloseIn();
   }
 
-  myPTRACE(1, name << " OpenIn: open " << hOwner);
+  myPTRACE(1, "T38Modem\t" << name << " OpenIn: open " << hOwner);
 
   hOwnerIn = hOwner;
   isFakeOwnerIn = fake;
@@ -251,22 +251,22 @@ void EngineBase::OpenOut(HOWNEROUT hOwner, PBoolean fake)
 
   while (hOwnerOut != NULL) {
     if (hOwnerOut == hOwner) {
-      myPTRACE(1, name << " OpenOut: re-open " << hOwner);
+      myPTRACE(1, "T38Modem\t" << name << " OpenOut: re-open " << hOwner);
       return;
     }
 
     if (fake) {
-      myPTRACE(1, name << " OpenOut: disabled close " << hOwnerOut << " by fake " << hOwner);
+      myPTRACE(1, "T38Modem\t" << name << " OpenOut: disabled close " << hOwnerOut << " by fake " << hOwner);
       return;
     }
 
-    myPTRACE(1, name << " OpenOut " << (isFakeOwnerOut ? ": close fake " : "WARNING: close ") << hOwnerOut << " by " << hOwner);
+    myPTRACE(1, "T38Modem\t" << name << " OpenOut " << (isFakeOwnerOut ? ": close fake " : "WARNING: close ") << hOwnerOut << " by " << hOwner);
 
     hOwnerOut = NULL;
     OnCloseOut();
   }
 
-  myPTRACE(1, name << " OpenOut: open " << hOwner);
+  myPTRACE(1, "T38Modem\t" << name << " OpenOut: open " << hOwner);
 
   hOwnerOut = hOwner;
   isFakeOwnerOut = fake;
@@ -290,7 +290,7 @@ void EngineBase::CloseIn(HOWNERIN hOwner)
   PWaitAndSignal mutexWait(Mutex);
 
   if (hOwnerIn == hOwner) {
-    myPTRACE(1, name << " CloseIn: close " << (isFakeOwnerIn ? "fake " : "") << hOwner);
+    myPTRACE(1, "T38Modem\t" << name << " CloseIn: close " << (isFakeOwnerIn ? "fake " : "") << hOwner);
 
     if (!isFakeOwnerIn)
       isEnableFakeIn = FALSE;  // allow re-enable fake stream
@@ -298,7 +298,7 @@ void EngineBase::CloseIn(HOWNERIN hOwner)
     hOwnerIn = NULL;
     OnCloseIn();
   } else {
-    myPTRACE(1, name << " CloseIn: re-close " << hOwner);
+    myPTRACE(1, "T38Modem\t" << name << " CloseIn: re-close " << hOwner);
   }
 }
 
@@ -307,7 +307,7 @@ void EngineBase::CloseOut(HOWNEROUT hOwner)
   PWaitAndSignal mutexWait(Mutex);
 
   if (hOwnerOut == hOwner) {
-    myPTRACE(1, name << " CloseOut: close " << (isFakeOwnerOut ? "fake " : "") << hOwner);
+    myPTRACE(1, "T38Modem\t" << name << " CloseOut: close " << (isFakeOwnerOut ? "fake " : "") << hOwner);
 
     if (!isFakeOwnerOut)
       isEnableFakeOut = FALSE;  // allow re-enable fake stream
@@ -315,7 +315,7 @@ void EngineBase::CloseOut(HOWNEROUT hOwner)
     hOwnerOut = NULL;
     OnCloseOut();
   } else {
-    myPTRACE(1, name << " CloseOut: re-close " << hOwner);
+    myPTRACE(1, "T38Modem\t" << name << " CloseOut: re-close " << hOwner);
   }
 }
 
@@ -336,7 +336,7 @@ void EngineBase::EnableFakeIn(PBoolean enable)
   if (isEnableFakeIn == enable)
     return;
 
-  myPTRACE(3, name << " EnableFakeIn: " << (enable ? "enable" : "disable"));
+  myPTRACE(3, "T38Modem\t" << name << " EnableFakeIn: " << (enable ? "enable" : "disable"));
 
   isEnableFakeIn = enable;
   OnChangeEnableFakeIn();
@@ -345,7 +345,7 @@ void EngineBase::EnableFakeIn(PBoolean enable)
 void EngineBase::OnChangeEnableFakeIn()
 {
   if (!isEnableFakeIn && hOwnerIn != NULL && isFakeOwnerIn) {
-    myPTRACE(1, name << " OnChangeEnableFakeIn: close fake " << hOwnerIn);
+    myPTRACE(1, "T38Modem\t" << name << " OnChangeEnableFakeIn: close fake " << hOwnerIn);
 
     hOwnerIn = NULL;
     OnCloseIn();
@@ -359,7 +359,7 @@ void EngineBase::EnableFakeOut(PBoolean enable)
   if (isEnableFakeOut == enable)
     return;
 
-  myPTRACE(3, name << " EnableFakeOut: " << (enable ? "enable" : "disable"));
+  myPTRACE(3, "T38Modem\t" << name << " EnableFakeOut: " << (enable ? "enable" : "disable"));
 
   isEnableFakeOut = enable;
   OnChangeEnableFakeOut();
@@ -368,7 +368,7 @@ void EngineBase::EnableFakeOut(PBoolean enable)
 void EngineBase::OnChangeEnableFakeOut()
 {
   if (!isEnableFakeOut && hOwnerOut != NULL && isFakeOwnerOut) {
-    myPTRACE(1, name << " OnChangeEnableFakeOut: close fake " << hOwnerOut);
+    myPTRACE(1, "T38Modem\t" << name << " OnChangeEnableFakeOut: close fake " << hOwnerOut);
 
     hOwnerOut = NULL;
     OnCloseOut();
@@ -384,7 +384,7 @@ void EngineBase::ChangeModemClass(ModemClass newModemClass)
 
   modemClass = newModemClass;
 
-  myPTRACE(1, name << " ChangeModemClass to " << modemClass);
+  myPTRACE(1, "T38Modem\t" << name << " ChangeModemClass to " << modemClass);
 
   OnChangeModemClass();
 }
@@ -396,7 +396,7 @@ void EngineBase::OnChangeModemClass()
     recvUserInput = NULL;
   }
 
-  myPTRACE(1, name << " OnChangeModemClass to " << modemClass);
+  myPTRACE(1, "T38Modem\t" << name << " OnChangeModemClass to " << modemClass);
 }
 
 PBoolean EngineBase::TryLockModemCallback()
@@ -431,7 +431,7 @@ void EngineBase::ModemCallbackWithUnlock(INT extra)
 
 void EngineBase::WriteUserInput(const PString & value)
 {
-  myPTRACE(1, name << " WriteUserInput " << value);
+  myPTRACE(1, "T38Modem\t" << name << " WriteUserInput " << value);
 
   PWaitAndSignal mutexWait(Mutex);
 
@@ -440,7 +440,7 @@ void EngineBase::WriteUserInput(const PString & value)
 
 void EngineBase::OnUserInput(const PString & value)
 {
-  PTRACE(4, name << " OnUserInput " << value);
+  myPTRACE(4, "T38Modem\t" << name << " OnUserInput " << value);
 
   if (recvUserInput && !recvUserInput->isFull()) {
     recvUserInput->PutData((const char *)value, value.GetLength());

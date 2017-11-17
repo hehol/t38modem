@@ -452,7 +452,7 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   PrintVersion(output);
   output << endl;
 
-  PTRACE(1, process.GetName()
+  myPTRACE(1, "T38Modem\t" << process.GetName()
       << " Version " << process.GetVersion(TRUE)
       << " (" << GetListOfLibs() << ")"
       << " on " << process.GetOSClass() << " " << process.GetOSName()
@@ -777,7 +777,7 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
 {
   cout << "\n" << args << "\n";;
 
-  PTRACE_INITIALISE(args);
+  myPTRACE_INITIALISE(args);
 
   DisableDetectInBandDTMF(TRUE);
   m_silenceDetectParams.m_mode = OpalSilenceDetector::NoSilenceDetection;
@@ -800,9 +800,9 @@ PBoolean MyManager::Initialise(const PConfigArgs & args)
           SetTCPPorts(ps[1].AsUnsigned(), ps[2].AsUnsigned());
       }
     }
-    PTRACE(1, "UDP ports: " << GetUDPPortBase() << "-" << GetUDPPortMax());
-    PTRACE(1, "RTP ports: " << GetRtpIpPortBase() << "-" << GetRtpIpPortMax());
-    PTRACE(1, "TCP ports: " << GetTCPPortBase() << "-" << GetTCPPortMax());
+    myPTRACE(1, "UDP ports: " << GetUDPPortBase() << "-" << GetUDPPortMax());
+    myPTRACE(1, "RTP ports: " << GetRtpIpPortBase() << "-" << GetRtpIpPortMax());
+    myPTRACE(1, "TCP ports: " << GetTCPPortBase() << "-" << GetTCPPortMax());
   }
 
   SetDefaultUserName(
@@ -900,7 +900,7 @@ bool MyManager::OnRouteConnection(PStringSet & routesTried,
 
   if (!OpalManager::OnRouteConnection(routesTried, a_party, b_party, call, options, stringOptions)) {
     cout << "Call[" << token << "] from " << a_party << " to " << b_party << ", no route!" << endl;
-    PTRACE(1, "Call[" << token << "] from " << a_party << " to " << b_party << ", no route!");
+    myPTRACE(1, "T38Modem\tCall[" << token << "] from " << a_party << " to " << b_party << ", no route!");
     return false;
   }
 
@@ -915,7 +915,7 @@ bool MyManager::OnRouteConnection(PStringSet & routesTried,
   }
 
   cout << "Call[" << token << "] from " << a_party << " to " << b_party << ", route to " << dst << endl;
-  PTRACE(1, "Call[" << token << "] from " << a_party << " to " << b_party << ", route to " << dst);
+  myPTRACE(1, "T38Modem\tCall[" << token << "] from " << a_party << " to " << b_party << ", route to " << dst);
 
   return true;
 }
@@ -937,7 +937,7 @@ void MyManager::Run()
 void MyManager::OnClearedCall(OpalCall & call)
 {
   cout << "Call[" << call.GetToken() << "] cleared (" << call.GetCallEndReasonText() << ")" << endl;
-  PTRACE(1, "Call[" << call.GetToken() << "] cleared (" << call.GetCallEndReason() << ")");
+  myPTRACE(1, "T38Modem\tCall[" << call.GetToken() << "] cleared (" << call.GetCallEndReason() << ")");
 
   OpalManager::OnClearedCall(call);
 }
@@ -1051,7 +1051,7 @@ PString MyManager::ApplyRouteTable(const PString & proto, const PString & addr, 
 
 void MyManager::EndRun(bool interrupt)
 {
-  PTRACE(2, "Shutting down " << (interrupt ? " via interrupt" : " normally"));
+  myPTRACE(2, "T38Modem\tShutting down " << (interrupt ? " via interrupt" : " normally"));
   Broadcast(PSTRSTRM("\nShutting down " << PProcess::Current().GetName()
                      << (interrupt ? " via interrupt" : " normally") << " . . . "));
 

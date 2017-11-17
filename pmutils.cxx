@@ -250,7 +250,7 @@ void RenameCurrentThread(const PString &newname)
       #endif
     #endif
   );
-  PTRACE(2, "RenameCurrentThread old ThreadName=" << oldname);
+  myPTRACE(2, "T38Modem\tRenameCurrentThread old ThreadName=" << oldname);
 }
 #endif /* PTRACING */
 ///////////////////////////////////////////////////////////////

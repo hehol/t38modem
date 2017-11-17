@@ -140,7 +140,7 @@ PseudoModem *PseudoModemDrivers::CreateModem(
       modem = drivers[i].CreatePseudoModem(tty, route, args, callbackEndPoint);
 
       if (!modem) {
-        //myPTRACE(1, "PseudoModemDrivers::CreateModem " << tty << " was not created");
+        //myPTRACE(1, "T38Modem\tPseudoModemDrivers::CreateModem " << tty << " was not created");
         return NULL;
       }
       break;
@@ -148,12 +148,12 @@ PseudoModem *PseudoModemDrivers::CreateModem(
   }
 
   if (!modem) {
-    //myPTRACE(1, "PseudoModemDrivers::CreateModem " << tty << " is not a valid value");
+    //myPTRACE(1, "T38Modem\tPseudoModemDrivers::CreateModem " << tty << " is not a valid value");
     return NULL;
   }
 
   if (!modem->IsValid()) {
-    //myPTRACE(1, "PseudoModemDrivers::CreateModem " << tty << " is not valid");
+    //myPTRACE(1, "T38Modem\tPseudoModemDrivers::CreateModem " << tty << " is not valid");
     delete modem;
     return NULL;
   }
