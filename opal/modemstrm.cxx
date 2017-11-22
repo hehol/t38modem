@@ -123,21 +123,19 @@ PBoolean T38ModemMediaStream::Open()
 
 void T38ModemMediaStream::InternalClose()
 {
-  if (m_isOpen) {
-    myPTRACE(2, "T38Modem\tT38ModemMediaStream::Close " << *this);
+  myPTRACE(2, "T38Modem\tT38ModemMediaStream::Close " << *this);
 
-    if (IsSink()) {
-      myPTRACE(2, "T38Modem\tT38ModemMediaStream::Close Send statistics:"
-                " sequence=" << currentSequenceNumber <<
-                " lost=" << totallost);
+  if (IsSink()) {
+    myPTRACE(2, "T38Modem\tT38ModemMediaStream::Close Send statistics:"
+              " sequence=" << currentSequenceNumber <<
+              " lost=" << totallost);
 
-      t38engine->CloseIn(EngineBase::HOWNERIN(this));
-    } else {
-      myPTRACE(2, "T38Modem\tT38ModemMediaStream::Close Receive statistics:"
-                " sequence=" << currentSequenceNumber);
+    t38engine->CloseIn(EngineBase::HOWNERIN(this));
+  } else {
+    myPTRACE(2, "T38Modem\tT38ModemMediaStream::Close Receive statistics:"
+              " sequence=" << currentSequenceNumber);
 
-      t38engine->CloseOut(EngineBase::HOWNEROUT(this));
-    }
+    t38engine->CloseOut(EngineBase::HOWNEROUT(this));
   }
 }
 
