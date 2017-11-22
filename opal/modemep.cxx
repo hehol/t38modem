@@ -181,10 +181,12 @@ class ModemConnection : public OpalFaxConnection
       const PString & calleeName,   /// Name of endpoint being alerted.
       PBoolean withMedia            /// Open media with alerting
     );
+    virtual void OnEstablished();
 
   protected:
     PseudoModem *pmodem;
     bool isPartyA;
+    bool m_receiving;
 };
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -562,6 +564,7 @@ ModemConnection::ModemConnection(OpalCall        & call,
   : OpalFaxConnection(call, ep, PString::Empty(), receiving, disableT38, stringOptions)
   , pmodem((PseudoModem *)userData)
   , isPartyA(userData != NULL)
+  , m_receiving(receiving)
 {
   m_remotePartyNumber = GetPartyName(remoteParty);
   PString remotePartyAddress = remoteParty;
@@ -674,6 +677,16 @@ void ModemConnection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
 
     m_disableT38 = true;
   }
+}
+
+void ModemConnection::OnEstablished()
+{
+  if (m_receiving) {
+    myPTRACE(2, "T38Modem\tModemConnection::OnEstablished() setting switch time to 1 on receive");
+    m_switchTime = 1;
+  }
+
+  OpalFaxConnection::OnEstablished();
 }
 
 /////////////////////////////////////////////////////////////////////////////
