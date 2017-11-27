@@ -653,7 +653,7 @@ OpalMediaFormatList ModemConnection::GetMediaFormats() const
   formats += OpalT38;
 
   if (!m_disableT38) {
-    //formats += OpalPCM16;
+    formats += OpalPCM16;
     formats += OpalRFC2833;
     formats += OpalCiscoNSE;
   }
