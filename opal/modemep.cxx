@@ -175,13 +175,11 @@ class ModemConnection : public OpalFaxConnection
 
     virtual OpalMediaStream * CreateMediaStream(const OpalMediaFormat & mediaFormat, unsigned sessionID, PBoolean isSource);
     virtual OpalMediaFormatList GetMediaFormats() const;
-    virtual void OnSwitchedFaxMediaStreams(bool toT38, bool success);
     virtual PBoolean SetUpConnection();
     virtual PBoolean SetAlerting(
       const PString & calleeName,   /// Name of endpoint being alerted.
       PBoolean withMedia            /// Open media with alerting
     );
-    virtual void OnEstablished();
 
   protected:
     PseudoModem *pmodem;
@@ -653,40 +651,12 @@ OpalMediaFormatList ModemConnection::GetMediaFormats() const
   formats += OpalT38;
 
   if (!m_disableT38) {
-    formats += OpalPCM16;
     formats += OpalRFC2833;
     formats += OpalCiscoNSE;
   }
 
   myPTRACE(1, "T38Modem\tModemConnection::GetMediaFormats: " << formats);
   return formats;
-}
-
-void ModemConnection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
-{
-  myPTRACE(1, "T38Modem\tModemConnection::OnSwitchedFaxMediaStreams toT38:" << toT38 << " success:" << success);
-  if (success) {
-    m_switchTimer.Stop(false);
-    m_finalStatistics.m_fax.m_result = OpalMediaStatistics::FaxNotStarted;
-  }
-  else {
-    if (toT38 && m_stringOptions.GetBoolean(OPAL_NO_G711_FAX)) {
-      myPTRACE(4, "T38Modem\tSwitch request to fax failed, checking for fall back to G.711");
-      InternalOnFaxCompleted();
-    }
-
-    m_disableT38 = true;
-  }
-}
-
-void ModemConnection::OnEstablished()
-{
-  if (m_receiving) {
-    myPTRACE(2, "T38Modem\tModemConnection::OnEstablished() setting switch time to 1 on receive");
-    m_switchTime = 1;
-  }
-
-  OpalFaxConnection::OnEstablished();
 }
 
 /////////////////////////////////////////////////////////////////////////////
