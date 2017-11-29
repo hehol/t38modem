@@ -224,7 +224,13 @@ bool MyRTPEndPoint::Initialise(PArgList & args, ostream & output, bool verbose)
 
   m_endpoint.SetDefaultStringOptions(args.GetOptionString(m_endpoint.GetPrefixName() + "-option"));
 
-  PStringArray interfaces = args.GetOptionString(m_endpoint.GetPrefixName()).Lines();
+  PStringArray interfaces;
+  if (m_endpoint.GetPrefixName() == "sip" && args.HasOption("sip-listen")) {
+    interfaces = args.GetOptionString("sip-listen").Lines();
+  }
+  else {
+    interfaces = args.GetOptionString(m_endpoint.GetPrefixName()).Lines();
+  }
   if ((m_endpoint.GetListeners().IsEmpty() || !interfaces.IsEmpty()) && !m_endpoint.StartListeners(interfaces)) {
     output << "Could not start listeners for " << m_endpoint.GetPrefixName() << endl;
     return false;
@@ -348,6 +354,7 @@ PString MySIPEndPoint::GetArgumentSpec()
   return "[SIP options:]"
           "-no-sip.           Disable SIP\n"
           "S-sip:             Listen on interface(s), defaults to udp$*:5060.\n"
+          "-sip-listen:       Listen on interface(s), defaults to udp$*:5060.\n"
           "-sip-register:     Registration information. Can be used multiple times.\r"
           "user@registrar[,password[,contact[,realm[,authID[,ttl[,mode[,resultFile]]]]]]]\r"
           "    user is the user to register, defualts to global user (--user)\r"
