@@ -225,16 +225,31 @@ bool MyRTPEndPoint::Initialise(PArgList & args, ostream & output, bool verbose)
   m_endpoint.SetDefaultStringOptions(args.GetOptionString(m_endpoint.GetPrefixName() + "-option"));
 
   PStringArray interfaces;
-  if (m_endpoint.GetPrefixName() == "sip" && args.HasOption("sip-listen")) {
-    interfaces = args.GetOptionString("sip-listen").Lines();
+  if (m_endpoint.GetPrefixName() == "sip") {
+    if (!args.HasOption("sip-no-listen")) {
+      if (args.HasOption("sip-listen")) {
+        interfaces = args.GetOptionString("sip-listen").Lines();
+      }
+      else {
+        interfaces = args.GetOptionString(m_endpoint.GetPrefixName()).Lines();
+      }
+      if ((m_endpoint.GetListeners().IsEmpty() || !interfaces.IsEmpty()) && !m_endpoint.StartListeners(interfaces)) {
+        output << "Could not start listeners for " << m_endpoint.GetPrefixName() << endl;
+        return false;
+      }
+    }
+    else {
+      output << "Not starting listeners for " << m_endpoint.GetPrefixName() << endl;
+    }
   }
   else {
     interfaces = args.GetOptionString(m_endpoint.GetPrefixName()).Lines();
+    if ((m_endpoint.GetListeners().IsEmpty() || !interfaces.IsEmpty()) && !m_endpoint.StartListeners(interfaces)) {
+      output << "Could not start listeners for " << m_endpoint.GetPrefixName() << endl;
+      return false;
+    }
   }
-  if ((m_endpoint.GetListeners().IsEmpty() || !interfaces.IsEmpty()) && !m_endpoint.StartListeners(interfaces)) {
-    output << "Could not start listeners for " << m_endpoint.GetPrefixName() << endl;
-    return false;
-  }
+
 
   if (verbose)
     output << m_endpoint.GetPrefixName() << " listening on: " << setfill(',') << m_endpoint.GetListeners() << setfill(' ') << '\n';
@@ -355,6 +370,7 @@ PString MySIPEndPoint::GetArgumentSpec()
           "-no-sip.           Disable SIP\n"
           "S-sip:             Listen on interface(s), defaults to udp$*:5060.\n"
           "-sip-listen:       Listen on interface(s), defaults to udp$*:5060.\n"
+          "-sip-no-listen.    Disable listening for incoming calls.\n"
           "-sip-register:     Registration information. Can be used multiple times.\r"
           "user@registrar[,password[,contact[,realm[,authID[,ttl[,mode[,resultFile]]]]]]]\r"
           "    user is the user to register, defualts to global user (--user)\r"
