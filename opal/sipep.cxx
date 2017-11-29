@@ -357,7 +357,16 @@ PString MySIPEndPoint::GetArgumentSpec()
           "    AFxx for Assured Forwarding, valid AF names:\r"
           "       AF11, AF12, AF13, AF21, AF22, AF23, AF31, AF32, AF33, AF41, AF42, AF43\r"
           "    CSn for Class Selector (n is 0-7)\n"
-
+          "-sip-register:     Registration information. Can be used multiple times.\r"
+          "user@registrar[,password[,contact[,realm[,authID[,ttl[,mode[,resultFile]]]]]]]\r"
+          "    user is the user to register, defualts to global user (--user)\r"
+          "    registrar is the registration server\r"
+          "    password is the password for the user being registered\r"
+          "    contact is the SIP contact information\r"
+          "    realm is the realm for the registration\r"
+          "    ttl is the Time To Live, default is 300 seconds\r"
+          "    mode is the registration mode (normal, single, public, ALG, RVC5626)\r"
+          "    resultFile is the filename for the registration result\n"
           "r-register:        Registration to server.\n"
           "-register-auth-id: Registration authorisation id, default is username.\n"
           "-register-realm:   Registration authorisation realm, default is any.\n"
@@ -417,8 +426,109 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
                         "register-result"))
       return false;
   }
+  
+  if (args.HasOption("sip-register")) {
+    PString r = args.GetOptionString("sip-register");
+    PStringArray regs = r.Tokenise("\r\n", FALSE);
 
+    for (PINDEX i = 0 ; i < regs.GetSize() ; i++) {
+      PStringArray prms = regs[i].Tokenise(",", TRUE);
 
+      PAssert(prms.GetSize() >= 1, "empty registration information");
+
+      if (prms.GetSize() >= 1) {
+        SIPRegister::Params params;
+
+  //      params.m_retry403 = retry403;
+
+        PString user;
+        PINDEX atLoc = prms[0].Find('@');
+        if (atLoc != P_MAX_INDEX) {
+          user = prms[0].Left(atLoc);
+          params.m_registrarAddress = prms[0].Right(prms[0].GetLength()-atLoc-1);
+        }
+        else {
+          output << "No user supplied for SIP Registration \"" << prms[0] << '"' << endl;
+          return false;
+        }
+
+        params.m_addressOfRecord = user;
+
+        output << "SIP Register: " << params.m_addressOfRecord << "@" << params.m_registrarAddress;
+
+        // Defaults
+        params.m_password = "";
+        params.m_contactAddress = "";
+        params.m_realm = "";
+        params.m_authID = "";
+        params.m_expire = 300;
+        params.m_compatibility = SIPRegister::e_FullyCompliant;
+        params.m_userData = NULL;
+
+        if (prms.GetSize() >= 2) {
+          params.m_password = prms[1];
+          output << " Password: " << params.m_password;
+
+          if (prms.GetSize() >= 3) {
+            params.m_contactAddress = prms[2];
+            output << " Contact: " << params.m_contactAddress;
+
+            if (prms.GetSize() >= 4) {
+              params.m_realm = prms[3];
+              output << " Realm: " << params.m_realm;
+              // If given a realm, change AOR to use it
+              if (params.m_realm.GetLength()) {
+                params.m_registrarAddress = params.m_realm;
+              }
+
+              if (prms.GetSize() >= 5) {
+                output << " AuthID: " << params.m_authID;
+                params.m_authID = prms[4];
+
+                if (prms.GetSize() >= 6) {
+                  params.m_expire = prms[5].AsInteger();
+                  output << " TTL: " << params.m_expire;
+
+                  if (prms.GetSize() >= 7) {
+                    if (prms[6] == "normal") {
+                      params.m_compatibility = SIPRegister::e_FullyCompliant;
+                    } else if (prms[6] == "NoMulti"  || prms[6] == "single") {
+                      params.m_compatibility = SIPRegister::e_CannotRegisterMultipleContacts;
+                    } else if (prms[6] == "NoPrivate" || prms[6] == "public") {
+                      params.m_compatibility = SIPRegister::e_CannotRegisterPrivateContacts;
+                    } else if (prms[6] == "ALG") {
+                      params.m_compatibility = SIPRegister::e_HasApplicationLayerGateway;
+                    } else if (prms[6] == "RFC5626") {
+                      params.m_compatibility = SIPRegister::e_RFC5626;
+                    } else if (prms[6].IsEmpty()) {
+                      params.m_compatibility = SIPRegister::e_FullyCompliant;
+                    } else {
+                      output << endl << "Unknown SIP registration mode \"" << prms[6] << '"' << endl;
+                      return false;
+                    }
+                    output << " Mode: " << prms[6];
+
+                    if (prms.GetSize() >= 8) {
+                      PString *pps = new PString();
+                      *pps = prms[7];
+                      params.m_userData = pps;
+                      output << " ResultFile: " << prms[7];
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        output << endl;
+
+        if (!Register(params, regs[i])) {
+          cerr << "Could not start SIP registration to " << params.m_addressOfRecord << endl;
+          return FALSE;
+        }
+      }
+    }
+  }
 
   AddRoutesFor(this, defaultRoute);
   return true;

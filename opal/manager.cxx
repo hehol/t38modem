@@ -757,8 +757,10 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   epSIP = new MySIPEndPoint(*this);
   epFAX = new ModemEndPoint(*this);
 
-  epSIP->Initialise(args,verbose,"");
-  epFAX->Initialise(args,verbose,"");
+  if (!epSIP->Initialise(args,verbose,""))
+    return false;
+  if (!epFAX->Initialise(args,verbose,""))
+    return false;
 
   output << "---------------------------------\n\n";
   output << "Route table:" << endl;
