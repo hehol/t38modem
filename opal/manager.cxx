@@ -225,6 +225,19 @@ PString MyManager::GetArgumentSpec()
          "O-option:          Set options for media format, argument is of form fmt:opt=val or @type:opt=val.\n"
          "-auto-start:       Set auto-start option for media type, e.g audio:sendrecv or video:sendonly.\n"
          "-tel:              Protocol to use for tel: URI, e.g. sip\n"
+         "-route:            Routes, may be used more than once.\r"
+         "    pat=dst[;option[=value][;...]]\r"
+         "Route the calls with incoming destination address\r"
+         "matching the regexp pat to the outgoing\r"
+         "destination address dst.\r"
+         "All '<dn>' meta-strings found in dst or in\r"
+         "following route options will be replaced by all\r"
+         "valid consecutive E.164 digits from the incoming\r"
+         "destination address. To strip N first digits use\r"
+         "'<dn!N>' meta-string.\r"
+         "If the specification is of the form @filename,\r"
+         "then the file is read with each line consisting\r"
+         "of a pat=dst[;...] route specification.\r"
 
          "[Audio options:]"
          "-jitter:           Set audio jitter buffer size (min[,max] default 50,250)\n"
@@ -478,11 +491,9 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   static char const * FormatMask[] = { "!G.711*", "!@fax", "!@userinput" };
   SetMediaFormatMask(PStringArray(PARRAYSIZE(FormatMask), FormatMask));
 
-  PString prefix = args.HasOption('a') && !args.HasOption('A') ?  "fax" : "t38";
-
-  AddRouteEntry(prefix + ":.*([0-9]{1,3}\\*){3,5}[0-9]{1,3}.*=sip:<dn2ip>");
-  AddRouteEntry(prefix + ":.*=sip:<dn>@10.196.238.132");
-  AddRouteEntry("sip:.*\\t.*=" + prefix + ":<dn>;receive");
+  if (args.HasOption("route")) {
+    SetRouteTable(args.GetOptionString("route").Tokenise("\r\n", FALSE));
+  }
  
   bool quiet = args.HasOption('q');
   if (quiet)
