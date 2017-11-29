@@ -348,15 +348,6 @@ PString MySIPEndPoint::GetArgumentSpec()
   return "[SIP options:]"
           "-no-sip.           Disable SIP\n"
           "S-sip:             Listen on interface(s), defaults to udp$*:5060.\n"
-          + MyRTPEndPoint::GetArgumentSpec() +
-          "-sip-qos:          Set SIP Quality of Service to DSCP value or name\rDefaults to DF (Default Forwarding)\r"
-          "Value can be 0-63\r"
-          "Name as defined by RFC4594:\r"
-          "    EF for Expedited Forwarding\r"
-          "    DF for Default Forwarding\r"
-          "    AFxx for Assured Forwarding, valid AF names:\r"
-          "       AF11, AF12, AF13, AF21, AF22, AF23, AF31, AF32, AF33, AF41, AF42, AF43\r"
-          "    CSn for Class Selector (n is 0-7)\n"
           "-sip-register:     Registration information. Can be used multiple times.\r"
           "user@registrar[,password[,contact[,realm[,authID[,ttl[,mode[,resultFile]]]]]]]\r"
           "    user is the user to register, defualts to global user (--user)\r"
@@ -367,15 +358,16 @@ PString MySIPEndPoint::GetArgumentSpec()
           "    ttl is the Time To Live, default is 300 seconds\r"
           "    mode is the registration mode (normal, single, public, ALG, RVC5626)\r"
           "    resultFile is the filename for the registration result\n"
-          "-sip-proxy:        Proxy information in form: [user:[pwd]@]host\n"
-          "r-register:        Registration to server.\n"
-          "-register-auth-id: Registration authorisation id, default is username.\n"
-          "-register-realm:   Registration authorisation realm, default is any.\n"
-          "-register-proxy:   Registration proxy, default is none.\n"
-          "-register-ttl:     Registration Time To Live, default 300 seconds.\n"
-          "-register-mode:    Registration mode (normal, single, public, ALG, RFC5626).\n"
-          "-register-result:  Filename for registration result.\n"
-          "-proxy:            Outbound proxy.\n";
+          "-sip-proxy:        Outbound proxy information in form: [user:[pwd]@]host\n"
+          + MyRTPEndPoint::GetArgumentSpec() +
+          "-sip-qos:          Set SIP Quality of Service to DSCP value or name\rDefaults to DF (Default Forwarding)\r"
+          "Value can be 0-63\r"
+          "Name as defined by RFC4594:\r"
+          "    EF for Expedited Forwarding\r"
+          "    DF for Default Forwarding\r"
+          "    AFxx for Assured Forwarding, valid AF names:\r"
+          "       AF11, AF12, AF13, AF21, AF22, AF23, AF31, AF32, AF33, AF41, AF42, AF43\r"
+          "    CSn for Class Selector (n is 0-7)\n";
 }
 
 
@@ -410,27 +402,6 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
   if (args.HasOption("sip-proxy")) {
     SetProxy(args.GetOptionString("sip-proxy"));
     output << "SIP proxy: " << GetProxy() << '\n';
-  }
-
-  if (args.HasOption("proxy")) {
-    SetProxy(args.GetOptionString("proxy"), args.GetOptionString("user"), args.GetOptionString("password"));
-    if (verbose)
-      output << "SIP proxy: " << GetProxy() << '\n';
-  }
-
-  if (args.HasOption("register")) {
-    output << "Register\n";
-    if (!DoRegistration(output, verbose,
-                        args.GetOptionString("register"),
-                        args.GetOptionString("password"),
-                        args,
-                        "register-auth-id",
-                        "register-realm",
-                        "register-proxy",
-                        "register-mode",
-                        "register-ttl",
-                        "register-result"))
-      return false;
   }
 
   if (args.HasOption("sip-register")) {

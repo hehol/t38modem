@@ -394,10 +394,19 @@ PBoolean PseudoModemPty::CheckTty(const PString &_tty)
 PString PseudoModemPty::ArgSpec()
 {
   return
+        "[Pseudoterminal Options:]"
 #ifdef USE_UNIX98_PTY
-        "-pts-dir:"
+        "-pts-dir:     Set a base directory for Unix98 ptys.\r"
+        "For Unix98 ptys the tty should match to the regexp\r"
+        "  '" + PString(ttyPatternUnix98()) + "'\r"
+        "(the first character '+' will be replaced by the base directory).\n"
 #endif
-        "";
+#ifdef USE_LEGACY_PTY
+        "-legacy.      Unused option\r"
+        "For legacy ptys the tty should match to the regexp\r"
+        "  '" + PString(ttyPatternLegacy()) + "'\n"
+#endif
+        ;
 }
 
 PStringArray PseudoModemPty::Description()
