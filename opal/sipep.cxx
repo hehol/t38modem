@@ -367,6 +367,7 @@ PString MySIPEndPoint::GetArgumentSpec()
           "    ttl is the Time To Live, default is 300 seconds\r"
           "    mode is the registration mode (normal, single, public, ALG, RVC5626)\r"
           "    resultFile is the filename for the registration result\n"
+          "-sip-proxy:        Proxy information in form: [user:[pwd]@]host\n"
           "r-register:        Registration to server.\n"
           "-register-auth-id: Registration authorisation id, default is username.\n"
           "-register-realm:   Registration authorisation realm, default is any.\n"
@@ -406,6 +407,11 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
   if (!MyRTPEndPoint::Initialise(args, output, verbose))
     return false;
 
+  if (args.HasOption("sip-proxy")) {
+    SetProxy(args.GetOptionString("sip-proxy"));
+    output << "SIP proxy: " << GetProxy() << '\n';
+  }
+
   if (args.HasOption("proxy")) {
     SetProxy(args.GetOptionString("proxy"), args.GetOptionString("user"), args.GetOptionString("password"));
     if (verbose)
@@ -426,7 +432,7 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
                         "register-result"))
       return false;
   }
-  
+
   if (args.HasOption("sip-register")) {
     PString r = args.GetOptionString("sip-register");
     PStringArray regs = r.Tokenise("\r\n", FALSE);
