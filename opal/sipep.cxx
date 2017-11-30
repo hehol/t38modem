@@ -398,7 +398,7 @@ PString MySIPEndPoint::GetArgumentSpec()
 
 bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & defaultRoute)
 {
-  bool retry403;
+  bool retryForbidden;
 
   MyManager::LockedStream lockedOutput(m_mgr);
   ostream & output = lockedOutput;
@@ -432,9 +432,9 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
   }
 
   if (args.HasOption("sip-retry-403-forbidden"))
-    retry403=true;
+    retryForbidden=true;
   else
-    retry403=false;
+    retryForbidden=false;
 
   if (args.HasOption("sip-register")) {
     PString r = args.GetOptionString("sip-register");
@@ -448,7 +448,7 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
       if (prms.GetSize() >= 1) {
         SIPRegister::Params params;
 
-        params.m_retry403 = retry403;
+        params.m_retryForbidden = retryForbidden;
 
         PString user;
         PINDEX atLoc = prms[0].Find('@');
