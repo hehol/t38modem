@@ -390,12 +390,16 @@ PString MySIPEndPoint::GetArgumentSpec()
           "    DF for Default Forwarding\r"
           "    AFxx for Assured Forwarding, valid AF names:\r"
           "       AF11, AF12, AF13, AF21, AF22, AF23, AF31, AF32, AF33, AF41, AF42, AF43\r"
-          "    CSn for Class Selector (n is 0-7)\n";
+          "    CSn for Class Selector (n is 0-7)\n"
+          "-sip-retry-403-forbidden : Enable retrying on 403 Forbidden responses. This violates\n";
+
 }
 
 
 bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & defaultRoute)
 {
+  bool retry403;
+
   MyManager::LockedStream lockedOutput(m_mgr);
   ostream & output = lockedOutput;
 
@@ -427,6 +431,11 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
     output << "SIP proxy: " << GetProxy() << '\n';
   }
 
+  if (args.HasOption("sip-retry-403-forbidden"))
+    retry403=true;
+  else
+    retry403=false;
+
   if (args.HasOption("sip-register")) {
     PString r = args.GetOptionString("sip-register");
     PStringArray regs = r.Tokenise("\r\n", FALSE);
@@ -439,7 +448,7 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
       if (prms.GetSize() >= 1) {
         SIPRegister::Params params;
 
-  //      params.m_retry403 = retry403;
+        params.m_retry403 = retry403;
 
         PString user;
         PINDEX atLoc = prms[0].Find('@');
