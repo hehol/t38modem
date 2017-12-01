@@ -391,7 +391,8 @@ PString MySIPEndPoint::GetArgumentSpec()
           "    AFxx for Assured Forwarding, valid AF names:\r"
           "       AF11, AF12, AF13, AF21, AF22, AF23, AF31, AF32, AF33, AF41, AF42, AF43\r"
           "    CSn for Class Selector (n is 0-7)\n"
-          "-sip-retry-403-forbidden : Enable retrying on 403 Forbidden responses. This violates\n";
+          "-sip-retry-403-forbidden: Enable retrying on 403 Forbidden responses. This violates\r"
+          "RFC 3261, but is needed by some SIP servers.\n";
 
 }
 
