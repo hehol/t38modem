@@ -249,6 +249,10 @@ bool ModemEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
     }
   }
 
+  // A bit of a hack here, but we need one option here so the endpoint
+  // will see the options from manager.cxx
+  defaultStringOptions.SetAt("Dummy","Option");
+
   if (args.HasOption("audio") || args.HasOption("disable-t38-mode"))
     m_prefix = "fax:";
   else
