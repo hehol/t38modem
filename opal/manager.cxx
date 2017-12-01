@@ -224,11 +224,6 @@ PString MyManager::GetArgumentSpec()
          "[Global options:]"
          "u-user:            Set local username, defaults to OS username.\n"
          "p-password:        Set password for authentication.\n"
-         "D-disable:         Disable use of specified media formats (codecs).\n"
-         "P-prefer:          Set preference order for media formats (codecs).\n"
-         "O-option:          Set options for media format, argument is of form fmt:opt=val or @type:opt=val.\n"
-         "-auto-start:       Set auto-start option for media type, e.g audio:sendrecv or video:sendonly.\n"
-         "-tel:              Protocol to use for tel: URI, e.g. sip\n"
          "-route:            Routes, may be used more than once.\r"
          "    pat=dst[;option[=value][;...]]\r"
          "Route the calls with incoming destination address\r"
@@ -309,28 +304,6 @@ PString MyManager::GetArgumentSpec()
          ;
 }
 
-
-#if 0
-PString MyManager::ArgSpec()
-{
-  return
-#if OPAL_H323
-    MyH323EndPoint::ArgSpec() +
-#endif
-#if OPAL_SIP
-    MySIPEndPoint::ArgSpec() +
-#endif
-    ModemEndPoint::ArgSpec() +
-    "-ports:"
-    "-route:"
-    "u-username:"
-    "-displayname:"
-    "-stun:"
-    "-fake-audio:"
-  ;
-}
-#endif
-
 void MyManager::Usage(ostream & strm, const PArgList & args)
 {
   args.Usage(strm,
@@ -353,99 +326,6 @@ void MyManager::Usage(ostream & strm, const PArgList & args)
           "\n"
           "     " << args.GetCommandName() << " received_fax.tif\n\n";
 }
-
-
-#if 0
-
-PStringArray MyManager::Descriptions()
-{
-  PStringArray descriptions = PString(
-      "Common options:\n"
-      "  --ports T:B-M[,...]       : For (T)ype set (B)ase and (M)ax ports to use.\n"
-      "                              T is 'udp', 'rtp' or 'tcp'. B and M are numbers.\n"
-      "  --route pat=dst[;option[=value][;...]]\n"
-      "                            : Route the calls with incoming destination address\n"
-      "                              matching the regexp pat to the outgoing\n"
-      "                              destination address dst.\n"
-      "                              All '<dn>' meta-strings found in dst or in\n"
-      "                              following route options will be replaced by all\n"
-      "                              valid consecutive E.164 digits from the incoming\n"
-      "                              destination address. To strip N first digits use\n"
-      "                              '<dn!N>' meta-string.\n"
-      "                              If the specification is of the form @filename,\n"
-      "                              then the file is read with each line consisting\n"
-      "                              of a pat=dst[;...] route specification.\n"
-      "  -u --username str         : Set the default username to str.\n"
-      "  --displayname str         : Set the default display name to str.\n"
-      "                              Can be overridden by route option\n"
-      "                                OPAL-" OPAL_OPT_CALLING_DISPLAY_NAME "=str\n"
-      "  --stun server             : Set STUN server.\n"
-      "  --fake-audio [!]wildcard[,[!]...]\n"
-      "                            : Register the fake audio format(s) matching the\n"
-      "                              wildcard(s). The '*' character match any\n"
-      "                              substring. The leading '!' character indicates\n"
-      "                              a negative test.\n"
-      "                              May be used multiple times.\n"
-  ).Lines();
-
-  PStringArray arr[] = {
-#if OPAL_H323
-    MyH323EndPoint::Descriptions(),
-#endif
-#if OPAL_SIP
-    MySIPEndPoint::Descriptions(),
-#endif
-    ModemEndPoint::Descriptions(),
-  };
-
-  for (PINDEX i = 0 ; i < PINDEX(sizeof(arr)/sizeof(arr[0])) ; i++) {
-    if (arr[i].GetSize() > 0) {
-      descriptions.Append(new PString(""));
-      descriptions += arr[i];
-    }
-  }
-
-  return descriptions;
-}
-
-PStringArray MyManager::Descriptions(const PConfigArgs & args)
-{
-  if (args.HasOption("fake-audio")) {
-    PStringStream s;
-
-    s << setfill(',') << args.GetOptionString("fake-audio").Lines();
-
-    FakeCodecs::RegisterFakeAudioFormats(s.Tokenise(",", FALSE));
-  }
-
-  PStringArray descriptions;
-  PBoolean first = TRUE;
-
-  PStringArray arr[] = {
-#if OPAL_H323
-    MyH323EndPoint::Descriptions(args),
-#endif
-#if OPAL_SIP
-    MySIPEndPoint::Descriptions(args),
-#endif
-    ModemEndPoint::Descriptions(args),
-  };
-
-  for (PINDEX i = 0 ; i < PINDEX(sizeof(arr)/sizeof(arr[0])) ; i++) {
-    if (arr[i].GetSize() > 0) {
-      if (!first)
-        descriptions.Append(new PString(""));
-      else
-        first = FALSE;
-
-      descriptions += arr[i];
-    }
-  }
-
-  return descriptions;
-}
-
-#endif
 
 bool MyManager::PreInitialise(PArgList & args, bool verbose)
 {
@@ -489,18 +369,6 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
       << " on " << process.GetOSClass() << " " << process.GetOSName()
       << " (" << process.GetOSVersion() << '-' << process.GetOSHardware() << ")");
 
-  //if (!args.Parse(global + GetArgumentSpec() + sip + fax)) {
-  //  Usage(output, args);
-  //  return false;
-  //}
-
-#if 0
-  if (!epFAX->IsAvailable()) {
-    output << "No fax codecs, SpanDSP plug-in probably not installed." << endl;
-    return false;
-  }
-#endif
-
   output << "args:" << endl;
   args.PrintOn(output);
   output << endl;
@@ -526,14 +394,6 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
       output << " (with password)";
     output << '\n';
   }
-
-#if 0
-  {
-    OpalMediaType::AutoStartMap autoStart;
-    if (autoStart.Add(args.GetOptionString("auto-start")))
-      autoStart.SetGlobalAutoStart();
-  }
-#endif
 
   if (args.HasOption("jitter")) {
     PStringArray params = args.GetOptionString("jitter").Tokenise("-,:",true);
@@ -757,39 +617,6 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   if (verbose)
     output << "---------------------------------\n";
 
-  PString telProto = args.GetOptionString("tel");
-  if (!telProto.IsEmpty()) {
-    OpalEndPoint * ep = FindEndPoint(telProto);
-    if (ep == NULL) {
-      output << "The \"tel\" URI cannot be mapped to protocol \"" << telProto << '"' << endl;
-      return false;
-    }
-
-    AttachEndPoint(ep, "tel");
-    if (verbose)
-      output << "tel URI mapped to: " << ep->GetPrefixName() << '\n';
-  }
-
-
-  if (args.HasOption("option")) {
-    PStringArray options = args.GetOptionString("option").Lines();
-    for (PINDEX i = 0; i < options.GetSize(); ++i) {
-      PRegularExpression parse("(@?[A-Za-z].*):([A-Za-z].*)=(.*)", PRegularExpression::Extended);
-      PStringArray subexpressions(4);
-      if (!parse.Execute(options[i], subexpressions)) {
-        output << "Invalid media format option \"" << options[i] << '"' << endl;
-        return false;
-      }
-
-      if (!SetMediaFormatOption(output, verbose, subexpressions[1], subexpressions[2], subexpressions[3]))
-        return false;
-    }
-  }
-
-  if (args.HasOption("disable"))
-    SetMediaFormatMask(args.GetOptionString("disable").Lines());
-  if (args.HasOption("prefer"))
-    SetMediaFormatOrder(args.GetOptionString("prefer").Lines());
   if (verbose) {
     OpalMediaFormatList formats = OpalMediaFormat::GetAllRegisteredMediaFormats();
     formats.Remove(GetMediaFormatMask());
@@ -886,123 +713,6 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   return true;
 }
 
-#if 0
-PBoolean MyManager::Initialise(const PConfigArgs & args)
-{
-  cout << "\n" << args << "\n";;
-
-  myPTRACE_INITIALISE(args);
-
-  DisableDetectInBandDTMF(TRUE);
-  m_silenceDetectParams.m_mode = OpalSilenceDetector::NoSilenceDetection;
-
-  if (args.HasOption("ports")) {
-    PString p = args.GetOptionString("ports");
-    PStringArray ports = p.Tokenise(",\r\n", FALSE);
-
-    for (PINDEX i = 0 ; i < ports.GetSize() ; i++) {
-      p = ports[i];
-      PStringArray ps = p.Tokenise(":-", FALSE);
-      if (ps.GetSize() == 3) {
-        if (ps[0] == "udp")
-          SetUDPPorts(ps[1].AsUnsigned(), ps[2].AsUnsigned());
-        else
-        if (ps[0] == "rtp")
-          SetRtpIpPorts(ps[1].AsUnsigned(), ps[2].AsUnsigned());
-        else
-        if (ps[0] == "tcp")
-          SetTCPPorts(ps[1].AsUnsigned(), ps[2].AsUnsigned());
-      }
-    }
-    myPTRACE(1, "UDP ports: " << GetUDPPortBase() << "-" << GetUDPPortMax());
-    myPTRACE(1, "RTP ports: " << GetRtpIpPortBase() << "-" << GetRtpIpPortMax());
-    myPTRACE(1, "TCP ports: " << GetTCPPortBase() << "-" << GetTCPPortMax());
-  }
-
-  SetDefaultUserName(
-    args.HasOption("username") ?
-      args.GetOptionString("username") :
-      PProcess::Current().GetName() + " v" + PProcess::Current().GetVersion()
-  );
-
-  if (args.HasOption("displayname"))
-    SetDefaultDisplayName(args.GetOptionString("displayname"));
-
-  //if (args.HasOption("stun"))
-  //  SetSTUNServer(args.GetOptionString("stun"));
-
-  //if (stun != NULL) {
-  //  cout << "STUN server \"" << stun->GetServer() << "\" replies " << stun->GetNatTypeName();
-
-  //  PIPSocket::Address externalAddress;
-
-  //  if (stun->GetExternalAddress(externalAddress))
-  //    cout << ", external IP " << externalAddress;
-
-  //  cout << endl;
-  //}
-
-  // Set the QoS for Audio and T.38 to Expedited Forwarding (EF)
-  SetMediaQoS(OpalMediaType::Audio(), PIPSocket::ControlQoS);
-
-  // Set the QoS for SIP to Assured Forwarding (AF32)
-  // --> No way to do this with current Opal
-
-  OpalConnection::StringOptions stringOptions;
-
-  // Set switch to T.38 on received CED
-  stringOptions.SetBoolean(OPAL_SWITCH_ON_CED, true);
-
-  // Set switch to T.38 to be forced after 7 seconds
-  stringOptions.SetInteger(OPAL_T38_SWITCH_TIME, 7);
-
-  // Set fallback to G.711 OK
-  stringOptions.SetBoolean(OPAL_NO_G111_FAX, false);
-
-  // Enable detecting CNG and CED
-  stringOptions.SetBoolean(OPAL_OPT_DETECT_INBAND_DTMF,true);
-
-  SetDefaultConnectionOptions(stringOptions);
-
-  if (!ModemEndPoint::Create(*this, args))
-    return FALSE;
-
-#if OPAL_H323
-  if (!MyH323EndPoint::Create(*this, args))
-    return FALSE;
-#endif
-
-#if OPAL_SIP
-  if (!MySIPEndPoint::Create(*this, args))
-    return FALSE;
-#endif
-
-  /*
-   We only support G.711 and T.38 internally, so make sure no other codecs get
-   offered on outbound calls
-   */
-  // Removing these two lines so we can support the Fake Codecs.
-  // static char const *FormatMask[] = { "!G.711*", "!@fax", "!UserInput/RFC2833", "!NamedSignalEvent" };
-  // SetMediaFormatMask(PStringArray(PARRAYSIZE(FormatMask), FormatMask));
-
-  if (args.HasOption("route")) {
-    SetRouteTable(args.GetOptionString("route").Tokenise("\r\n", FALSE));
-
-    cout << "Route table:" << endl;
-
-    const RouteTable &routeTable = GetRouteTable();
-
-    for (PINDEX i=0 ; i < routeTable.GetSize() ; i++) {
-      cout << "  " << routeTable[i].GetPartyA() << "," << routeTable[i].GetPartyB() << "=" << routeTable[i].GetDestination() << endl;
-    }
-  }
-
-  SetRtpIpPorts(10000,10999);  // for Verizon Certification
-
-  return TRUE;
-}
-
-#endif
 bool MyManager::OnRouteConnection(PStringSet & routesTried,
                                   const PString & a_party,
                                   const PString & b_party,
@@ -1054,76 +764,6 @@ void MyManager::OnClearedCall(OpalCall & call)
   myPTRACE(1, "T38Modem\tCall[" << call.GetToken() << "] cleared (" << call.GetCallEndReason() << ")");
 
   OpalManager::OnClearedCall(call);
-}
-
-// Here we check the routes as they get added to see if there are any
-// options that we care about.
-PBoolean MyManager::AddRouteEntry(const PString & spec)
-{
-#if 0
-  PStringArray RouteParts = spec.Tokenise(":");
-  PString RouteType = RouteParts[0];
-  RouteParts = spec.Tokenise(";");
-  for (PINDEX i = 0; i < RouteParts.GetSize(); i++) {
-    PStringArray RouteSubParts = RouteParts[i].Tokenise("=");
-    if (RouteType == "sip") {
-      if (RouteSubParts[0] == "OPAL-Disable-T38-Mode") {
-        if ((RouteSubParts.GetSize() == 1) || (RouteSubParts[1]=="true")) {
-          cout << "Disable-T38-Mode on sip route" << endl;
-          MySIPEndPoint::defaultStringOptions.SetAt("Disable-T38-Mode", "true");
-        }
-      }
-      else if (RouteSubParts[0] == "OPAL-Enable-Audio") {
-        // For Enable-Audio we have to Register the Fake Codecs
-        // and make sure we always include G.711
-        if (RouteSubParts.GetSize() == 2) {
-          cout << "Enable-Audio=" << RouteSubParts[1] << " on sip route" << endl;
-          FakeCodecs::RegisterFakeAudioFormats(RouteSubParts[1].Tokenise(",", FALSE));
-          MySIPEndPoint::defaultStringOptions.SetAt("Enable-Audio","G.711*,"+RouteSubParts[1]);
-        }
-      }
-    }
-    else if (RouteType == "h323") {
-      if (RouteSubParts[0] == "OPAL-Disable-T38-Mode") {
-        if ((RouteSubParts.GetSize() == 1) || (RouteSubParts[1]=="true")) {
-          cout << "Disable-T38-Mode on h323 route" << endl;
-          MyH323EndPoint::defaultStringOptions.SetAt("Disable-T38-Mode", "true");
-        }
-      }
-      else if (RouteSubParts[0] == "OPAL-Enable-Audio") {
-        // For Enable-Audio we have to Register the Fake Codecs
-        // and make sure we always include G.711
-        if (RouteSubParts.GetSize() == 2) {
-          cout << "Enable-Audio=" << RouteSubParts[1] << " on h323 route" << endl;
-          FakeCodecs::RegisterFakeAudioFormats(RouteSubParts[1].Tokenise(",", FALSE));
-          MyH323EndPoint::defaultStringOptions.SetAt("Enable-Audio","G.711*,"+RouteSubParts[1]);
-        }
-      }
-    }
-    else if (RouteType == "modem") {
-      if (RouteSubParts[0] == "OPAL-Force-Fax-Mode") {
-        if ((RouteSubParts.GetSize() == 1) || (RouteSubParts[1]=="true")) {
-          cout << "Force-Fax-Mode on modem route" << endl;
-          ModemEndPoint::defaultStringOptions.SetAt("Force-Fax-Mode", "true");
-        }
-      }
-      else if (RouteSubParts[0] == "OPAL-Force-Fax-Mode-Delay") {
-        if (RouteSubParts.GetSize() == 2) {
-          cout << "Force-Fax-Mode-Delay=" << RouteSubParts[1] << " on modem route" << endl;
-          ModemEndPoint::defaultStringOptions.SetAt("Force-Fax-Mode-Delay",RouteSubParts[1]);
-        }
-      }
-      else if (RouteSubParts[0] == "OPAL-No-Force-T38-Mode") {
-        if ((RouteSubParts.GetSize() == 1) || (RouteSubParts[1]=="true")) {
-          cout << "No-Force-T38-Mode on modem route" << endl;
-          ModemEndPoint::defaultStringOptions.SetAt("No-Force-T38-Mode", "true");
-        }
-      }
-    }
-  }
-
-#endif
-  return OpalManager::AddRouteEntry(spec);
 }
 
 PBoolean MyManager::OnOpenMediaStream(OpalConnection & connection, OpalMediaStream & stream)

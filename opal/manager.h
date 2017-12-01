@@ -138,7 +138,6 @@ class MyManager : public OpalManager
       OpalConnection::StringOptions * stringOptions
     );
     virtual void OnClearedCall(OpalCall & call);
-    virtual PBoolean AddRouteEntry(const PString & spec);
 
     virtual PBoolean OnOpenMediaStream(OpalConnection & connection, OpalMediaStream & stream);
     virtual void OnClosedMediaStream(const OpalMediaStream & stream);
