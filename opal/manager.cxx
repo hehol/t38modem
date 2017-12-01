@@ -638,7 +638,7 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
       return false;
     }
   }
-  output << "T38FaxUdpEC: " << (t38.GetOptionEnum("T38FaxUdpEC",1) == 0 ? "t38UDPFEC" : "t38UDPReduncancy") << endl;
+  output << "T38FaxUdpEC: " << (t38.GetOptionEnum("T38FaxUdpEC",1) == 0 ? "t38UDPFEC" : "t38UDPRedundancy") << endl;
 
   // Set the T.38 Max Datagram size
   if (args.HasOption("T38FaxMaxDatagram")) {
