@@ -259,7 +259,8 @@ PString MyManager::GetArgumentSpec()
          "For example, the string '2:I,9:L,32767:H' (where I, L, and H are numbers)\r"
          "sets redundancy for (I)ndicators, (L)ow speed, and (H)igh speed packets.\r"
          "Default is '32767:1' or 1 packet of redndnacy for all packets.\n"
-         "-T38FaxMaxDatagram: Maximum size datagram to use for T.38 UDPTL.\n"
+         "-T38FaxMaxDatagram: Maximum size datagram to use for T.38 UDPTL. Default is 1400.\n"
+         "-T38FaxMaxBuffer: Maximum size T.38 Buffer. Default is 2000.\n"
          "[IP options:]"
 #if OPAL_PTLIB_NAT
          "-nat-method:       Set NAT method, defaults to STUN\n"
@@ -645,6 +646,12 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
     t38.SetOptionInteger("T38FaxMaxDatagram",args.GetOptionString("T38FaxMaxDatagram").AsUnsigned());
   }
   output << "T38FaxMaxDatagram: " << t38.GetOptionInteger("T38FaxMaxDatagram") << endl;
+
+  // Set the T.38 Max Buffer size
+  if (args.HasOption("T38FaxMaxBuffer")) {
+    t38.SetOptionInteger("T38FaxMaxBuffer",args.GetOptionString("T38FaxMaxBuffer").AsUnsigned());
+  }
+  output << "T38FaxMaxBuffer: " << t38.GetOptionInteger("T38FaxMaxBuffer") << endl;
 
   // Set the T.38 UDPTL Redundancy info
   if (args.HasOption("UDPTL-Redundancy")) {
