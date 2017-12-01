@@ -259,6 +259,7 @@ PString MyManager::GetArgumentSpec()
          "For example, the string '2:I,9:L,32767:H' (where I, L, and H are numbers)\r"
          "sets redundancy for (I)ndicators, (L)ow speed, and (H)igh speed packets.\r"
          "Default is '32767:1' or 1 packet of redndnacy for all packets.\n"
+         "-UDPTL-Keep-Alive-Interval: Keep Alive Interval for T.38 UDPTL.\n"
          "-T38FaxMaxDatagram: Maximum size datagram to use for T.38 UDPTL. Default is 1400.\n"
          "-T38FaxMaxBuffer: Maximum size T.38 Buffer. Default is 2000.\n"
          "[IP options:]"
@@ -660,6 +661,14 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
     t38.SetOptionString("UDPTL-Redundancy", args.GetOptionString("UDPTL-Redundancy"));
   }
   output << "UDPTL-Redundancy: " << t38.GetOptionString("UDPTL-Redundancy") << endl;
+
+  // Set the T.38 UDPTL Keep Alive Interval
+  if (args.HasOption("UDPTL-Keep-Alive-Interval")) {
+    OpalMediaOptionInteger *Interval = new OpalMediaOptionInteger("UDPTL-Keep-Alive-Interval",false);
+    t38.AddOption(Interval,false);
+    t38.SetOptionInteger("UDPTL-Keep-Alive-Interval", args.GetOptionString("UDPTL-Keep-Alive-Interval").AsInteger());
+  }
+  output << "UDPTL-Keep-Alive-Interval: " << t38.GetOptionInteger("UDPTL-Keep-Alive-Interval",0) << endl;
 
   // Set the Registered Media Format for T.38
   OpalMediaFormat::SetRegisteredMediaFormat(t38);
