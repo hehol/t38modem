@@ -210,10 +210,7 @@ PString ModemEndPoint::GetArgumentSpec()
     PseudoModemDrivers::ArgSpec() +
     "[Modem Options:]"
     "-no-modem.              Disable MODEM protocol.\n"
-    "-ptty:                  Pseudo ttys. Can be used multiple times.\n"
-    "-force-fax-mode.        Use OPAL-Force-Fax-Mode=true route option by defalt\n"
-    "-force-fax-mode-delay:  Number of seconds to delay Force Fax Mode.\n"
-    "-no-force-t38-mode.     Use OPAL-No-Force-T38-Mode=true route option by default\n";
+    "-ptty:                  Pseudo ttys. Can be used multiple times.\n";
 }
 
 bool ModemEndPoint::Initialise(PArgList & args, bool verbose, const PString & defaultRoute)
@@ -250,17 +247,6 @@ bool ModemEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
       }
     }
   }
-
-  if (args.HasOption("force-fax-mode"))
-    defaultStringOptions.SetAt("Force-Fax-Mode", "true");
-
-  defaultStringOptions.SetAt("Force-Fax-Mode-Delay",
-                               args.HasOption("force-fax-mode-delay")
-                               ? args.GetOptionString("force-fax-mode-delay")
-                               : "7");   // Default is 7 seconds
-
-  if (args.HasOption("no-force-t38-mode"))
-    defaultStringOptions.SetAt("No-Force-T38-Mode", "true");
 
   if (args.HasOption("audio"))
     m_prefix = "fax:";

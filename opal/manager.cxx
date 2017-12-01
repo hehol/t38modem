@@ -212,6 +212,9 @@ PString MyManager::GetArgumentSpec()
          "F-no-fallback. Do not fall back to audio if T.38 switch fails.\n"
          "e-switch-on-ced. Switch to T.38 on receipt of CED tone as caller.\n"
          "X-switch-time: Set fail safe T.38 switch time in seconds.\n"
+         "-force-fax-mode. Force switch to T.38.\n"
+         "-force-fax-mode-delay: Number of seconds to wait before forcing fax mode.\r"
+         "Default is 7 seconds.\n"
          "T-timeout: Set timeout to wait for fax rx/tx to complete in seconds.\n"
          "q-quiet. Only output error conditions.\n"
 #if OPAL_STATISTICS
@@ -831,6 +834,16 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
 
   if (args.HasOption('X')) {
     unsigned seconds = args.GetOptionString('X').AsUnsigned();
+    stringOptions.SetInteger(OPAL_T38_SWITCH_TIME, seconds);
+    output << "Switch to T.38 after " << seconds << " seconds\n";
+  }
+  else if (args.HasOption("force-fax-mode")) {
+    unsigned seconds = 7;
+    if (args.HasOption("force-fax-mode-delay")) {
+      seconds = args.GetOptionString("force-fax-mode-delay").AsInteger();
+      if (seconds == 0)
+        seconds = 1;
+    }
     stringOptions.SetInteger(OPAL_T38_SWITCH_TIME, seconds);
     output << "Switch to T.38 after " << seconds << " seconds\n";
   }
