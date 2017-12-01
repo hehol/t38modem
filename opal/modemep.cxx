@@ -180,6 +180,7 @@ class ModemConnection : public OpalFaxConnection
       const PString & calleeName,   /// Name of endpoint being alerted.
       PBoolean withMedia            /// Open media with alerting
     );
+    virtual void OnEstablished();
 
   protected:
     PseudoModem *pmodem;
@@ -248,7 +249,7 @@ bool ModemEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
     }
   }
 
-  if (args.HasOption("audio"))
+  if (args.HasOption("audio") || args.HasOption("disable-t38-mode"))
     m_prefix = "fax:";
   else
     m_prefix = "t38:";
@@ -656,6 +657,18 @@ OpalMediaFormatList ModemConnection::GetMediaFormats() const
 
   myPTRACE(1, "T38Modem\tModemConnection::GetMediaFormats: " << formats);
   return formats;
+}
+
+void ModemConnection::OnEstablished()
+{
+  if (m_receiving && m_stringOptions.GetBoolean("T38-Recv-Immed-Switch")) {
+    // Switching at this point does not work, so we wait 2 seconds so a full
+    // CED tone can finish.
+    m_switchTime = 2;
+    myPTRACE(2, "Setting switch to T.38 time to 2 seconds on Receive");
+  }
+
+  OpalFaxConnection::OnEstablished();
 }
 
 /////////////////////////////////////////////////////////////////////////////

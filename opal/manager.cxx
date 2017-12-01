@@ -208,6 +208,7 @@ PString MyManager::GetArgumentSpec()
 {
   return "[Fax options:]"
          "a-audio. Send fax as G.711 audio.\n"
+         "-disable-t38-mode. Disable T.38 mode, send fax as G.711 audio.\n"
          "A-no-audio. No audio phase at all, starts T.38 immediately.\n"
          "F-no-fallback. Do not fall back to audio if T.38 switch fails.\n"
          "e-switch-on-ced. Switch to T.38 on receipt of CED tone as caller.\n"
@@ -215,7 +216,7 @@ PString MyManager::GetArgumentSpec()
          "-force-fax-mode. Force switch to T.38.\n"
          "-force-fax-mode-delay: Number of seconds to wait before forcing fax mode.\r"
          "Default is 7 seconds.\n"
-         "T-timeout: Set timeout to wait for fax rx/tx to complete in seconds.\n"
+         "-immediate-switch-on-receive. Switch to T.38 on receive right after call established.\n"
          "q-quiet. Only output error conditions.\n"
 #if OPAL_STATISTICS
          "v-verbose. Output statistics during fax operation\n"
@@ -814,7 +815,7 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
     OpalMediaType::Audio()->SetAutoStart(OpalMediaType::DontOffer);
     output << "Offer T.38 only";
   }
-  else if (args.HasOption('a'))
+  else if (args.HasOption('a') || args.HasOption("disable-t38-mode"))
     output << "Audio Only";
   else
     output << "Switch to T.38";
@@ -849,6 +850,15 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   }
   else
     output << "No T.38 switch timeout set\n";
+
+  if (args.HasOption("immediate-switch-on-receive")) {
+    stringOptions.SetBoolean("T38-Recv-Immed-Switch", true);
+    output << "Immediate switch to T.38 on receive\n";
+  }
+  else {
+    stringOptions.SetBoolean("T38-Recv-Immed-Switch", false);
+    output << "No immediate switch to T.38 on receive\n";
+  }
 
   SetDefaultConnectionOptions(stringOptions);
 
