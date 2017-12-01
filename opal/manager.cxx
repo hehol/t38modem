@@ -251,6 +251,8 @@ PString MyManager::GetArgumentSpec()
          "-ssl-no-create.    Do not auto-create SSL/TLS certificate/private key if does not exist.\n"
 #endif
          "[T.38 options:]"
+         "-T38FaxUdpEC:      Error Correction method for T.38 UDPTL, t38EDPFEC or t38UDPRedundancy.\r"
+         "Default is t38UDPRedundancy.\n"
          "-UDPTL-Redundancy: Redundancy settings for T.38 UDPTL.\r"
          "maxsize:redundancy[,maxsize:redundancy[,maxsize:reduncancy...]]\r"
          "Sets the error correction redundancy for UDPTL packets by size.\r"
@@ -623,6 +625,21 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
 
   OpalMediaFormat t38 = OpalT38;
 
+  // Set the T.38 Error Correction method
+  if (args.HasOption("T38FaxUdpEC")) {
+    if (args.GetOptionString("T38FaxUdpEC") == "t38UDPFEC") {
+      t38.SetOptionEnum("T38FaxUdpEC",0);
+    }
+    else if (args.GetOptionString("T38FaxUdpEC") == "t38UDPRedundancy") {
+      t38.SetOptionEnum("T38FaxUdpEC",1);
+    }
+    else {
+      output << "Bad T38FaxUdpEC: " << args.GetOptionString("T38FaxUdpEC") << endl;
+      return false;
+    }
+  }
+  output << "T38FaxUdpEC: " << (t38.GetOptionEnum("T38FaxUdpEC",1) == 0 ? "t38UDPFEC" : "t38UDPReduncancy") << endl;
+
   // Set the T.38 Max Datagram size
   if (args.HasOption("T38FaxMaxDatagram")) {
     t38.SetOptionInteger("T38FaxMaxDatagram",args.GetOptionString("T38FaxMaxDatagram").AsUnsigned());
@@ -637,6 +654,7 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   }
   output << "UDPTL-Redundancy: " << t38.GetOptionString("UDPTL-Redundancy") << endl;
 
+  // Set the Registered Media Format for T.38
   OpalMediaFormat::SetRegisteredMediaFormat(t38);
 
   if (verbose)
