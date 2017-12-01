@@ -251,12 +251,13 @@ PString MyManager::GetArgumentSpec()
          "-ssl-no-create.    Do not auto-create SSL/TLS certificate/private key if does not exist.\n"
 #endif
          "[T.38 options:]"
-         "-UDPTL-Redundancy: Redundancy settings for T.38 UDPTL\r"
+         "-UDPTL-Redundancy: Redundancy settings for T.38 UDPTL.\r"
          "maxsize:redundancy[,maxsize:redundancy[,maxsize:reduncancy...]]\r"
          "Sets the error correction redundancy for UDPTL packets by size.\r"
          "For example, the string '2:I,9:L,32767:H' (where I, L, and H are numbers)\r"
          "sets redundancy for (I)ndicators, (L)ow speed, and (H)igh speed packets.\r"
          "Default is '32767:1' or 1 packet of redndnacy for all packets.\n"
+         "-T38FaxMaxDatagram: Maximum size datagram to use for T.38 UDPTL.\n"
          "[IP options:]"
 #if OPAL_PTLIB_NAT
          "-nat-method:       Set NAT method, defaults to STUN\n"
@@ -620,15 +621,23 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
     SetMaxRtpPayloadSize(size);
   }
 
-  // Set the T.38 UDPTL Redundancy info
   OpalMediaFormat t38 = OpalT38;
+
+  // Set the T.38 Max Datagram size
+  if (args.HasOption("T38FaxMaxDatagram")) {
+    t38.SetOptionInteger("T38FaxMaxDatagram",args.GetOptionString("T38FaxMaxDatagram").AsUnsigned());
+  }
+  output << "T38FaxMaxDatagram: " << t38.GetOptionInteger("T38FaxMaxDatagram") << endl;
+
+  // Set the T.38 UDPTL Redundancy info
   if (args.HasOption("UDPTL-Redundancy")) {
     OpalMediaOptionString *Redun = new OpalMediaOptionString("UDPTL-Redundancy",false);
     t38.AddOption(Redun,false);
     t38.SetOptionString("UDPTL-Redundancy", args.GetOptionString("UDPTL-Redundancy"));
-    OpalMediaFormat::SetRegisteredMediaFormat(t38);
   }
-  output << "UDPTL-Redundancy: '" << t38.GetOptionString("UDPTL-Redundancy") << "'" << endl;
+  output << "UDPTL-Redundancy: " << t38.GetOptionString("UDPTL-Redundancy") << endl;
+
+  OpalMediaFormat::SetRegisteredMediaFormat(t38);
 
   if (verbose)
     output << "TCP ports: " << GetTCPPortRange() << "\n"
