@@ -218,6 +218,11 @@ PString ModemEndPoint::GetArgumentSpec()
 
 bool ModemEndPoint::Initialise(PArgList & args, bool verbose, const PString & defaultRoute)
 {
+  if (args.HasOption("no-modem")) {
+    cout << "Disabled MODEM protocol" << endl;
+    return TRUE;
+  }
+
   if (args.HasOption("ptty")) {
     PString tty = args.GetOptionString("ptty");
     PStringArray ttys = tty.Tokenise(",\r\n ", FALSE);
@@ -235,6 +240,14 @@ bool ModemEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
 
       if (!pmodem_pool->CreateModem(tty, r, args, PCREATE_NOTIFIER(OnMyCallback)))
         cerr << "Can't create modem for " << tty << endl;
+      else {
+        if (args.HasOption("pts-dir")) {
+          cout << "Created modem " << args.GetOptionString("pts-dir") << tty.Mid(1) << "." << endl;
+        }
+        else {
+          cout << "Created modem " << tty << "." << endl;
+        }
+      }
     }
   }
 
