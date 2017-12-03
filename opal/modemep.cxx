@@ -249,10 +249,6 @@ bool ModemEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
     }
   }
 
-  // A bit of a hack here, but we need one option here so the endpoint
-  // will see the options from manager.cxx
-  defaultStringOptions.SetAt("Dummy","Option");
-
   if (args.HasOption("audio") || args.HasOption("disable-t38-mode"))
     m_prefix = "fax:";
   else
@@ -377,7 +373,6 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
 
     for (PINDEX i = 0; i < params.GetSize(); i++) {
       PCaselessString key = params.GetKeyAt(i);
-
       if (key.NumCompare("OPAL-") == EqualTo) {
         stringOptions->SetAt(key.Mid(5), params.GetDataAt(i));
       }
@@ -421,7 +416,12 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
           newOptions.SetAt(defaultStringOptions.GetKeyAt(i), defaultStringOptions.GetDataAt(i));
       }
 
-      connection->SetStringOptions(newOptions, false);
+      // If newOptions is empty then we need to call OnApplyStringOptions() to get the defaultStringOptions
+      // to apply. If we call SetStringOptions with some options, it will call OnApplyStringOptions;
+      if (newOptions.IsEmpty())
+        connection->OnApplyStringOptions();
+      else
+        connection->SetStringOptions(newOptions, false);
 
       return AddConnection(connection);
     }
