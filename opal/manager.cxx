@@ -189,21 +189,6 @@ static void PrintVersion(ostream & strm)
         << endl;
 }
 
-static void PrintOption(ostream & strm, const char * name, const char * type)
-{
-  strm << "  " << setw(22) << name << ' ' << type << " (";
-  if (strcmp(type, "string") == 0)
-    strm << OpalT38.GetOptionString(name).ToLiteral();
-  else if (strcmp(type, "bool") == 0)
-    strm << (OpalT38.GetOptionBoolean(name) ? "true" : "false");
-  else {
-    PString value;
-    OpalT38.GetOptionValue(name, value);
-    strm << value;
-  }
-  strm << ")\n";
-}
-
 PString MyManager::GetArgumentSpec() 
 {
   return "[Fax options:]"
@@ -306,25 +291,8 @@ PString MyManager::GetArgumentSpec()
 
 void MyManager::Usage(ostream & strm, const PArgList & args)
 {
-  args.Usage(strm,
-             "[ options ]") << "\n"
-            "Specific T.38 format options (using -O/--option):\n";
-  PrintOption(strm, OPAL_FaxStationIdentifier,  "string");
-  PrintOption(strm, OPAL_FaxHeaderInfo,         "string");
-  PrintOption(strm, OPAL_T38UseECM,             "bool");
-  PrintOption(strm, OPAL_T38FaxVersion,         "integer");
-  PrintOption(strm, OPAL_T38FaxRateManagement,  OPAL_T38localTCF " or " OPAL_T38transferredTCF);
-  PrintOption(strm, OPAL_T38MaxBitRate,         "integer");
-  PrintOption(strm, OPAL_T38FaxMaxBuffer,       "integer");
-  PrintOption(strm, OPAL_T38FaxMaxDatagram,     "integer");
-  PrintOption(strm, OPAL_T38FaxUdpEC,           OPAL_T38UDPFEC " or " OPAL_T38UDPRedundancy);
-  PrintOption(strm, OPAL_T38FaxFillBitRemoval,  "bool");
-  PrintOption(strm, OPAL_T38FaxTranscodingMMR,  "bool");
-  PrintOption(strm, OPAL_T38FaxTranscodingJBIG, "bool");
-  strm << "\n"
-          "e.g. " << args.GetCommandName() << " --option 'T.38:Header-Info=My custom header line' send_fax.tif sip:fred@bloggs.com\n"
-          "\n"
-          "     " << args.GetCommandName() << " received_fax.tif\n\n";
+  strm << "\nt38modem [options]\n";
+  args.Usage(strm);
 }
 
 bool MyManager::PreInitialise(PArgList & args, bool verbose)
