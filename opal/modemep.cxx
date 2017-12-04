@@ -205,6 +205,15 @@ ModemEndPoint::ModemEndPoint(MyManager & mgr, const char * g711Prefix, const cha
   pmodem_pool = new PseudoModemQ();
 }
 
+ModemEndPoint::~ModemEndPoint()
+{
+  cout << "Deleting ModemEndPoint..." << endl;
+  myPTRACE(1, "ModemEndPoint::~ModemEndPoint()");
+  delete pmodem_pool;
+  myPTRACE(1, "ModemEndPoint deleted");
+  cout << "ModemEndPoint deleted" << endl;
+}
+
 PString ModemEndPoint::GetArgumentSpec()
 {
   return 
@@ -240,7 +249,7 @@ bool ModemEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
         cerr << "Can't create modem for " << tty << endl;
       else {
         if (args.HasOption("pts-dir")) {
-          cout << "Created modem " << args.GetOptionString("pts-dir") << tty.Mid(1) << "." << endl;
+          cout << "Created modem " << args.GetOptionString("pts-dir") << "/" << tty.Mid(1) << "." << endl;
         }
         else {
           cout << "Created modem " << tty << "." << endl;

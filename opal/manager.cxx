@@ -721,7 +721,7 @@ void MyManager::Run()
   while (!m_endRun.Wait(1000)) {
   }
 
-  *LockedOutput() << "\nCompleted." << endl;
+  *LockedOutput() << "\nShutting down endpoints..." << endl;
 }
 
 
@@ -775,7 +775,7 @@ void MyManager::EndRun(bool interrupt)
 {
   myPTRACE(2, "T38Modem\tShutting down " << (interrupt ? " via interrupt" : " normally"));
   Broadcast(PSTRSTRM("\nShutting down " << PProcess::Current().GetName()
-                     << (interrupt ? " via interrupt" : " normally") << " . . . "));
+                     << (interrupt ? " via interrupt" : " normally") << "..."));
 
   m_interrupted = interrupt;
   m_endRun.Signal();

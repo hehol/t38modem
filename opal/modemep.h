@@ -84,6 +84,7 @@ class ModemEndPoint : public OpalFaxEndPoint, public MyManagerEndPoint
       const char * g711Prefix = "fax",  ///< Prefix for URL style address strings
       const char * t38Prefix = "t38"    ///< Prefix for URL style address strings
     );
+    ~ModemEndPoint();
   //@}
     static PString GetArgumentSpec();
     virtual bool Initialise(PArgList & args, bool verbose, const PString & defaultRoute);

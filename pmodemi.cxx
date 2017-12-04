@@ -105,6 +105,7 @@ PseudoModemBody::PseudoModemBody(const PString &_tty, const PString &_route, con
 
 PseudoModemBody::~PseudoModemBody()
 {
+  myPTRACE(1, "T38Modem\tPseudoModemBody::~PseudoModemBody()");
   PseudoModemBody::StopAll();
 }
 
@@ -206,6 +207,7 @@ PBoolean PseudoModemBody::StartAll()
 
 void PseudoModemBody::StopAll()
 {
+  myPTRACE(4, "T38Modem\tPseudoModemBody::StopAll() engine = " << engine);
   if (engine) {
     engine->SignalStop();
     engine->WaitForTermination();

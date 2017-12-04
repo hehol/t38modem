@@ -372,8 +372,12 @@ PseudoModemPty::PseudoModemPty(
 
 PseudoModemPty::~PseudoModemPty()
 {
+  cout << "Deleting " << ptyName() << "..." << endl;
+  myPTRACE(1, "T38Modem\tPseudoModemPty::~PseudoModemPty");
+  stop = true;
   StopAll();
   ClosePty();
+  cout << "" << ptyName() << " deleted" << endl;
 }
 
 PBoolean PseudoModemPty::CheckTty(const PString &_tty)
@@ -458,6 +462,7 @@ PBoolean PseudoModemPty::StartAll()
 
 void PseudoModemPty::StopAll()
 {
+  myPTRACE(4, "T38Modem\tPseudoModemPty::StopAll() inPty = " << inPty << " outPty = " << outPty);
   if (inPty) {
     inPty->SignalStop();
     inPty->WaitForTermination();
@@ -617,10 +622,14 @@ void PseudoModemPty::MainLoop()
       while (!stop && !childstop) {
         WaitDataReady();
       }
-      StopAll();
+      myPTRACE(4, "T38Modem\tPseudoModemPty::MainLoop() Ending -- stop = " << stop << " childstop = " << childstop);
+      if (!stop)
+        StopAll();
     }
+    myPTRACE(2, "T38Modem\tPseudoModemPty::MainLoop() ClosePty()");
     ClosePty();
   }
+  myPTRACE(1, "T38Modem\tPseudoModemPty::MainLoop() Done");
 }
 ///////////////////////////////////////////////////////////////
 

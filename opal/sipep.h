@@ -81,6 +81,11 @@ class MySIPEndPoint : public SIPEndPoint, public MyRTPEndPoint
 public:
   MySIPEndPoint(MyManager & manager);
 
+  ~MySIPEndPoint()
+  {
+    cout << "Deleting SIPEndPoint..." << endl;
+  }
+
   static PString GetArgumentSpec();
   virtual bool Initialise(PArgList & args, bool verbose, const PString & defaultRoute);
 
