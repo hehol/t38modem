@@ -237,15 +237,16 @@ PString MyManager::GetArgumentSpec()
          "[T.38 options:]"
          "-T38FaxUdpEC:      Error Correction method for T.38 UDPTL, t38EDPFEC or t38UDPRedundancy.\r"
          "Default is t38UDPRedundancy.\n"
-         "-UDPTL-Redundancy: Redundancy settings for T.38 UDPTL.\r"
+         "-" OPAL_UDPTLRedundancy ": Redundancy settings for T.38 UDPTL.\r"
          "maxsize:redundancy[,maxsize:redundancy[,maxsize:reduncancy...]]\r"
          "Sets the error correction redundancy for UDPTL packets by size.\r"
          "For example, the string '2:I,9:L,32767:H' (where I, L, and H are numbers)\r"
          "sets redundancy for (I)ndicators, (L)ow speed, and (H)igh speed packets.\r"
          "Default is '32767:1' or 1 packet of redndnacy for all packets.\n"
-         "-UDPTL-Keep-Alive-Interval: Keep Alive Interval for T.38 UDPTL. Default is 0.\n"
-         "-UDPTL-Redundancy-Interval: Redundancy Interval for T.38 UDPTL. Default is 0.\n"
-         "-UDPTL-Optimise-On-Retransmit. Optimise on Retransmit of T.38 UDPTL.\n"
+         "-" OPAL_UDPTLKeepAliveInterval ": Keep Alive Interval for T.38 UDPTL. Default is 0.\n"
+         "-" OPAL_UDPTLRedundancyInterval ": Redundancy Interval for T.38 UDPTL. Default is 0.\n"
+         "-" OPAL_UDPTLOptimiseRetransmit ". Optimise on Retransmit of T.38 UDPTL.\n"
+         "-" OPAL_UDPTLRawMode ". Optimise on Retransmit of T.38 UDPTL.\n"
          "-T38FaxMaxDatagram: Maximum size datagram to use for T.38 UDPTL. Default is 1400.\n"
          "-T38FaxMaxBuffer: Maximum size T.38 Buffer. Default is 2000.\n"
          "[IP options:]"
@@ -489,36 +490,44 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
   output << "T38FaxMaxBuffer: " << t38.GetOptionInteger("T38FaxMaxBuffer") << endl;
 
   // Set the T.38 UDPTL Redundancy info
-  if (args.HasOption("UDPTL-Redundancy")) {
-    OpalMediaOptionString *Redun = new OpalMediaOptionString("UDPTL-Redundancy",false);
+  if (args.HasOption(OPAL_UDPTLRedundancy)) {
+    OpalMediaOptionString *Redun = new OpalMediaOptionString(OPAL_UDPTLRedundancy,false);
     t38.AddOption(Redun,false);
-    t38.SetOptionString("UDPTL-Redundancy", args.GetOptionString("UDPTL-Redundancy"));
+    t38.SetOptionString(OPAL_UDPTLRedundancy, args.GetOptionString(OPAL_UDPTLRedundancy));
   }
-  output << "UDPTL-Redundancy: " << t38.GetOptionString("UDPTL-Redundancy") << endl;
+  output << OPAL_UDPTLRedundancy << ": " << t38.GetOptionString(OPAL_UDPTLRedundancy) << endl;
 
   // Set the T.38 UDPTL Redundancy Interval
-  if (args.HasOption("UDPTL-Redundancy-Interval")) {
-    OpalMediaOptionInteger *Interval = new OpalMediaOptionInteger("UDPTL-Redundancy-Interval",false);
+  if (args.HasOption(OPAL_UDPTLRedundancyInterval)) {
+    OpalMediaOptionInteger *Interval = new OpalMediaOptionInteger(OPAL_UDPTLRedundancyInterval,false);
     t38.AddOption(Interval,false);
-    t38.SetOptionInteger("UDPTL-Redundancy-Interval", args.GetOptionString("UDPTL-Redundancy-Interval").AsInteger());
+    t38.SetOptionInteger(OPAL_UDPTLRedundancyInterval, args.GetOptionString(OPAL_UDPTLRedundancyInterval).AsInteger());
   }
-  output << "UDPTL-Redundancy-Interval: " << t38.GetOptionInteger("UDPTL-Redundancy-Interval",0) << endl;
+  output << OPAL_UDPTLRedundancyInterval << ": " << t38.GetOptionInteger(OPAL_UDPTLRedundancyInterval,0) << endl;
 
   // Set the T.38 UDPTL Keep Alive Interval
-  if (args.HasOption("UDPTL-Keep-Alive-Interval")) {
-    OpalMediaOptionInteger *Interval = new OpalMediaOptionInteger("UDPTL-Keep-Alive-Interval",false);
+  if (args.HasOption(OPAL_UDPTLKeepAliveInterval)) {
+    OpalMediaOptionInteger *Interval = new OpalMediaOptionInteger(OPAL_UDPTLKeepAliveInterval,false);
     t38.AddOption(Interval,false);
-    t38.SetOptionInteger("UDPTL-Keep-Alive-Interval", args.GetOptionString("UDPTL-Keep-Alive-Interval").AsInteger());
+    t38.SetOptionInteger(OPAL_UDPTLKeepAliveInterval, args.GetOptionString(OPAL_UDPTLKeepAliveInterval).AsInteger());
   }
-  output << "UDPTL-Keep-Alive-Interval: " << t38.GetOptionInteger("UDPTL-Keep-Alive-Interval",0) << endl;
+  output << OPAL_UDPTLKeepAliveInterval << ": " << t38.GetOptionInteger(OPAL_UDPTLKeepAliveInterval,0) << endl;
 
   // Set T.38 UDPTL Optimize on Re-Transmit
-  if (args.HasOption("UDPTL-Optimise-On-Retransmit")) {
-    OpalMediaOptionBoolean *Interval = new OpalMediaOptionBoolean("UDPTL-Optimise-On-Retransmit",false);
+  if (args.HasOption(OPAL_UDPTLOptimiseRetransmit)) {
+    OpalMediaOptionBoolean *Interval = new OpalMediaOptionBoolean(OPAL_UDPTLOptimiseRetransmit,false);
     t38.AddOption(Interval,false);
-    t38.SetOptionBoolean("UDPTL-Optimise-On-Retransmit", true);
+    t38.SetOptionBoolean(OPAL_UDPTLOptimiseRetransmit, true);
   }
-  output << "UDPTL-Optimise-On-Retransmit: " << t38.GetOptionBoolean("UDPTL-Optimise-On-Retransmit",0) << endl;
+  output << OPAL_UDPTLOptimiseRetransmit << ": " << t38.GetOptionBoolean(OPAL_UDPTLOptimiseRetransmit,0) << endl;
+
+  // Set T.38 UDPTL Raw Mode
+  if (args.HasOption(OPAL_UDPTLRawMode)) {
+    OpalMediaOptionBoolean *Interval = new OpalMediaOptionBoolean(OPAL_UDPTLRawMode,false);
+    t38.AddOption(Interval,false);
+    t38.SetOptionBoolean(OPAL_UDPTLRawMode, true);
+  }
+  output << OPAL_UDPTLRawMode << ": " << t38.GetOptionBoolean(OPAL_UDPTLRawMode,0) << endl;
 
   // Set the Registered Media Format for T.38
   OpalMediaFormat::SetRegisteredMediaFormat(t38);
