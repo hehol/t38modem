@@ -246,7 +246,7 @@ PString MyManager::GetArgumentSpec()
          "-" OPAL_UDPTLKeepAliveInterval ": Keep Alive Interval for T.38 UDPTL. Default is 0.\n"
          "-" OPAL_UDPTLRedundancyInterval ": Redundancy Interval for T.38 UDPTL. Default is 0.\n"
          "-" OPAL_UDPTLOptimiseRetransmit ". Optimise on Retransmit of T.38 UDPTL.\n"
-         "-" OPAL_UDPTLRawMode ". Optimise on Retransmit of T.38 UDPTL.\n"
+         "-" OPAL_UDPTLRawMode ". Use UDPTL Raw Mode.\n"
          "-T38FaxMaxDatagram: Maximum size datagram to use for T.38 UDPTL. Default is 1400.\n"
          "-T38FaxMaxBuffer: Maximum size T.38 Buffer. Default is 2000.\n"
          "[IP options:]"
