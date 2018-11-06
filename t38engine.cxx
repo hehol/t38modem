@@ -551,7 +551,7 @@ class FakePreparePacketThread : public PThread
     PCLASSINFO(FakePreparePacketThread, PThread);
   public:
     FakePreparePacketThread(T38Engine &engine)
-      : PThread(30000)
+      : PThread(30000,NoAutoDeleteThread)
       , t38engine(engine)
     {
       myPTRACE(3, "T38Modem\t" << t38engine.Name() << " FakePreparePacketThread");
