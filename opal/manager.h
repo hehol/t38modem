@@ -96,7 +96,7 @@ class MyManagerProcess : public PProcess
         return false;
 
       this->m_manager->EndRun(true);
-      return true;
+      return false;
     }
 
   private:
