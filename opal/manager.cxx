@@ -221,12 +221,13 @@ PString MyManager::GetArgumentSpec()
          "'<dn!N>' meta-string.\r"
          "If the specification is of the form @filename,\r"
          "then the file is read with each line consisting\r"
-         "of a pat=dst[;...] route specification.\r"
+         "of a pat=dst[;...] route specification.\r\n"
 
          "[Audio options:]"
          "-jitter:           Set audio jitter buffer size (min[,max] default 50,250)\n"
          "-silence-detect:   Set audio silence detect mode (\"none\", \"fixed\" or default \"adaptive\")\n"
          "-no-inband-detect. Disable detection of in-band tones.\n"
+         "-" OPAL_OPT_OFFER_SDP_PTIME ". Enables SDP PTime parameter.\n"
 #if OPAL_PTLIB_SSL
          "[SSL/TLS options:]"
          "-ssl-ca:           Set SSL/TLS certificate authority directory/file.\n"
@@ -247,6 +248,7 @@ PString MyManager::GetArgumentSpec()
          "-" OPAL_UDPTLRedundancyInterval ": Redundancy Interval for T.38 UDPTL. Default is 0.\n"
          "-" OPAL_UDPTLOptimiseRetransmit ". Optimise on Retransmit of T.38 UDPTL.\n"
          "-" OPAL_UDPTLRawMode ". Use UDPTL Raw Mode.\n"
+         "-" OPAL_T38UseECM ". Enables T30 error correction mode.\n"
          "-T38FaxMaxDatagram: Maximum size datagram to use for T.38 UDPTL. Default is 1400.\n"
          "-T38FaxMaxBuffer: Maximum size T.38 Buffer. Default is 2000.\n"
          "[IP options:]"
@@ -528,6 +530,14 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
     t38.SetOptionBoolean(OPAL_UDPTLRawMode, true);
   }
   output << OPAL_UDPTLRawMode << ": " << t38.GetOptionBoolean(OPAL_UDPTLRawMode,0) << endl;
+
+  // Enable ECM
+  if (args.HasOption(OPAL_T38UseECM)) {
+    OpalMediaOptionBoolean *UseECM = new OpalMediaOptionBoolean(OPAL_T38UseECM,false);
+    t38.AddOption(UseECM,false);
+    t38.SetOptionBoolean(OPAL_T38UseECM, true);
+  }
+  output << OPAL_T38UseECM << ": " << t38.GetOptionBoolean(OPAL_T38UseECM,0) << endl;
 
   // Set the Registered Media Format for T.38
   OpalMediaFormat::SetRegisteredMediaFormat(t38);
