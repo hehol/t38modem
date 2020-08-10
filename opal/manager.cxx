@@ -340,6 +340,8 @@ bool MyManager::Initialise(PArgList & args, bool verbose, const PString &default
       << " on " << process.GetOSClass() << " " << process.GetOSName()
       << " (" << process.GetOSVersion() << '-' << process.GetOSHardware() << ")");
 
+  myPTRACE(3, "T38Modem\t" << "args: " << args);
+
   output << "args:" << endl;
   args.PrintOn(output);
   output << endl;
