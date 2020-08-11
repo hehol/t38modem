@@ -1625,10 +1625,22 @@ void ModemEngineBody::_DetachEngine(ModemClassEngine mce)
   if (activeEngines[mce] == NULL)
     return;
 
-  if (!CallToken().IsEmpty() && activeEngines[mce]->SendingNotCompleted()) {
+  if (!CallToken().IsEmpty()) {
+    const bool sendingNotCompleted = activeEngines[mce]->SendingNotCompleted();
     Mutex.Signal();
-    myPTRACE(2, "T38Modem\tModemEngineBody::_DetachEngine: sending is not completed for " << mce);
-    PThread::Sleep(100);
+    if (sendingNotCompleted) {
+      myPTRACE(2, "T38Modem\tModemEngineBody::_DetachEngine: sending is not completed for " << mce);
+      PThread::Sleep(100);
+    } else {
+      // Workaround for processing INVITE at the end of a call
+      // which creates a new t38Engine instance if the active
+      // engine is detached below. The next call would fail because
+      // the modem no longer sends a CNG tone.  Adding a delay so the
+      // INVITE request is processed before we detach the active engine.
+      const int delay = 50;
+      myPTRACE(5, "T38Modem\tModemEngineBody::_DetachEngine: sleeping for " << delay << " ms");
+      PThread::Sleep(delay);
+    }
     Mutex.Wait();
 
     if (activeEngines[mce] == NULL)
