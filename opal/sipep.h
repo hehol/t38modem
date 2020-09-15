@@ -75,6 +75,23 @@ protected:
 
 /////////////////////////////////////////////////////////////////////////////
 
+class MySIPRegisterHandler : public SIPRegisterHandler
+{
+  PCLASSINFO(MySIPRegisterHandler, SIPRegisterHandler);
+
+  public:
+    MySIPRegisterHandler(
+      SIPEndPoint & ep,
+      const SIPRegister::Params & params
+    )
+    : SIPRegisterHandler(ep, params)
+    {}
+
+    virtual void OnReceivedIntervalTooBrief(SIPTransaction & transaction, SIP_PDU & response);
+};
+
+/////////////////////////////////////////////////////////////////////////////
+
 class MySIPEndPoint : public SIPEndPoint, public MyRTPEndPoint
 {
   PCLASSINFO(MySIPEndPoint, SIPEndPoint)

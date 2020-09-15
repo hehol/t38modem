@@ -258,6 +258,21 @@ bool MyRTPEndPoint::Initialise(PArgList & args, ostream & output, bool verbose)
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+
+void MySIPRegisterHandler::OnReceivedIntervalTooBrief(SIPTransaction & transaction, SIP_PDU & response)
+{
+  long minExpires = response.GetMIME().GetMinExpires();
+  for (SIPURLList::iterator contact = m_contactAddresses.begin(); contact != m_contactAddresses.end(); ++contact) {
+    long expires = contact->GetFieldParameters().GetInteger("expires", 0);
+    if (expires > 0 && expires < minExpires) {
+      PTRACE(5, "SIP\tMySIPRegisterHandler::OnReceivedIntervalTooBrief: setting expires=" << minExpires);
+      contact->GetFieldParameters().SetInteger("expires", minExpires);
+    }
+  }
+  SIPHandler::OnReceivedIntervalTooBrief(transaction, response);
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -546,7 +561,7 @@ bool MySIPEndPoint::Initialise(PArgList & args, bool verbose, const PString & de
 
 SIPRegisterHandler * MySIPEndPoint::CreateRegisterHandler(const SIPRegister::Params & params)
 {
-  return new SIPRegisterHandler(*this, params);
+  return new MySIPRegisterHandler(*this, params);
 }
 
 
