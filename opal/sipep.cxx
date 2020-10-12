@@ -288,6 +288,11 @@ void MySIPEndPoint::OnRegistrationStatus(const RegistrationStatus & status)
   PTime time;
   SIPEndPoint::OnRegistrationStatus(status);
   myPTRACE(2, "T38Modem\tMySIPEndPoint::OnRegistrationStatus() " << status.m_reason << " | " << status.m_userData);
+  if (!status.m_wasRegistering) {
+    myPTRACE(2, "T38Modem\tMySIPEndPoint::OnRegistrationStatus() not registering, ignore status");
+    return;
+  }
+
   if (status.m_userData) {
     ofstream sipRegResultFile;
     PString *outFilePString = (PString*) status.m_userData;
