@@ -68,94 +68,16 @@
 
 #include <ptlib.h>
 
-#include <opal/buildopts.h>
+#include <opal_config.h>
 
 #include <asn/t38.h>
 #include <opal/patch.h>
 
-#include "../audio.h"
 #include "../t38engine.h"
 #include "modemstrm.h"
 
 #define new PNEW
 
-/////////////////////////////////////////////////////////////////////////////
-AudioModemMediaStream::AudioModemMediaStream(
-    OpalConnection & conn,
-    unsigned sessionID,
-    PBoolean isSource,
-    AudioEngine *engine)
-  : OpalMediaStream(conn, OpalPCM16, sessionID, isSource)
-  , audioEngine(engine)
-{
-  PTRACE(4, "AudioModemMediaStream::AudioModemMediaStream " << *this);
-
-  PAssert(audioEngine != NULL, "audioEngine is NULL");
-}
-
-AudioModemMediaStream::~AudioModemMediaStream()
-{
-  ReferenceObject::DelPointer(audioEngine);
-}
-
-PBoolean AudioModemMediaStream::Open()
-{
-  if (isOpen)
-    return TRUE;
-
-  PTRACE(3, "AudioModemMediaStream::Open " << *this);
-
-  if (IsSink())
-    audioEngine->OpenIn(EngineBase::HOWNERIN(this));
-  else
-    audioEngine->OpenOut(EngineBase::HOWNEROUT(this));
-
-  return OpalMediaStream::Open();
-}
-
-#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
-void AudioModemMediaStream::InternalClose()
-#else
-PBoolean AudioModemMediaStream::Close()
-#endif
-{
-  if (isOpen) {
-    PTRACE(3, "AudioModemMediaStream::Close " << *this);
-
-    if (IsSink())
-      audioEngine->CloseIn(EngineBase::HOWNERIN(this));
-    else
-      audioEngine->CloseOut(EngineBase::HOWNEROUT(this));
-  }
-
-#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) < OPAL_PACK_VERSION(3, 10, 5))
-  return OpalMediaStream::Close();
-#endif
-}
-
-PBoolean AudioModemMediaStream::ReadData(BYTE * data, PINDEX size, PINDEX & length)
-{
-  if (!isOpen || !audioEngine->Read(EngineBase::HOWNEROUT(this), data, size)) {
-    length = 0;
-    return false;
-  }
-
-  length = size;
-
-  return true;
-}
-
-PBoolean AudioModemMediaStream::WriteData(const BYTE * data, PINDEX length, PINDEX & written)
-{
-  if (!isOpen || !audioEngine->Write(EngineBase::HOWNERIN(this), data, length)) {
-    written = 0;
-    return false;
-  }
-
-  written = length;
-
-  return true;
-}
 /////////////////////////////////////////////////////////////////////////////
 T38ModemMediaStream::T38ModemMediaStream(
     OpalConnection & conn,
@@ -165,11 +87,9 @@ T38ModemMediaStream::T38ModemMediaStream(
   : OpalMediaStream(conn, OpalT38, sessionID, isSource)
   , t38engine(engine)
 {
-  PTRACE(4, "T38ModemMediaStream::T38ModemMediaStream " << *this);
+  myPTRACE(2, "T38Modem\tT38ModemMediaStream::T38ModemMediaStream " << *this);
 
   PAssert(t38engine != NULL, "t38engine is NULL");
-
-  PTRACE(4, "T38ModemMediaStream::T38ModemMediaStream DataSize=" << GetDataSize());
 }
 
 T38ModemMediaStream::~T38ModemMediaStream()
@@ -179,12 +99,16 @@ T38ModemMediaStream::~T38ModemMediaStream()
 
 PBoolean T38ModemMediaStream::Open()
 {
-  if (isOpen)
+  if (m_isOpen)
     return TRUE;
 
-  PTRACE(3, "T38ModemMediaStream::Open " << *this);
+  myPTRACE(2, "T38Modem\tT38ModemMediaStream::Open " << *this);
 
+#if 0
+  currentSequenceNumber = 32768;
+#else
   currentSequenceNumber = 0;
+#endif
 #if PTRACING
   totallost = 0;
 #endif
@@ -197,90 +121,75 @@ PBoolean T38ModemMediaStream::Open()
   return OpalMediaStream::Open();
 }
 
-#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
 void T38ModemMediaStream::InternalClose()
-#else
-PBoolean T38ModemMediaStream::Close()
-#endif
 {
-  if (isOpen) {
-    PTRACE(3, "T38ModemMediaStream::Close " << *this);
+  myPTRACE(2, "T38Modem\tT38ModemMediaStream::Close " << *this);
 
-    if (IsSink()) {
-      PTRACE(2, "T38ModemMediaStream::Close Send statistics:"
-                " sequence=" << currentSequenceNumber <<
-                " lost=" << totallost);
+  if (IsSink()) {
+    myPTRACE(2, "T38Modem\tT38ModemMediaStream::Close Send statistics:"
+              " sequence=" << currentSequenceNumber <<
+              " lost=" << totallost);
 
-      t38engine->CloseIn(EngineBase::HOWNERIN(this));
-    } else {
-      PTRACE(2, "T38ModemMediaStream::Close Receive statistics:"
-                " sequence=" << currentSequenceNumber);
+    t38engine->CloseIn(EngineBase::HOWNERIN(this));
+  } else {
+    myPTRACE(2, "T38Modem\tT38ModemMediaStream::Close Receive statistics:"
+              " sequence=" << currentSequenceNumber);
 
-      t38engine->CloseOut(EngineBase::HOWNEROUT(this));
-    }
+    t38engine->CloseOut(EngineBase::HOWNEROUT(this));
   }
-
-#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) < OPAL_PACK_VERSION(3, 10, 5))
-  return OpalMediaStream::Close();
-#endif
 }
 
 void T38ModemMediaStream::OnStartMediaPatch()
 {
-  if (isSource) {
-#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
+  if (m_isSource) {
     if (m_mediaPatch != NULL) {
       OpalMediaStreamPtr sink = m_mediaPatch->GetSink();
-#else
-    if (mediaPatch != NULL) {
-      OpalMediaStreamPtr sink = mediaPatch->GetSink();
-#endif
       if (sink != NULL) {
         OpalMediaFormat format = sink->GetMediaFormat();
 
         if (format.IsValid()) {
           if (format.GetMediaType() != OpalMediaType::Fax()) {
-            myPTRACE(3, "T38ModemMediaStream::OnStartMediaPatch: use timeout=0, period=20 for sink " << *sink);
+            myPTRACE(3, "T38Modem\tT38ModemMediaStream::OnStartMediaPatch: use timeout=0, period=20 for sink " << *sink);
 
             t38engine->SetPreparePacketTimeout(EngineBase::HOWNEROUT(this), 0, 20);
           } else {
-            myPTRACE(3, "T38ModemMediaStream::OnStartMediaPatch: use timeout=-1 for sink " << *sink);
+            myPTRACE(3, "T38Modem\tT38ModemMediaStream::OnStartMediaPatch: use timeout=-1 for sink " << *sink);
 
             t38engine->SetPreparePacketTimeout(EngineBase::HOWNEROUT(this), -1);
           }
         } else {
-          myPTRACE(1, "T38ModemMediaStream::OnStartMediaPatch: format is invalid !!!");
+          myPTRACE(1, "T38Modem\tT38ModemMediaStream::OnStartMediaPatch: format is invalid !!!");
         }
       } else {
-        myPTRACE(1, "T38ModemMediaStream::OnStartMediaPatch: sink is NULL !!!");
+        myPTRACE(1, "T38Modem\tT38ModemMediaStream::OnStartMediaPatch: sink is NULL !!!");
       }
     } else {
-      myPTRACE(1, "T38ModemMediaStream::OnStartMediaPatch: mediaPatch is NULL !!!");
+      myPTRACE(1, "T38Modem\tT38ModemMediaStream::OnStartMediaPatch: mediaPatch is NULL !!!");
     }
   }
 }
 
 PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
 {
-  if (!isOpen)
+  if (!m_isOpen)
     return FALSE;
 
   T38_IFP ifp;
   int res;
 
-  packet.SetTimestamp(timestamp);
-  timestamp += 160;
+  packet.SetTimestamp(m_timestamp);
+  m_timestamp += 160;
 
   do {
-    //PTRACE(4, "T38ModemMediaStream::ReadPacket ...");
+    //myPTRACE(4, "T38Modem\tT38ModemMediaStream::ReadPacket ...");
     res = t38engine->PreparePacket(EngineBase::HOWNEROUT(this), ifp);
   } while (currentSequenceNumber == 0 && res < 0);
 
   packet[0] = 0x80;
-  packet.SetPayloadType(mediaFormat.GetPayloadType());
+  packet.SetPayloadType(m_mediaFormat.GetPayloadType());
 
   if (res > 0) {
-    PTRACE(4, "T38ModemMediaStream::ReadPacket ifp = " << setprecision(2) << ifp);
+    myPTRACE(4, "T38Modem\tT38ModemMediaStream::ReadPacket ifp = " << setprecision(2) << ifp);
 
     PASN_OctetString ifp_packet;
     ifp_packet.EncodeSubType(ifp);
@@ -303,7 +212,7 @@ PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
     return FALSE;
   }
 
-  PTRACE(5, "T38ModemMediaStream::ReadPacket"
+  myPTRACE(5, "T38Modem\tT38ModemMediaStream::ReadPacket"
             " packet " << packet.GetSequenceNumber() <<
             " size=" << packet.GetPayloadSize() <<
             " type=" << packet.GetPayloadType() <<
@@ -314,18 +223,21 @@ PBoolean T38ModemMediaStream::ReadPacket(RTP_DataFrame & packet)
 
 PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
 {
-  if (!isOpen)
+  if (!m_isOpen)
     return FALSE;
 
-  PTRACE(5, "T38ModemMediaStream::WritePacket "
+  myPTRACE(5, "T38Modem\tT38ModemMediaStream::WritePacket "
             " packet " << packet.GetSequenceNumber() <<
             " size=" << packet.GetPayloadSize() <<
-            " " << packet.GetPayloadType());
+            " " << packet.GetPayloadType() <<
+            " " << m_mediaFormat.GetPayloadType());
 
-  if (mediaFormat.GetPayloadType() != packet.GetPayloadType()) {
-    PTRACE(5, "T38ModemMediaStream::WritePacket: ignored packet with mismatched payload type");
+#if 0
+  if (m_mediaFormat.GetPayloadType() != packet.GetPayloadType()) {
+    myPTRACE(5, "T38Modem\tT38ModemMediaStream::WritePacket: ignored packet with mismatched payload type");
     return TRUE;
   }
+#endif
 
   long packedSequenceNumber = (packet.GetSequenceNumber() & 0xFFFF) + (currentSequenceNumber & ~0xFFFFL);
   long lost = packedSequenceNumber - currentSequenceNumber;
@@ -341,8 +253,8 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
   }
 
   if (lost < 0) {
-    PTRACE(lost == -1 ? 5 : 3,
-        "T38ModemMediaStream::WritePacket: " << (packet.GetPayloadSize() == 0 ? "Fake" : "Repeated") <<
+    myPTRACE(lost == -1 ? 5 : 3,
+        "T38modem\tT38ModemMediaStream::WritePacket: " << (packet.GetPayloadSize() == 0 ? "Fake" : "Repeated") <<
         " packet " << packedSequenceNumber << " (expected " << currentSequenceNumber << ")");
 
     if (lost > -10)
@@ -350,7 +262,7 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
   }
 
   if (packet.GetPayloadSize() == 0) {
-    PTRACE(5, "T38ModemMediaStream::WritePacket: ignored fake packet");
+    myPTRACE(5, "T38Modem\tT38ModemMediaStream::WritePacket: ignored fake packet");
     return TRUE;
   }
 
@@ -359,7 +271,7 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
   T38_IFP ifp;
 
   if (!ifp_packet.DecodeSubType(ifp)) {
-    PTRACE(2, "T38ModemMediaStream::WritePacket " T38_IFP_NAME " decode failure: "
+    myPTRACE(2, "T38Modem\tT38ModemMediaStream::WritePacket " T38_IFP_NAME " decode failure: "
         << PRTHEX(PBYTEArray(ifp_packet)) << "\n  ifp = "
         << setprecision(2) << ifp);
     return TRUE;
@@ -376,7 +288,7 @@ PBoolean T38ModemMediaStream::WritePacket(RTP_DataFrame & packet)
     if (!t38engine->HandlePacketLost(EngineBase::HOWNERIN(this), lost))
       return FALSE;
 
-    PTRACE(3, "T38ModemMediaStream::WritePacket: adjusting sequence number to " << packedSequenceNumber);
+    myPTRACE(3, "T38Modem\tT38ModemMediaStream::WritePacket: adjusting sequence number to " << packedSequenceNumber);
   }
 
   currentSequenceNumber = packedSequenceNumber + 1;

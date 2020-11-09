@@ -92,7 +92,6 @@ class PseudoModemBody : public PseudoModem
     PBoolean CheckRoute(const PString &number) const;
     PBoolean Request(PStringToString &request) const;
     virtual T38Engine *NewPtrT38Engine() const;
-    virtual AudioEngine *NewPtrAudioEngine() const;
     virtual EngineBase *NewPtrUserInputEngine() const;
 
     const PNotifier &GetCallbackEndPoint() const { return callbackEndPoint; }

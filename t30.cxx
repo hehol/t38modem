@@ -86,7 +86,7 @@ void T30::v21End(PBoolean myPTRACE_PARAM(sent))
         break;
     }
   }
-  myPTRACE(2, PString(sent ? "-->" : "<--") << " v21frame " << msg << PRTHEX(v21frame));
+  myPTRACE(2, "T38Modem\t" << PString(sent ? "-->" : "<--") << " v21frame " << msg << PRTHEX(v21frame));
 }
 ///////////////////////////////////////////////////////////////
 

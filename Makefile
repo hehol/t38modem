@@ -117,29 +117,17 @@
 
 PROG		= t38modem
 OBJECTS		:= pmutils.o dle.o pmodem.o pmodemi.o drivers.o \
-		   t30tone.o tone_gen.o hdlc.o t30.o fcs.o \
-		   pmodeme.o enginebase.o t38engine.o audio.o \
+		   t30.o hdlc.o fcs.o \
+		   pmodeme.o enginebase.o t38engine.o \
 		   drv_pty.o \
-		   main_process.o \
 		   opal/opalutils.o \
 		   opal/modemep.o opal/modemstrm.o \
 		   opal/h323ep.o \
 		   opal/sipep.o \
-		   opal/manager.o \
-		   opal/fake_codecs.o
-#Renamed SOURCES - no explicit rules
-#SOURCES	:= pmutils.cxx dle.cxx pmodem.cxx pmodemi.cxx drivers.cxx \
-#		   t30tone.cxx tone_gen.cxx hdlc.cxx t30.cxx fcs.cxx \
-#		   pmodeme.cxx enginebase.cxx t38engine.cxx audio.cxx \
-#		   drv_pty.cxx \
-#		   main_process.cxx
+		   opal/manager.o
 
-USE_UNIX98_PTY := 1
 CPPFLAGS += `pkg-config --cflags opal`
 LDFLAGS  += `pkg-config --libs opal`
-CPPFLAGS += -DUSE_OPAL
-# Unfortunately, T38modem has a bug that mandates this for now. Filing a bug, but for now...
-CPPFLAGS += -fpermissive
 
 #
 # If defined COUT_TRACE then enable duplicate the
@@ -195,20 +183,20 @@ CPPFLAGS += -DREPEAT_INDICATOR_SENDING
 endif
 
 #
-# If defined USE_UNIX98_PTY then t38modem will use
-# Unix98 scheme for pty devices.
-# If defined USE_LEGACY_PTY or not defined USE_UNIX98_PTY
-# then t38modem will use legacy scheme for pty devices.
+# If defined USE_LEGACY_PTY then t38modem will use
+# legacy scheme for pty devices.
+# If defined USE_UNIX98_PTY or not defined USE_LEGACY_PTY
+# then t38modem will use Unix98 scheme for pty devices.
 # Both schemes cen be used simultaneously.
 #
-ifdef USE_UNIX98_PTY
-  CPPFLAGS += -DUSE_UNIX98_PTY
+ifdef USE_LEGACY_PTY
+  CPPFLAGS += -DUSE_LEGACY_PTY
 
-  ifdef USE_LEGACY_PTY
-    CPPFLAGS += -DUSE_LEGACY_PTY
+  ifdef USE_UNIX98_PTY
+    CPPFLAGS += -DUSE_UNIX98_PTY
   endif
 else
-  CPPFLAGS += -DUSE_LEGACY_PTY
+  CPPFLAGS += -DUSE_UNIX98_PTY
 endif
 
 #

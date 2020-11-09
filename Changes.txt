@@ -7,6 +7,35 @@
  *
  */
 
+Changelog for t38modem 3.14.0 (Mar 3 2016)
+--- Requires Opal 3.10.14 / Ptlib 2.10.14
+* Additional debug on SIP Registration.
+* New option: --sip-retry-403-forbidden
+  UNIFY systems will respond 403 Forbidden when resetting to apply new
+  settings. RFC 3261 says this is a final answer and the request should
+  not be retried. UNIFY says that is the way they work and you have to 
+  retry. This violates ithe RFC, but is needed to make UNIFY work.
+* Added ability to use the all of the Fake Codecs:
+    G.722, G.722.1, G.722.2, G.726-40K, G.726-32K, G.726-24K, G.726-16K,
+    G.728, G.729, G.729A, G.729B, G.729A/B, G.723.1, G.723.1(5.3k),
+    G.723.1A(6.3k), G.723.1A(5.3k), GSM-06.10, GSM-AMR, iLBC
+  Specify with --fake-audio option and --sip-audio or --h323-audio options.  
+
+Changelog for t38modem 3.13.0 (Aug 10 2015)
+--- Requires Opal 3.10.13 / Ptlib 2.10.13
+* Opal 3.10.13 changed to fix Cisco CUBE bug where it starts with sequenc
+  number 32768 instead of the required 0 in UDPTL T.38 packets.
+* Added missing DTMF method in SDP on Invite. Fixes some Alcatel systems.
+
+Changelog for t38modem 3.12.1 (Jan 31 2015)
+--- Requires Opal 3.10.12 / Ptlib 2.10.12
+* New option: --force-fax-mode-delay
+
+Changelog for t38modem 3.12.0 (Jan 31 2015)
+--- Requires Opal 3.10.12 / Ptlib 2.10.12
+* Supports G.711 Passthru mode with the addition of spandsp 0.0.6 plugin.
+* Changed port numbers to work on Verszon network. We now use 10000-10999.
+
 Changelog for t38modem 3.11.0 (Nov 12 2013)
 * Changes to work with Opal 3.10.11.
 

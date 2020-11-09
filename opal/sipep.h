@@ -52,43 +52,75 @@
 #define _MY_SIPEP_H
 
 #include <sip/sipep.h>
+#include "manager.h"
+#include "../pmutils.h"
 
 /////////////////////////////////////////////////////////////////////////////
-class MySIPEndPoint : public SIPEndPoint
+
+class OpalRTPEndPoint;
+
+class MyRTPEndPoint : public MyManagerEndPoint
 {
-  PCLASSINFO(MySIPEndPoint, SIPEndPoint);
+protected:
+  MyRTPEndPoint(MyManager & manager, OpalRTPEndPoint * endpoint);
+
+  static PString GetArgumentSpec();
+  bool Initialise(PArgList & args, ostream & output, bool verbose);
+
+  bool SetUIMode(const PCaselessString & str);
+
+protected:
+  OpalRTPEndPoint & m_endpoint;
+};
+
+/////////////////////////////////////////////////////////////////////////////
+
+class MySIPRegisterHandler : public SIPRegisterHandler
+{
+  PCLASSINFO(MySIPRegisterHandler, SIPRegisterHandler);
 
   public:
-  /**@name Construction */
-  //@{
-    MySIPEndPoint(
-      OpalManager & manager
+    MySIPRegisterHandler(
+      SIPEndPoint & ep,
+      const SIPRegister::Params & params
     )
-    : SIPEndPoint(manager)
-      {}
-  //@}
+    : SIPRegisterHandler(ep, params)
+    {}
 
-    static PString ArgSpec();
-    static PStringArray Descriptions();
-    static PStringArray Descriptions(const PConfigArgs & args);
-    static PBoolean Create(OpalManager & mgr, const PConfigArgs & args);
-    PBoolean Initialise(const PConfigArgs & args);
-    void OnRegistrationStatus(const RegistrationStatus & status);
-
-    virtual SIPConnection * CreateConnection(
-      OpalCall & call,                         ///<  Owner of connection
-      const PString & token,                   ///<  token used to identify connection
-      void * userData,                         ///<  User data for connection
-      const SIPURL & destination,              ///<  Destination for outgoing call
-      OpalTransport * transport,               ///<  Transport INVITE has been received on
-      SIP_PDU * invite,                        ///<  Original INVITE pdu
-      unsigned int options = 0,                ///<  connection options
-      OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
-    );
-
-  protected:
-    PStringToString defaultStringOptions;
+    virtual void OnReceivedIntervalTooBrief(SIPTransaction & transaction, SIP_PDU & response);
 };
+
+/////////////////////////////////////////////////////////////////////////////
+
+class MySIPEndPoint : public SIPEndPoint, public MyRTPEndPoint
+{
+  PCLASSINFO(MySIPEndPoint, SIPEndPoint)
+public:
+  MySIPEndPoint(MyManager & manager);
+
+  ~MySIPEndPoint()
+  {
+    cout << "Deleting SIPEndPoint..." << endl;
+  }
+
+  static PString GetArgumentSpec();
+  virtual bool Initialise(PArgList & args, bool verbose, const PString & defaultRoute);
+
+  virtual void OnRegistrationStatus(const RegistrationStatus & status);
+  bool DoRegistration(ostream & output,
+                      bool verbose,
+                      const PString & aor,
+                      const PString & pwd,
+                      const PArgList & args,
+                      const char * authId,
+                      const char * realm,
+                      const char * proxy,
+                      const char * mode,
+                      const char * ttl,
+                      const char * resultFile);
+  SIPRegisterHandler * CreateRegisterHandler(const SIPRegister::Params & params);
+};
+
 /////////////////////////////////////////////////////////////////////////////
 
 #endif  // _MY_SIPEP_H

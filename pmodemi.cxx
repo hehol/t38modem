@@ -105,6 +105,7 @@ PseudoModemBody::PseudoModemBody(const PString &_tty, const PString &_route, con
 
 PseudoModemBody::~PseudoModemBody()
 {
+  myPTRACE(1, "T38Modem\tPseudoModemBody::~PseudoModemBody()");
   PseudoModemBody::StopAll();
 }
 
@@ -132,15 +133,6 @@ T38Engine *PseudoModemBody::NewPtrT38Engine() const
     return NULL;
 
   return engine->NewPtrT38Engine();
-}
-
-AudioEngine *PseudoModemBody::NewPtrAudioEngine() const
-{
-  PWaitAndSignal mutexWait(Mutex);
-  if (engine == NULL)
-    return NULL;
-
-  return engine->NewPtrAudioEngine();
 }
 
 EngineBase *PseudoModemBody::NewPtrUserInputEngine() const
@@ -178,7 +170,7 @@ void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, PBoolean OutQ)
       PWaitAndSignal mutexWait(Mutex);
       ModemThreadChild *notify = OutQ ? GetPtyNotifier() : (ModemThreadChild *)engine;
       if (notify == NULL) {
-        myPTRACE(1, "PseudoModemBody::ToPtyQ notify == NULL");
+        myPTRACE(1, "T38Modem\tPseudoModemBody::ToPtyQ notify == NULL");
         PtyQ.Clean();
         return;
       }
@@ -192,7 +184,7 @@ void PseudoModemBody::ToPtyQ(const void *buf, PINDEX count, PBoolean OutQ)
 
     if (delay > MAX_delay) {
       delay = MAX_delay;
-      myPTRACE(2, "PseudoModemBody::ToPtyQ(" << (OutQ ? "outPtyQ" : "inPtyQ") << ")"
+      myPTRACE(2, "T38Modem\tPseudoModemBody::ToPtyQ(" << (OutQ ? "outPtyQ" : "inPtyQ") << ")"
         << " busy=" << busy << " count=" << count << " delay=" << delay);
     }
     PThread::Sleep(delay);
@@ -215,6 +207,7 @@ PBoolean PseudoModemBody::StartAll()
 
 void PseudoModemBody::StopAll()
 {
+  myPTRACE(4, "T38Modem\tPseudoModemBody::StopAll() engine = " << engine);
   if (engine) {
     engine->SignalStop();
     engine->WaitForTermination();
@@ -240,12 +233,12 @@ void PseudoModemBody::Main()
 {
   RenameCurrentThread(ptyName() + "(b)");
 
-  myPTRACE(2, "Started for " << ttyPath() <<
+  myPTRACE(2, "T38Modem\tStarted for " << ttyPath() <<
               " (accepts " << (route.IsEmpty() ? PString("all") : route) << ")");
 
   MainLoop();
 
-  myPTRACE(2, "Stopped " << GetThreadTimes(", CPU usage: "));
+  myPTRACE(2, "T38Modem\tStopped " << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
 

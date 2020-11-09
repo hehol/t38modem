@@ -157,7 +157,6 @@ class EngineBase : public ReferenceObject
 
     enum ModemClass {
       mcUndefined,
-      mcAudio,
       mcFax,
     };
 

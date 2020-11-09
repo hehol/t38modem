@@ -1,0 +1,36 @@
+Updates.txt
+- updates to t38modem to work with ptlib-2.16.2 and opal-3.16.2
+
+pmutils.cxx: commented out the do-while loop enclosing line 107
+drivers.cxx: commented out the myPTRACE calls in lines 143, 151, 156
+t38engine.cxx: changed the include for opal/buildopts.h to opal_config.h in line 270
+t38engine.cxx: added parentheses around the && portions of the if statement in lines 1645-1648
+main_process.cxx: changed the include for opal/buildopts.h to opal_config.h in line 64
+opal/opalutils.cxx: changed the include for opal/buildopts.h to opal_config.h in line 40
+opal/modemep.cxx: changed the include for opal/buildopts.h to opal_config.h in line 135
+opal/modemep.cxx: added media type as third argument in line 997
+opal/modemep.cxx: changed attribute type as third argument in line 252
+opal/modemep.cxx: added PMutex type specifier to the argument in line 512
+opal/modemep.cxx: declared variable as PString in line 576
+opal/modemstrm.cxx: changed the include for opal/buildopts.h to opal_config.h in line 71
+opal/modemstrm.cxx: updated variable name for "isOpen" in lines 103, 122, 138, 150, 182, 206, 265, 317
+opal/modemstrm.cxx: updated variable name for "isSource" in line 230
+opal/h323ep.cxx: changed the include for opal/buildopts.h to opal_config.h in line 119
+opal/h323ep.cxx: changed the RTP Session type in lines 614, 617
+opal/h323ep.cxx: commented out RTP Session calls in lines 614, 616, 617
+opal/sipep.cxx: changed the include for opal/buildopts.h to opal_config.h in line 129
+opal/sipep.h: changed the parameters for CreateConnection in line 79
+opal/sipep.cxx: changed the parameters in MySIPConnection in line 158
+opal/sipep.cxx: changed the parameters in SIPConnection in line 160
+opal/sipep.cxx: changed the parameters for CreateConnection in line 488
+opal/sipep.cxx: modified the name of the variable "call" in line 490
+opal/sipep.cxx: changed the argument names in MySIPConnection in line 492
+opal/sipep.cxx: changed the RTP Session type in lines 626, 629
+opal/sipep.cxx: commented out RTP Session calls in lines 626, 628, 629
+opal/sipep.cxx: commented out m_retry403 parameter in line 421
+opal/sipep.cxx: commented out retry403 variable in line 339
+opal/sipep.cxx: commented out if-else statement in lines 402-405
+opal/manager.cxx: changed the include for opal/buildopts.h to opal_config.h in line 85
+opal/manager.cxx: commented out the unused STUN server in lines 253-265
+opal/manager.cxx: modified the cout message in line 296
+opal/fake_codecs.cxx: changed the include for opal/buildopts.h to opal_config.h in line 43
