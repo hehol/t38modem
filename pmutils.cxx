@@ -103,9 +103,9 @@ void ModemThread::SignalStop() {
 
 void ModemThread::WaitDataReady()
 {
-  do {
+  //do {
     dataReadySyncPoint.Wait();
-  } while(!dataReadySyncPoint.WillBlock());
+  //} while(!dataReadySyncPoint.WillBlock());
 }
 ///////////////////////////////////////////////////////////////
 ModemThreadChild::ModemThreadChild(ModemThread &_parent)
@@ -250,7 +250,7 @@ void RenameCurrentThread(const PString &newname)
       #endif
     #endif
   );
-  PTRACE(2, "RenameCurrentThread old ThreadName=" << oldname);
+  myPTRACE(2, "T38Modem\tRenameCurrentThread old ThreadName=" << oldname);
 }
 #endif /* PTRACING */
 ///////////////////////////////////////////////////////////////

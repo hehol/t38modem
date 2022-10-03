@@ -132,12 +132,12 @@
 
 #include <ptlib.h>
 
-#include <opal/buildopts.h>
+#include <opal_config.h>
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 10, 0))
-  #error *** Incompatible OPAL version (required >= 3.10.0) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 16, 1))
+  #error *** Incompatible OPAL version (required >= 3.16.1) ***
 #endif
 
 #undef PACK_VERSION
@@ -155,176 +155,81 @@
 #define new PNEW
 
 /////////////////////////////////////////////////////////////////////////////
-class ModemConnection : public OpalConnection
+class ModemConnection : public OpalFaxConnection
 {
-    PCLASSINFO(ModemConnection, OpalConnection);
+    PCLASSINFO(ModemConnection, OpalFaxConnection);
   public:
 
     ModemConnection(
-      OpalCall & call,
+      OpalCall      & call,
       ModemEndPoint & ep,
-      const PString & token,
       const PString & remoteParty,
-      void *userData,
+      void          * userData,
+      bool            receiving,
+      bool            disableT38,
       StringOptions * stringOptions
     );
     ~ModemConnection();
 
-    virtual OpalMediaStream * CreateMediaStream(
-      const OpalMediaFormat & mediaFormat, /// Media format for stream
-      unsigned sessionID,                  /// Session number for stream
-      PBoolean isSource                    /// Is a source stream
-    );
+    virtual PString GetPrefixName() const;
 
-    virtual bool IsNetworkConnection() const { return true; }
-
-    virtual void OnReleased();
-
+    virtual OpalMediaStream * CreateMediaStream(const OpalMediaFormat & mediaFormat, unsigned sessionID, PBoolean isSource);
+    virtual OpalMediaFormatList GetMediaFormats() const;
     virtual PBoolean SetUpConnection();
-
     virtual PBoolean SetAlerting(
       const PString & calleeName,   /// Name of endpoint being alerted.
       PBoolean withMedia            /// Open media with alerting
     );
-
-    virtual PBoolean SetConnected();
-
-    virtual OpalMediaFormatList GetMediaFormats() const;
-
-    virtual void OnConnected();
     virtual void OnEstablished();
-    virtual void AcceptIncoming();
-
-    virtual PBoolean SendUserInputTone(
-      char tone,                    ///<  DTMF tone code
-      unsigned duration = 0         ///<  Duration of tone in milliseconds
-    );
-
-    enum PseudoModemMode {
-      pmmUnknown,
-      pmmAny,
-      pmmFax,
-      pmmFaxNoForce,
-    };
-
-    bool RequestMode(
-      PseudoModemMode mode
-    );
-
-    bool OnSwitchingFaxMediaStreams(bool toT38);
 
   protected:
-    bool UpdateMediaStreams(OpalConnection &other);
-
-    PDECLARE_NOTIFIER(PThread, ModemConnection, RequestMode);
-    const PNotifier requestMode;
-
     PseudoModem *pmodem;
-    EngineBase *userInputEngine;
-    PseudoModemMode requestedMode;
     bool isPartyA;
-
-    PDECLARE_NOTIFIER(PTimer,  ModemConnection, OnPhaseTimeout);
-    PTimer phaseTimer;
-    Phases phaseTimerPhase;
-    bool phaseWasTimeout;
+    bool m_receiving;
 };
 /////////////////////////////////////////////////////////////////////////////
 //
 //  Implementation
 //
 /////////////////////////////////////////////////////////////////////////////
-#if PTRACING
-static ostream & operator<<(ostream & out, ModemConnection::PseudoModemMode mode)
-{
-  switch (mode) {
-    case ModemConnection::pmmAny:         return out << "any";
-    case ModemConnection::pmmFax:         return out << "fax";
-    case ModemConnection::pmmFaxNoForce:  return out << "fax-no-force";
-    default:                              return out << "unknown" << INT(mode);
-  }
-}
-#endif
+
 /////////////////////////////////////////////////////////////////////////////
-ModemEndPoint::ModemEndPoint(OpalManager & mgr, const char * prefix)
-  : OpalEndPoint(mgr, prefix, CanTerminateCall)
+PStringToString ModemEndPoint::defaultStringOptions;
+
+ModemEndPoint::ModemEndPoint(MyManager & mgr, const char * g711Prefix, const char * t38Prefix)
+  : OpalFaxEndPoint(mgr, g711Prefix, t38Prefix)
+  , MyManagerEndPoint(mgr)
 {
-  myPTRACE(1, "ModemEndPoint::ModemEndPoint");
+  myPTRACE(1, "T38Modem\tModemEndPoint::ModemEndPoint");
 
   pmodem_pool = new PseudoModemQ();
 }
 
-PString ModemEndPoint::ArgSpec()
+ModemEndPoint::~ModemEndPoint()
 {
-  return
+  cout << "Deleting ModemEndPoint..." << endl;
+  myPTRACE(1, "ModemEndPoint::~ModemEndPoint()");
+  delete pmodem_pool;
+  myPTRACE(1, "ModemEndPoint deleted");
+  cout << "ModemEndPoint deleted" << endl;
+}
+
+PString ModemEndPoint::GetArgumentSpec()
+{
+  return 
     PseudoModemDrivers::ArgSpec() +
-    "-no-modem."
-    "p-ptty:"
-    "-force-fax-mode."
-    "-no-force-t38-mode."
-  ;
+    "[Modem Options:]"
+    "-no-modem.              Disable MODEM protocol.\n"
+    "-ptty:                  Pseudo ttys. Can be used multiple times.\n";
 }
 
-PStringArray ModemEndPoint::Descriptions()
-{
-  PStringArray descriptions = PString(
-      "Modem options:\n"
-      "  --no-modem                : Disable MODEM protocol.\n"
-      "  -p --ptty [num@]tty[,...] : Pseudo ttys. Can be used multiple times.\n"
-      "                              If tty prefixed by num@ then tty will\n"
-      "                              accept incoming calls only\n"
-      "                              for numbers with prefix num.\n"
-      "                              Use none@tty to disable incoming calls.\n"
-      "                              See Modem drivers section for tty format.\n"
-      "  --force-fax-mode          : Use OPAL-Force-Fax-Mode=true route option by\n"
-      "                              default.\n"
-      "  --no-force-t38-mode       : Use OPAL-No-Force-T38-Mode=true route option by\n"
-      "                              default.\n"
-      "Modem route options:\n"
-      "  OPAL-Set-Up-Phase-Timeout=secs\n"
-      "    Set timeout for outgoing call Set-Up phase to secs seconds.\n"
-      "  OPAL-Try-Next=dst\n"
-      "    Set alternate incoming destination address for outgoing calls to dst. This\n"
-      "    address will be used to re-route if outgoing call Set-Up phase fails.\n"
-      "  OPAL-Force-Fax-Mode={true|false}\n"
-      "    Enable or disable forcing fax mode (T.38 or G.711 pass-trough).\n"
-      "  OPAL-No-Force-T38-Mode={true|false}\n"
-      "    Not enable or not disable forcing T.38 mode.\n"
-      "Modem drivers:\n"
-  ).Lines();
-
-  PStringArray ds;
-
-  ds = PseudoModemDrivers::Descriptions();
-
-  for (PINDEX i = 0 ; i < ds.GetSize() ; i++)
-    descriptions.Append(new PString(PString("  ") + ds[i]));
-
-  return descriptions;
-}
-
-PStringArray ModemEndPoint::Descriptions(const PConfigArgs & /*args*/)
-{
-  PStringArray descriptions;
-
-  return descriptions;
-}
-
-PBoolean ModemEndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
+bool ModemEndPoint::Initialise(PArgList & args, bool verbose, const PString & defaultRoute)
 {
   if (args.HasOption("no-modem")) {
     cout << "Disabled MODEM protocol" << endl;
     return TRUE;
   }
 
-  if ((new ModemEndPoint(mgr))->Initialise(args))
-    return TRUE;
-
-  return FALSE;
-}
-
-PBoolean ModemEndPoint::Initialise(const PConfigArgs & args)
-{
   if (args.HasOption("ptty")) {
     PString tty = args.GetOptionString("ptty");
     PStringArray ttys = tty.Tokenise(",\r\n ", FALSE);
@@ -342,14 +247,21 @@ PBoolean ModemEndPoint::Initialise(const PConfigArgs & args)
 
       if (!pmodem_pool->CreateModem(tty, r, args, PCREATE_NOTIFIER(OnMyCallback)))
         cerr << "Can't create modem for " << tty << endl;
+      else {
+        if (args.HasOption("pts-dir")) {
+          cout << "Created modem " << args.GetOptionString("pts-dir") << "/" << tty.Mid(1) << "." << endl;
+        }
+        else {
+          cout << "Created modem " << tty << "." << endl;
+        }
+      }
     }
   }
 
-  if (args.HasOption("force-fax-mode"))
-    defaultStringOptions.SetAt("Force-Fax-Mode", "true");
-
-  if (args.HasOption("no-force-t38-mode"))
-    defaultStringOptions.SetAt("No-Force-T38-Mode", "true");
+  if (args.HasOption("audio") || args.HasOption("disable-t38-mode"))
+    m_prefix = "fax:";
+  else
+    m_prefix = "t38:";
 
   return TRUE;
 }
@@ -360,7 +272,7 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
     PStringToString &request = (PStringToString &)from;
     PString command = request("command");
 
-    myPTRACE(1, "ModemEndPoint::OnMyCallback command=" << command << " extra=" << extra);
+    myPTRACE(1, "T38Modem\tModemEndPoint::OnMyCallback command=" << command << " extra=" << extra);
 
     PString modemToken = request("modemtoken");
     PString response = "reject";
@@ -368,7 +280,7 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
     if (command == "dial") {
       PseudoModem *modem = pmodem_pool->Dequeue(modemToken);
       if (modem != NULL) {
-        PString partyA = PString("modem:") + request("localpartyname");
+        PString partyA = m_prefix + request("localpartyname");
         PString partyB = request("number") + "@" + modem->ttyName();
 
         PString originalPartyB;
@@ -377,12 +289,12 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
         if (tries++ > 0) {
           originalPartyB = request("originalpartyb");
           cout << "Trying alternate route " << tries << " to " << partyB << " instead " << originalPartyB << endl;
-          PTRACE(1, "Trying alternate route " << tries << " to " << partyB << " instead " << originalPartyB);
+          myPTRACE(1, "T38Modem\tTrying alternate route " << tries << " to " << partyB << " instead " << originalPartyB);
         } else {
           originalPartyB = partyB;
         }
 
-        myPTRACE(1, "MyManager::OnMyCallback SetUpCall(" << partyA << ", " << partyB << ")");
+        myPTRACE(1, "T38Modem\tMyManager::OnMyCallback SetUpCall(" << partyA << ", " << partyB << ")");
 
         PSafePtr<OpalCall> call = GetManager().SetUpCall(partyA, partyB, modem);
 
@@ -412,25 +324,6 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
         pConn->AcceptIncoming();
         response = "confirm";
       }
-    } else if (command == "requestmode") {
-      PSafePtr<ModemConnection> pConn =
-          PSafePtrCast<OpalConnection, ModemConnection>(GetConnectionWithLock(request("calltoken"), PSafeReference));
-
-      if (pConn != NULL) {
-        const PString &newModeString = request("mode");
-        ModemConnection::PseudoModemMode mode;
-
-        if (newModeString == "fax")           { mode = ModemConnection::pmmFax;         } else
-        if (newModeString == "fax-no-force")  { mode = ModemConnection::pmmFaxNoForce;  } else
-                                              { mode = ModemConnection::pmmUnknown;     }
-
-        if (mode != ModemConnection::pmmUnknown) {
-          if (pConn->RequestMode(mode))
-            response = "confirm";
-        } else {
-          myPTRACE(1, "ModemEndPoint::OnMyCallback: unknown mode " << newModeString);
-        }
-      }
     } else if (command == "clearcall") {
       PSafePtr<ModemConnection> pConn =
           PSafePtrCast<OpalConnection, ModemConnection>(GetConnectionWithLock(request("calltoken"), PSafeReference));
@@ -446,9 +339,9 @@ void ModemEndPoint::OnMyCallback(PObject &from, INT myPTRACE_PARAM(extra))
 
     request.SetAt("response", response);
 
-    myPTRACE(1, "ModemEndPoint::OnMyCallback request={\n" << request << "}");
+    myPTRACE(1, "T38Modem\tModemEndPoint::OnMyCallback request={\n" << request << "}");
   } else {
-    myPTRACE(1, "ModemEndPoint::OnMyCallback unknown class " << from.GetClass() << " extra=" << extra);
+    myPTRACE(1, "T38Modem\tModemEndPoint::OnMyCallback unknown class " << from.GetClass() << " extra=" << extra);
   }
 }
 
@@ -471,7 +364,7 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
     OpalConnection::StringOptions * stringOptions
     )
 {
-  myPTRACE(1, "ModemEndPoint::MakeConnection " << remoteParty);
+  myPTRACE(1, "T38Modem\tModemEndPoint::MakeConnection " << remoteParty);
 
   OpalConnection::StringOptions localOptions;
 
@@ -489,23 +382,41 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
 
     for (PINDEX i = 0; i < params.GetSize(); i++) {
       PCaselessString key = params.GetKeyAt(i);
-
       if (key.NumCompare("OPAL-") == EqualTo) {
         stringOptions->SetAt(key.Mid(5), params.GetDataAt(i));
       }
     }
   }
 
-  PWaitAndSignal wait(inUseFlag);
+  PINDEX prefixLength = remoteParty.Find(':');
+  PStringArray tokens = remoteParty.Mid(prefixLength+1).Tokenise(";", true);
+
+  bool receiving = false;
+  PString stationId = GetDefaultDisplayName();
+
+  for (PINDEX i = 1; i < tokens.GetSize(); ++i) {
+    if (tokens[i] *= "receive")
+      receiving = true;
+    else if (tokens[i].Left(10) *= "stationid=")
+      stationId = tokens[i].Mid(10);
+  }
+
+  PWaitAndSignal wait(PMutex inUseFlag);
   PString token;
 
   for (int i = 0 ; i < 10000 ; i++) {
     token = remotePartyAddress + "/" + call.GetToken() + "/" + PString(i);
-    if (!connectionsActive.Contains(token)) {
+    if (!m_connectionsActive.Contains(token)) {
       ModemConnection * connection =
-          new ModemConnection(call, *this, token, remotePartyAddress, userData, stringOptions);
+          new ModemConnection(call,
+                              *this,
+                              remotePartyAddress,
+                              userData,
+                              receiving,
+                              remoteParty.Left(prefixLength) *= GetPrefixName(),
+                              stringOptions);
 
-      PTRACE(6, "ModemEndPoint::MakeConnection new " << connection->GetClass() << ' ' << (void *)connection);
+      myPTRACE(5, "T38Modem\tModemEndPoint::MakeConnection new " << connection->GetClass() << ' ' << (void *)connection);
 
       OpalConnection::StringOptions newOptions;
 
@@ -514,7 +425,12 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
           newOptions.SetAt(defaultStringOptions.GetKeyAt(i), defaultStringOptions.GetDataAt(i));
       }
 
-      connection->SetStringOptions(newOptions, false);
+      // If newOptions is empty then we need to call OnApplyStringOptions() to get the defaultStringOptions
+      // to apply. If we call SetStringOptions with some options, it will call OnApplyStringOptions;
+      if (newOptions.IsEmpty())
+        connection->OnApplyStringOptions();
+      else
+        connection->SetStringOptions(newOptions, false);
 
       return AddConnection(connection);
     }
@@ -525,182 +441,36 @@ PSafePtr<OpalConnection> ModemEndPoint::MakeConnection(
 
 OpalMediaFormatList ModemEndPoint::GetMediaFormats() const
 {
-  myPTRACE(1, "ModemEndPoint::GetMediaFormats");
-
   OpalMediaFormatList formats;
-
-  formats += OpalPCM16;
   formats += OpalT38;
-  formats += OpalRFC2833;
-
+  myPTRACE(1, "T38Modem\tModemEndPoint::GetMediaFormats: " << formats);
   return formats;
 }
+
 /////////////////////////////////////////////////////////////////////////////
-ModemConnection::ModemConnection(
-    OpalCall & call,
-    ModemEndPoint & ep,
-    const PString & token,
-    const PString & remoteParty,
-    void *userData,
-    StringOptions * stringOptions)
-  : OpalConnection(call, ep, token, 0, stringOptions)
-#ifdef _MSC_VER
-#pragma warning(disable:4355) // warning C4355: 'this' : used in base member initializer list
-#endif
-  , requestMode(PCREATE_NOTIFIER(RequestMode))
-#ifdef _MSC_VER
-#pragma warning(default:4355)
-#endif
-  , pmodem((PseudoModem *)userData)
-  , userInputEngine(NULL)
-  , requestedMode(pmmAny)
-  , isPartyA(userData != NULL)
-  , phaseTimerPhase(NumPhases)
-  , phaseWasTimeout(false)
-{
-  remotePartyNumber = GetPartyName(remoteParty);
-  remotePartyAddress = remoteParty;
-
-  myPTRACE(4, "ModemConnection::ModemConnection " << *this);
-
-  phaseTimer.SetNotifier(PCREATE_NOTIFIER(OnPhaseTimeout));
-}
-
-ModemConnection::~ModemConnection()
-{
-  myPTRACE(4, "ModemConnection::~ModemConnection " << *this << " " << GetCallEndReason());
-
-  if (pmodem != NULL) {
-    PseudoModem *pmodemTmp = pmodem;
-
-    ((ModemEndPoint &)GetEndPoint()).PMFree(pmodem);
-    pmodem = NULL;
-
-    PStringToString request;
-    request.SetAt("command", "clearcall");
-    request.SetAt("calltoken", GetToken());
-
-    if (isPartyA) {
-      switch (GetCallEndReason()) {
-        case EndedByLocalUser:
-          if (!phaseWasTimeout)
-            break;
-        case EndedByQ931Cause:
-        case EndedByConnectFail:
-        case EndedByGatekeeper:
-        case EndedByNoBandwidth:
-        case EndedByCapabilityExchange:
-        case EndedByCallForwarded:
-        case EndedByNoEndPoint:
-        case EndedByHostOffline:
-        case EndedByUnreachable:
-        case EndedByTransportFail:
-          if (GetStringOptions().Contains("Try-Next")) {
-            PString num = GetStringOptions()("Try-Next");
-            myPTRACE(1, "ModemConnection::~ModemConnection: Try-Next=" << num);
-            request.SetAt("trynextcommand", "dial");
-            request.SetAt("number", num);
-            request.SetAt("localpartyname", remotePartyNumber);
-            request.SetAt("trynextcount", GetStringOptions().Contains("Try-Next-Count") ? GetStringOptions()("Try-Next-Count") : "1");
-            request.SetAt("originalpartyb", GetStringOptions().Contains("Original-Party-B") ? GetStringOptions()("Original-Party-B") : "unknown");
-          }
-          break;
-        default:
-          break;
-      }
-    }
-
-    if (!pmodemTmp->Request(request)) {
-      myPTRACE(1, "ModemConnection::~ModemConnection error request={\n" << request << "}");
-    }
-  }
-
-  if (userInputEngine != NULL)
-    ReferenceObject::DelPointer(userInputEngine);
-
-  phaseTimer.Stop();
-}
-
-void ModemConnection::OnPhaseTimeout(PTimer &, INT)
-{
-  PTRACE(4, "ModemConnection::OnPhaseTimeout: for " << phaseTimerPhase << " on " << GetPhase());
-
-  if (phaseTimerPhase == GetPhase()) {
-    PTRACE(4, "ModemConnection::OnPhaseTimeout: clearing call");
-    phaseWasTimeout = true;
-    ClearCall();
-  }
-}
-
-OpalMediaStream * ModemConnection::CreateMediaStream(
-    const OpalMediaFormat & mediaFormat,
-    unsigned sessionID,
-    PBoolean isSource)
-{
-  myPTRACE(2, "ModemConnection::CreateMediaStream " << *this <<
-      " mediaFormat=" << mediaFormat << " sessionID=" << sessionID << " isSource=" << isSource);
-
-  if (mediaFormat == OpalT38) {
-    if (pmodem != NULL) {
-      T38Engine *t38engine = pmodem->NewPtrT38Engine();
-
-      if (t38engine != NULL)
-        return new T38ModemMediaStream(*this, sessionID, isSource, t38engine);
-    }
-  }
-  else
-  if (mediaFormat == OpalPCM16) {
-    if (pmodem != NULL) {
-      AudioEngine *audioEngine = pmodem->NewPtrAudioEngine();
-
-      if (audioEngine != NULL)
-        return new AudioModemMediaStream(*this, sessionID, isSource, audioEngine);
-    }
-  }
-
-  return OpalConnection::CreateMediaStream(mediaFormat, sessionID, isSource);
-}
-
-void ModemConnection::OnReleased()
-{
-  myPTRACE(1, "ModemConnection::OnReleased " << *this);
-
-  OpalConnection::OnReleased();
-}
 
 PBoolean ModemConnection::SetUpConnection()
 {
-  myPTRACE(1, "ModemConnection::SetUpConnection " << *this);
+  myPTRACE(1, "T38Modem\tModemConnection::SetUpConnection " << *this);
 
   SetPhase(SetUpPhase);
 
   if (GetCall().GetConnection(0) == this) {
     OpalConnection::StringOptions stringOptions;
 
-    if (!remotePartyNumber.IsEmpty())
-      stringOptions.SetAt(OPAL_OPT_CALLING_PARTY_NUMBER, remotePartyNumber);
+    if (!m_remotePartyNumber.IsEmpty())
+      stringOptions.SetAt(OPAL_OPT_CALLING_PARTY_NUMBER, m_remotePartyNumber);
 
     if (!OnIncomingConnection(0, &stringOptions)) {
       Release(EndedByCallerAbort);
       return FALSE;
     }
 
-    PTRACE(2, "Outgoing call routed to " << GetCall().GetPartyB() << " for " << *this);
+    myPTRACE(2, "T38Modem\tOutgoing call routed to " << GetCall().GetPartyB() << " for " << *this);
 
     if (!GetCall().OnSetUp(*this)) {
       Release(EndedByNoAccept);
       return FALSE;
-    }
-
-    if (GetStringOptions().Contains("Set-Up-Phase-Timeout")) {
-      long secs = GetStringOptions()("Set-Up-Phase-Timeout").AsInteger();
-
-      PTRACE(4, "ModemConnection::SetUpConnection: Set-Up-Phase-Timeout=" << secs);
-
-      if (secs > 0) {
-        phaseTimerPhase = SetUpPhase;
-        phaseTimer.SetInterval(0, secs);
-      }
     }
 
     return TRUE;
@@ -721,7 +491,7 @@ PBoolean ModemConnection::SetUpConnection()
 
   PString dstNum = GetRemotePartyNumber();
 
-  myPTRACE(1, "ModemConnection::SetUpConnection"
+  myPTRACE(1, "T38Modem\tModemConnection::SetUpConnection"
            << " dstNum=" << dstNum
            << " srcNum=" << srcNum
            << " srcName=" << srcName
@@ -731,7 +501,7 @@ PBoolean ModemConnection::SetUpConnection()
   PseudoModem *_pmodem = ep.PMAlloc(dstNum);
 
   if (_pmodem == NULL) {
-    myPTRACE(1, "... denied (all modems busy)");
+    myPTRACE(1, "T38Modem\t... denied (all modems busy)");
     // LXK change -- Use EndedByLocalBusy instead of EndedByLocalUser
     // so that caller receives a normal busy signal instead of a
     // fast busy (congestion) or recorded message.
@@ -740,7 +510,7 @@ PBoolean ModemConnection::SetUpConnection()
   }
 
   if (pmodem != NULL) {
-    myPTRACE(1, "... denied (internal error)");
+    myPTRACE(1, "T38Modem\t... denied (internal error)");
     ep.PMFree(_pmodem);
     Release(EndedByLocalBusy);  // LXK change -- see above
     return FALSE;
@@ -756,18 +526,18 @@ PBoolean ModemConnection::SetUpConnection()
   request.SetAt("dstnum", dstNum);
 
   if (!pmodem->Request(request)) {
-    myPTRACE(1, "... denied (modem is not ready)");	// or we can try other modem
+    myPTRACE(1, "T38Modem\t... denied (modem is not ready)");	// or we can try other modem
     Release(EndedByLocalBusy);  // LXK change -- see above
     return FALSE;
   }
 
   if (request("response") != "confirm") {
-    myPTRACE(1, "... denied (no confirm)");
+    myPTRACE(1, "T38Modem\t... denied (no confirm)");
     Release(EndedByLocalUser);
     return FALSE;
   }
 
-  myPTRACE(1, "... Ok");
+  myPTRACE(1, "T38Modem\t... Ok");
 
   SetPhase(AlertingPhase);
   OnAlerting();
@@ -779,7 +549,7 @@ PBoolean ModemConnection::SetAlerting(
     const PString & myPTRACE_PARAM(calleeName),
     PBoolean myPTRACE_PARAM(withMedia))
 {
-  myPTRACE(1, "ModemConnection::SetAlerting " << *this << " " << calleeName << " " << withMedia);
+  myPTRACE(1, "T38Modem\tModemConnection::SetAlerting " << *this << " " << calleeName << " " << withMedia);
 
   SetPhase(AlertingPhase);
 
@@ -789,487 +559,129 @@ PBoolean ModemConnection::SetAlerting(
   request.SetAt("command", "alerting");
   request.SetAt("calltoken", GetToken());
   if (!pmodem->Request(request)) {
-    myPTRACE(1, "ModemConnection::SetAlerting error request={\n" << request << "}");
+    myPTRACE(1, "T38Modem\tModemConnection::SetAlerting error request={\n" << request << "}");
   }
 
   return TRUE;
 }
 
-PBoolean ModemConnection::SetConnected()
+ModemConnection::ModemConnection(OpalCall        & call,
+                                 ModemEndPoint & ep,
+                                 const PString & remoteParty,
+                                 void          * userData,
+                                 bool            receiving,
+                                 bool            disableT38,
+                                 StringOptions * stringOptions)
+  : OpalFaxConnection(call, ep, PString::Empty(), receiving, disableT38, stringOptions)
+  , pmodem((PseudoModem *)userData)
+  , isPartyA(userData != NULL)
+  , m_receiving(receiving)
 {
-  myPTRACE(1, "ModemConnection::SetConnected " << *this);
+  m_remotePartyNumber = GetPartyName(remoteParty);
+  PString remotePartyAddress = remoteParty;
 
-  return OpalConnection::SetConnected();
+  myPTRACE(4, "T38Modem\tModemConnection::ModemConnection " << *this);
 }
+
+ModemConnection::~ModemConnection()
+{
+  myPTRACE(4, "T38Modem\tModemConnection::~ModemConnection " << *this << " " << GetCallEndReason());
+
+  if (pmodem != NULL) {
+    PseudoModem *pmodemTmp = pmodem;
+
+    ((ModemEndPoint &)GetEndPoint()).PMFree(pmodem);
+    pmodem = NULL;
+
+    PStringToString request;
+    request.SetAt("command", "clearcall");
+    request.SetAt("calltoken", GetToken());
+
+    if (isPartyA) {
+      switch (GetCallEndReason()) {
+        case EndedByLocalUser:
+        //  if (!phaseWasTimeout)
+        //    break;
+        case EndedByQ931Cause:
+        case EndedByConnectFail:
+        case EndedByGatekeeper:
+        case EndedByNoBandwidth:
+        case EndedByCapabilityExchange:
+        case EndedByCallForwarded:
+        case EndedByNoEndPoint:
+        case EndedByHostOffline:
+        case EndedByUnreachable:
+        case EndedByTransportFail:
+          if (GetStringOptions().Contains("Try-Next")) {
+            PString num = GetStringOptions()("Try-Next");
+            myPTRACE(1, "T38Modem\tModemConnection::~ModemConnection: Try-Next=" << num);
+            request.SetAt("trynextcommand", "dial");
+            request.SetAt("number", num);
+            request.SetAt("localpartyname", m_remotePartyNumber);
+            request.SetAt("trynextcount", GetStringOptions().Contains("Try-Next-Count") ? GetStringOptions()("Try-Next-Count") : "1");
+            request.SetAt("originalpartyb", GetStringOptions().Contains("Original-Party-B") ? GetStringOptions()("Original-Party-B") : "unknown");
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (!pmodemTmp->Request(request)) {
+      myPTRACE(1, "T38Modem\tModemConnection::~ModemConnection error request={\n" << request << "}");
+    }
+  }
+}
+
+OpalMediaStream * ModemConnection::CreateMediaStream(const OpalMediaFormat & mediaFormat, unsigned sessionID, bool isSource)
+{
+  myPTRACE(2, "T38Modem\tModemConnection::CreateMediaStream " << *this <<
+      " mediaFormat=" << mediaFormat << " sessionID=" << sessionID << " isSource=" << isSource);
+
+  if (mediaFormat == OpalT38) {
+    if (pmodem != NULL) {
+      T38Engine *t38engine = pmodem->NewPtrT38Engine();
+
+      if (t38engine != NULL)
+        return new T38ModemMediaStream(*this, sessionID, isSource, t38engine);
+    }
+  }
+
+  myPTRACE(2, "T38Modem\tStarting Null Media Stream");
+  return new OpalNullMediaStream(*this, mediaFormat, sessionID, isSource, isSource, true);
+}
+
+PString ModemConnection::GetPrefixName() const
+{
+  return m_disableT38 ? m_endpoint.GetPrefixName() : m_endpoint.GetT38Prefix();
+}
+
 
 OpalMediaFormatList ModemConnection::GetMediaFormats() const
 {
-  PTRACE(4, "ModemConnection::GetMediaFormats " << *this);
+  OpalMediaFormatList formats;
 
-  OpalMediaFormatList mediaFormats = endpoint.GetMediaFormats();
+  formats += OpalT38;
 
-  switch (requestedMode) {
-    case pmmFax:
-      for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
-        if (mediaFormats[i].GetMediaType() != OpalMediaType::Fax()) {
-          PTRACE(3, "ModemConnection::GetMediaFormats Remove " << mediaFormats[i]);
-          mediaFormats -= mediaFormats[i];
-          i--;
-        }
-      }
-      break;
-    default:
-      break;
+  if (!m_disableT38) {
+    formats += OpalRFC2833;
+    formats += OpalCiscoNSE;
   }
 
-  return mediaFormats;
-}
-
-void ModemConnection::OnConnected()
-{
-  myPTRACE(1, "ModemConnection::OnConnected " << *this);
-
-  OpalConnection::OnConnected();
+  myPTRACE(1, "T38Modem\tModemConnection::GetMediaFormats: " << formats);
+  return formats;
 }
 
 void ModemConnection::OnEstablished()
 {
-  myPTRACE(1, "ModemConnection::OnEstablished " << *this);
-
-  PAssert(pmodem != NULL, "pmodem is NULL");
-  PStringToString request;
-  request.SetAt("command", "established");
-  request.SetAt("calltoken", GetToken());
-  if (!pmodem->Request(request)) {
-    myPTRACE(1, "ModemConnection::OnEstablished error request={\n" << request << "}");
+  if (m_receiving && m_stringOptions.GetBoolean("T38-Recv-Immed-Switch")) {
+    // Switching at this point does not work, so we wait 2 seconds so a full
+    // CED tone can finish.
+    m_switchTime = 2;
+    myPTRACE(2, "Setting switch to T.38 time to 2 seconds on Receive");
   }
 
-  OpalConnection::OnEstablished();
-}
-
-void ModemConnection::AcceptIncoming()
-{
-  myPTRACE(1, "ModemConnection::AcceptIncoming " << *this);
-
-  SetPhase(ConnectedPhase);
-
-  OnConnected();
-}
-
-PBoolean ModemConnection::SendUserInputTone(char tone, unsigned PTRACE_PARAM(duration))
-{
-  PTRACE(4, "ModemConnection::SendUserInputTone " << tone << " " << duration);
-
-  if (tone == ' ')
-    return false;
-
-  if (userInputEngine == NULL) {
-    if (pmodem != NULL)
-      userInputEngine = pmodem->NewPtrUserInputEngine();
-
-    if (userInputEngine == NULL)
-      return false;
-  }
-
-  userInputEngine->WriteUserInput(tone);
-
-  return true;
-}
-
-void ModemConnection::RequestMode(PThread &, INT faxMode)
-{
-  PSafePtr<OpalConnection> other = GetOtherPartyConnection();
-
-  if (other != NULL) {
-    if (!LockReadWrite()) {
-      myPTRACE(1, "ModemConnection::RequestMode " << *this << " Can't lock");
-      return;
-    }
-
-    bool done = false;
-
-    if (faxMode) {
-      OpalMediaFormatList otherMediaFormats = other->GetMediaFormats();
-      other->AdjustMediaFormats(false, NULL, otherMediaFormats);
-
-      PTRACE(4, "ModemConnection::RequestMode: other connection formats: \n" <<
-                setfill('\n') << otherMediaFormats << setfill(' '));
-
-      if (!otherMediaFormats.HasType(OpalMediaType::Fax())) {
-        PTRACE(3, "ModemConnection::RequestMode: other connection has not fax type");
-
-        faxMode = false;
-        done = UpdateMediaStreams(*other);
-      }
-      else
-      if (GetStringOptions().GetBoolean("No-Force-T38-Mode")) {
-        PTRACE(3, "ModemConnection::RequestMode: No-Force-T38-Mode=true");
-
-        faxMode = false;
-        done = UpdateMediaStreams(*other);
-      }
-    }
-
-    if (!done && !other->SwitchFaxMediaStreams(faxMode)) {
-      myPTRACE(1, "ModemConnection::RequestMode " << *this << " Change to mode " <<
-                  (faxMode ? "fax" : "audio") << " failed");
-    }
-
-    UnlockReadWrite();
-  }
-}
-
-bool ModemConnection::RequestMode(PseudoModemMode mode)
-{
-  myPTRACE(1, "ModemConnection::RequestMode: " << *this << " " << mode);
-
-  PTRACE(4, "ModemConnection::RequestMode: options: \n" <<
-            setfill('\n') << GetStringOptions() << setfill(' '));
-
-  PseudoModemMode oldMode = requestedMode;
-  requestedMode = mode;
-
-  for (;;) {
-    switch (requestedMode) {
-      case pmmAny:
-        break;
-      case pmmFax:
-        if (!GetStringOptions().GetBoolean("Force-Fax-Mode", true)) {
-          PTRACE(3, "ModemConnection::RequestMode: Force-Fax-Mode=false");
-          requestedMode = mode;
-          break;
-        }
-
-        PTRACE(3, "ModemConnection::RequestMode: force fax mode for other connection");
-
-        PThread::Create(requestMode, (INT)true);
-        break;
-      case pmmFaxNoForce: {
-        PSafePtr<OpalConnection> other = GetOtherPartyConnection();
-
-        if (other != NULL) {
-          OpalMediaFormatList otherMediaFormats = other->GetMediaFormats();
-          other->AdjustMediaFormats(false, NULL, otherMediaFormats);
-
-          PTRACE(4, "ModemConnection::RequestMode: other connection formats: \n" <<
-                    setfill('\n') << otherMediaFormats << setfill(' '));
-
-          if (!otherMediaFormats.HasType(OpalMediaType::Fax())) {
-            PTRACE(3, "ModemConnection::RequestMode: other connection has not fax type");
-            requestedMode = pmmFax;
-            continue;
-          }
-
-          if (GetStringOptions().GetBoolean("Force-Fax-Mode")) {
-            PTRACE(3, "ModemConnection::RequestMode: Force-Fax-Mode=true");
-            requestedMode = pmmFax;
-            continue;
-          }
-
-          bool force = false;
-
-          OPAL_DEFINE_MEDIA_COMMAND(SearchForFakeTranscoder, "search_for_fake_transcoder");
-          static const SearchForFakeTranscoder cmdSearchForFakeTranscoder;
-
-          for (OpalMediaStreamPtr stream = GetMediaStream(OpalMediaType::Audio(), true) ;
-               stream != NULL ;
-               stream = GetMediaStream(OpalMediaType::Audio(), true, stream))
-          {
-            if (!stream->IsOpen())
-              continue;
-
-            OpalMediaPatch *patch = stream->GetPatch();
-
-            if (patch == NULL)
-              continue;
-
-            OpalMediaStreamPtr otherStream = patch->GetSink();
-
-            if (otherStream == NULL)
-              continue;
-
-            if (!otherStream->IsOpen())
-              continue;
-
-            if (!stream->ExecuteCommand(cmdSearchForFakeTranscoder)) {
-              myPTRACE(4, "ModemConnection::RequestMode: found non-fake patch " << *patch);
-              force = false;
-              break;
-            }
-
-            myPTRACE(4, "ModemConnection::RequestMode: found fake patch " << *patch);
-            force = true;
-          }
-
-          if (force) {
-            myPTRACE(3, "ModemConnection::RequestMode: non-fake audio source not found");
-            requestedMode = pmmFax;
-            continue;
-          }
-        }
-        break;
-      }
-      default:
-        myPTRACE(1, "ModemConnection::RequestMode: " << *this << " unknown mode " << requestedMode);
-        requestedMode = oldMode;
-        return false;
-    }
-
-    break;
-  }
-
-  return true;
-}
-
-static OpalMediaStreamPtr FindMediaStream(
-    const OpalConnection &connection,
-    const OpalMediaFormatList &allowedFormats,
-    bool source)
-{
-  for (OpalMediaStreamPtr stream = connection.GetMediaStream(OpalMediaType(), source) ;
-       stream != NULL ;
-       stream = connection.GetMediaStream(OpalMediaType(), source, stream))
-  {
-    if (!stream->IsOpen())
-      continue;
-
-    if (allowedFormats.HasFormat(stream->GetMediaFormat()))
-      return stream;
-  }
-
-  return NULL;
-}
-
-static OpalMediaStreamPtr GetAllowedOtherStream(
-    const OpalMediaStream &stream,
-    const OpalMediaFormatList &allowedFormats)
-{
-  OpalMediaPatch *patch = stream.GetPatch();
-
-  if (patch == NULL)
-    return NULL;
-
-  OpalMediaStreamPtr otherStream = (stream.IsSource()) ? patch->GetSink() : (OpalMediaStreamPtr)&patch->GetSource();
-
-  if (otherStream == NULL)
-    return NULL;
-
-  if (!otherStream->IsOpen())
-    return NULL;
-
-  if (!allowedFormats.HasFormat(otherStream->GetMediaFormat()))
-    return NULL;
-
-  return otherStream;
-}
-
-static OpalMediaFormatList ReorderMediaFormats(
-    const OpalMediaFormatList &mediaFormats,
-    const OpalMediaFormat &mediaFormat)
-{
-  OpalMediaFormatList formats = mediaFormats;
-  PStringArray order;
-
-  order += mediaFormat.GetName();
-  order += '@' + mediaFormat.GetMediaType();
-  formats.Reorder(order);
-
-  return formats;
-}
-
-bool ModemConnection::UpdateMediaStreams(OpalConnection &other)
-{
-  OpalMediaFormatList otherMediaFormats = other.GetMediaFormats();
-  other.AdjustMediaFormats(true, NULL, otherMediaFormats);
-
-  OpalMediaFormatList thisMediaFormats = GetMediaFormats();
-  AdjustMediaFormats(true, NULL, thisMediaFormats);
-  other.AdjustMediaFormats(true, this, thisMediaFormats);
-
-  PTRACE(3, "ModemConnection::UpdateMediaStreams:\n"
-            "patching " << setfill(',') << thisMediaFormats << setfill(' ') << "\n"
-            "<------> " << setfill(',') << otherMediaFormats << setfill(' '));
-
-  if (!thisMediaFormats.HasType(OpalMediaType::Audio())) {
-    for (PINDEX i = 0 ; i < otherMediaFormats.GetSize() ; i++) {
-      if (otherMediaFormats[i] != OpalG711uLaw &&
-          otherMediaFormats[i] != OpalG711ALaw &&
-          otherMediaFormats[i].GetMediaType() != OpalMediaType::Fax())
-      {
-        otherMediaFormats -= otherMediaFormats[i];
-        i--;
-      }
-    }
-  } else {
-    for (PINDEX i = 0 ; i < otherMediaFormats.GetSize() ; i++) {
-      if (otherMediaFormats[i].GetMediaType() != OpalMediaType::Audio() &&
-          otherMediaFormats[i].GetMediaType() != OpalMediaType::Fax())
-      {
-        otherMediaFormats -= otherMediaFormats[i];
-        i--;
-      }
-    }
-  }
-
-  PTRACE(4, "ModemConnection::UpdateMediaStreams:\n"
-            "patching " << setfill(',') << thisMediaFormats << setfill(' ') << "\n"
-            "<------> " << setfill(',') << otherMediaFormats << setfill(' '));
-
-  if (otherMediaFormats.GetSize() < 1) {
-    PTRACE(2, "ModemConnection::UpdateMediaStreams: other connection has no capable media formats");
-    return false;
-  }
-
-  OpalMediaStreamPtr otherSink = FindMediaStream(other, otherMediaFormats, false);
-
-  if (otherSink == NULL) {
-    PTRACE(2, "ModemConnection::UpdateMediaStreams: other connection has no capable sink media streams");
-    return false;
-  }
-
-  unsigned otherSinkSessionID = otherSink->GetSessionID();
-
-  OpalMediaFormat otherSinkFormat = otherSink->GetMediaFormat();
-
-  PTRACE(3, "ModemConnection::UpdateMediaStreams: "
-            "otherSink=" << *otherSink << " "
-            "otherSinkFormat=" << otherSinkFormat << " "
-            "otherSinkSessionID=" << otherSinkSessionID);
-
-  OpalMediaStreamPtr otherSource = FindMediaStream(other, otherMediaFormats, true);
-
-  if (otherSource == NULL) {
-    PTRACE(2, "ModemConnection::UpdateMediaStreams: other connection has no capable source media streams");
-    return false;
-  }
-
-  OpalMediaFormat otherSourceFormat = otherSource->GetMediaFormat();
-
-  PTRACE(3, "ModemConnection::UpdateMediaStreams: "
-            "otherSource=" << *otherSource << " "
-            "otherSourceFormat=" << otherSourceFormat);
-
-  OpalMediaStreamPtr thisSource = GetAllowedOtherStream(*otherSink, thisMediaFormats);
-  OpalMediaFormat thisSourceFormat;
-
-  if (thisSource != NULL) {
-    PTRACE(4, "ModemConnection::UpdateMediaStreams: no need to replace " << *thisSource << " --> " << *otherSink);
-  } else {
-    if (!GetCall().SelectMediaFormats(
-                                       otherSinkFormat.GetMediaType(),
-                                       ReorderMediaFormats(thisMediaFormats, otherSinkFormat),
-                                       otherSinkFormat,
-                                       GetLocalMediaFormats(),
-                                       thisSourceFormat,
-                                       otherSinkFormat))
-    {
-      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't select source format for sink " << otherSink);
-      return false;
-    }
-
-    PTRACE(3, "ModemConnection::UpdateMediaStreams: selected source format "
-           << thisSourceFormat << " for sink " << otherSinkFormat);
-  }
-
-  OpalMediaStreamPtr thisSink = GetAllowedOtherStream(*otherSource, thisMediaFormats);
-  OpalMediaFormat thisSinkFormat;
-
-  if (thisSink != NULL) {
-    PTRACE(4, "ModemConnection::UpdateMediaStreams: no need to replace " << *thisSink << " <-- " << *otherSource);
-  } else {
-    if (!GetCall().SelectMediaFormats(
-                                       otherSourceFormat.GetMediaType(),
-                                       otherSourceFormat,
-                                       ReorderMediaFormats(thisMediaFormats, otherSourceFormat),
-                                       GetLocalMediaFormats(),
-                                       otherSourceFormat,
-                                       thisSinkFormat))
-    {
-      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't select sink format for source " << otherSource);
-      return false;
-    }
-
-    PTRACE(3, "ModemConnection::UpdateMediaStreams: selected sink format "
-           << thisSinkFormat << " for source " << otherSourceFormat);
-  }
-
-  if (thisSource == NULL) {
-    OpalMediaPatch *patch = otherSink->GetPatch();
-
-    if (patch != NULL) {
-      otherSink->SetPatch(NULL);
-    }
-
-    PTRACE(4, "ModemConnection::UpdateMediaStreams: opening source for sink " << *otherSink);
-    thisSource = OpenMediaStream(thisSourceFormat, otherSinkSessionID, true);
-
-    if (thisSource == NULL) {
-      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't open source stream");
-      return false;
-    }
-
-    PTRACE(4, "ModemConnection::UpdateMediaStreams: creating patch for source " << *thisSource);
-    patch = GetEndPoint().GetManager().CreateMediaPatch(*thisSource,
-                otherSink->RequiresPatchThread(thisSource) && thisSource->RequiresPatchThread(otherSink));
-
-    if (patch == NULL) {
-      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't create patch for " << *thisSource);
-      return false;
-    }
-
-    PTRACE(4, "ModemConnection::UpdateMediaStreams: adding otherSink to patch " << *patch);
-    patch->AddSink(otherSink);
-
-    other.OnPatchMediaStream(false, *patch);
-    OnPatchMediaStream(true, *patch);
-
-    PTRACE(3, "ModemConnection::UpdateMediaStreams: created patch " << *patch);
-  }
-
-  if (thisSink == NULL) {
-    OpalMediaPatch *patch = otherSource->GetPatch();
-
-    if (patch != NULL)
-      otherSource->SetPatch(NULL);
-
-    // NOTE: Both sinks must have the same session ID for T.38 <-> PCM transcoding !!!
-    PTRACE(4, "ModemConnection::UpdateMediaStreams: opening sink for source " << *otherSource);
-    thisSink = OpenMediaStream(thisSinkFormat, otherSinkSessionID, false);
-
-    if (thisSink == NULL) {
-      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't open sink stream");
-      return false;
-    }
-
-    PTRACE(4, "ModemConnection::UpdateMediaStreams: creating patch for source " << *otherSource);
-    patch = GetEndPoint().GetManager().CreateMediaPatch(*otherSource,
-                thisSink->RequiresPatchThread(otherSource) && otherSource->RequiresPatchThread(thisSink));
-
-    if (patch == NULL) {
-      PTRACE(3, "ModemConnection::UpdateMediaStreams: can't create patch for " << *otherSource);
-      return false;
-    }
-
-    PTRACE(4, "ModemConnection::UpdateMediaStreams: adding thisSink to patch " << *patch);
-    patch->AddSink(thisSink);
-
-    other.OnPatchMediaStream(true, *patch);
-    OnPatchMediaStream(false, *patch);
-
-    PTRACE(3, "ModemConnection::UpdateMediaStreams: created patch " << *patch);
-  }
-
-  StartMediaStreams();
-
-  PTRACE(3, "ModemConnection::UpdateMediaStreams: OK");
-
-  return true;
-}
-
-bool ModemConnection::OnSwitchingFaxMediaStreams(bool toT38)
-{
-    PTRACE(3, "ModemConnection::OnSwitchingFaxMediaStreams: Remote switch of media streams to " << (toT38 ? "T.38" : "audio") << " on " << *this);
-    return true;
+  OpalFaxConnection::OnEstablished();
 }
 
 /////////////////////////////////////////////////////////////////////////////

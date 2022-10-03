@@ -84,7 +84,7 @@ static void tone_trace(const long *cng_filter_buf, long power, long cng_power, l
     str += " ";
   }
 
-  myPTRACE(1, str << " pw=" << power << " cng_pw=" << cng_power << " norm=" << cng_power_norm);
+  myPTRACE(1, "T38Modem\t" << str << " pw=" << power << " cng_pw=" << cng_power << " norm=" << cng_power_norm);
 }
 #endif
 
@@ -213,7 +213,7 @@ PBoolean T30ToneDetect::Write(const void * buffer, PINDEX len)
       }
 
       if (cng_off_count) {
-        myPTRACE(2, "cng_off_count=" << cng_off_count);
+        myPTRACE(2, "T38Modem\tcng_off_count=" << cng_off_count);
         cng_off_count = 0;
       }
 
@@ -234,7 +234,7 @@ PBoolean T30ToneDetect::Write(const void * buffer, PINDEX len)
 
         case cng_phase_off_tail:
           if (cng_off_count >= CNG_OFF_CHUNKS_MIN) {
-            myPTRACE(1, "Detected CNG");
+            myPTRACE(1, "T38Modem\tDetected CNG");
             cng_phase = cng_phase_off_head;
             detected = TRUE;
           }
@@ -245,7 +245,7 @@ PBoolean T30ToneDetect::Write(const void * buffer, PINDEX len)
       }
 
       if (cng_on_count) {
-        myPTRACE(2, "cng_on_count=" << cng_on_count);
+        myPTRACE(2, "T38Modem\tcng_on_count=" << cng_on_count);
         tone_trace(cng_filter_buf, power, cng_power, cng_power_norm);
 
         cng_on_count = 0;

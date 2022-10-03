@@ -56,6 +56,7 @@
 #define _MY_H323EP_H
 
 #include <h323/h323.h>
+#include "../pmutils.h"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -97,8 +98,7 @@ class MyH323EndPoint : public H323EndPoint
       OpalConnection::StringOptions * stringOptions = NULL ///<  complex string options
     );
 
-  protected:
-    PStringToString defaultStringOptions;
+    static PStringToString defaultStringOptions;
 };
 /////////////////////////////////////////////////////////////////////////////
 

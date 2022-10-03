@@ -116,14 +116,14 @@
 
 #include <ptlib.h>
 
-#include <opal/buildopts.h>
+#include <opal_config.h>
 
 #if OPAL_H323
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 10, 0))
-  #error *** Incompatible OPAL version (required >= 3.10.0) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 16, 1))
+  #error *** Incompatible OPAL version (required >= 3.16.1) ***
 #endif
 
 #undef PACK_VERSION
@@ -132,7 +132,6 @@
 #include <h323/h323pdu.h>
 
 #include "h323ep.h"
-#include "fake_codecs.h"
 
 #define new PNEW
 
@@ -210,12 +209,12 @@ class MyH323Connection : public H323Connection
 //  Implementation
 //
 /////////////////////////////////////////////////////////////////////////////
+PStringToString MyH323EndPoint::defaultStringOptions;
+
 PString MyH323EndPoint::ArgSpec()
 {
   return
     "-no-h323."
-    "-h323-audio:"
-    "-h323-audio-list."
     "-h323-disable-t38-mode."
     "-h323-t38-udptl-redundancy:"
     "-h323-t38-udptl-keep-alive-interval:"
@@ -235,9 +234,6 @@ PStringArray MyH323EndPoint::Descriptions()
   PStringArray descriptions = PString(
       "H.323 options:\n"
       "  --no-h323                 : Disable H.323 protocol.\n"
-      "  --h323-audio str          : Use OPAL-Enable-Audio=str route option by\n"
-      "                              default. May be used multiple times.\n"
-      "  --h323-audio-list         : Display available audio formats.\n"
       "  --h323-disable-t38-mode   : Use OPAL-Disable-T38-Mode=true route option by\n"
       "                              default.\n"
       "  --h323-t38-udptl-redundancy str\n"
@@ -298,9 +294,6 @@ PStringArray MyH323EndPoint::Descriptions(const PConfigArgs & args)
 {
   PStringArray descriptions;
 
-  if (args.HasOption("h323-audio-list"))
-    descriptions += FakeCodecs::GetAvailableAudioFormatsDescription("H.323", "h323");
-
   return descriptions;
 }
 
@@ -319,14 +312,6 @@ PBoolean MyH323EndPoint::Create(OpalManager & mgr, const PConfigArgs & args)
 
 PBoolean MyH323EndPoint::Initialise(const PConfigArgs & args)
 {
-  if (args.HasOption("h323-audio")) {
-    PStringStream s;
-
-    s << setfill(',') << args.GetOptionString("h323-audio").Lines();
-
-    defaultStringOptions.SetAt("Enable-Audio", s);
-  }
-
   if (args.HasOption("h323-disable-t38-mode"))
     defaultStringOptions.SetAt("Disable-T38-Mode", "true");
 
@@ -419,12 +404,12 @@ H323Connection * MyH323EndPoint::CreateConnection(
     unsigned options,
     OpalConnection::StringOptions * stringOptions)
 {
-  PTRACE(2, "MyH323EndPoint::CreateConnection for " << call);
+  myPTRACE(2, "T38Modem\tMyH323EndPoint::CreateConnection for " << call);
 
   MyH323Connection *connection =
       new MyH323Connection(call, *this, token, alias, address, options, stringOptions);
 
-  PTRACE(6, "MyH323EndPoint::CreateConnection new " << connection->GetClass() << ' ' << (void *)connection);
+  myPTRACE(6, "T38Modem\tMyH323EndPoint::CreateConnection new " << connection->GetClass() << ' ' << (void *)connection);
 
   OpalConnection::StringOptions newOptions;
 
@@ -440,7 +425,7 @@ H323Connection * MyH323EndPoint::CreateConnection(
 /////////////////////////////////////////////////////////////////////////////
 PBoolean MyH323Connection::SetUpConnection()
 {
-  PTRACE(2, "MyH323Connection::SetUpConnection " << *this << " name=" << GetLocalPartyName());
+  myPTRACE(2, "T38Modem\tMyH323Connection::SetUpConnection " << *this << " name=" << GetLocalPartyName());
 
   PSafePtr<OpalConnection> conn = GetCall().GetConnection(0);
 
@@ -452,7 +437,7 @@ PBoolean MyH323Connection::SetUpConnection()
     if (!name.IsEmpty() && name != "*") {
       SetLocalPartyName(name);
 
-      PTRACE(1, "MyH323Connection::SetUpConnection new name=" << GetLocalPartyName());
+      myPTRACE(1, "T38Modem\tMyH323Connection::SetUpConnection new name=" << GetLocalPartyName());
     }
   }
 
@@ -468,7 +453,7 @@ void MyH323Connection::OnApplyStringOptions()
 
     if (GetStringOptions().Contains("Enable-Audio")) {
       const PStringArray wildcards = GetStringOptions()("Enable-Audio").Tokenise(",", FALSE);
-      OpalMediaFormatList list = endpoint.GetMediaFormats();
+      OpalMediaFormatList list = m_endpoint.GetMediaFormats();
 
       for (PINDEX w = 0 ; w < wildcards.GetSize() ; w++) {
         OpalMediaFormatList::const_iterator f;
@@ -487,14 +472,14 @@ void MyH323Connection::OnApplyStringOptions()
     }
 
     if (GetStringOptions().GetBoolean("Disable-T38-Mode")) {
-      PTRACE(3, "MyH323Connection::OnApplyStringOptions: Disable-T38-Mode=true");
+      myPTRACE(3, "T38Modem\tMyH323Connection::OnApplyStringOptions: Disable-T38-Mode=true");
     } else {
       mediaFormatList += OpalT38;
     }
 
     mediaFormatList += OpalRFC2833;
 
-    PTRACE(4, "MyH323Connection::OnApplyStringOptions Enabled formats (in preference order):\n"
+    myPTRACE(4, "T38Modem\tMyH323Connection::OnApplyStringOptions Enabled formats (in preference order):\n"
            << setfill('\n') << mediaFormatList << setfill(' '));
 
     if (GetStringOptions().Contains("Bearer-Capability")) {
@@ -511,7 +496,7 @@ void MyH323Connection::OnApplyStringOptions()
             iBC[2] >= 1 && iBC[2] <= 127 &&
             iBC[3] >= 2 && iBC[3] <= 5)
         {
-          PTRACE(3, "MyH323Connection::OnApplyStringOptions: Bearer-Capability=" << bc);
+          myPTRACE(3, "T38Modem\tMyH323Connection::OnApplyStringOptions: Bearer-Capability=" << bc);
           bearerCapability = iBC;
         } else {
           iBC[0] = -1;
@@ -521,7 +506,7 @@ void MyH323Connection::OnApplyStringOptions()
       }
 
       if (iBC[0] < 0) {
-        PTRACE(3, "MyH323Connection::OnApplyStringOptions: Wrong Bearer-Capability=" << bc << " (ignored)");
+        myPTRACE(3, "T38Modem\tMyH323Connection::OnApplyStringOptions: Wrong Bearer-Capability=" << bc << " (ignored)");
       }
     }
 
@@ -532,7 +517,7 @@ void MyH323Connection::OnApplyStringOptions()
 PBoolean MyH323Connection::OnSendSignalSetup(H323SignalPDU & setupPDU)
 {
   if (!bearerCapability.IsEmpty()) {
-    PTRACE(3, "MyH323Connection::OnSendSignalSetup: Set Bearer capability '" << bearerCapability << "'");
+    myPTRACE(3, "T38Modem\tMyH323Connection::OnSendSignalSetup: Set Bearer capability '" << bearerCapability << "'");
 
     setupPDU.GetQ931().SetBearerCapabilities(
         Q931::InformationTransferCapability(bearerCapability[1]),
@@ -551,7 +536,7 @@ H323Connection::AnswerCallResponse MyH323Connection::OnAnswerCall(
     H323SignalPDU & progressPDU)
 {
   if (!bearerCapability.IsEmpty()) {
-    PTRACE(3, "MyH323Connection::OnAnswerCall: Set Bearer capability '" << bearerCapability << "'");
+    myPTRACE(3, "T38Modem\tMyH323Connection::OnAnswerCall: Set Bearer capability '" << bearerCapability << "'");
 
     connectPDU.GetQ931().SetBearerCapabilities(
         Q931::InformationTransferCapability(bearerCapability[1]),
@@ -574,7 +559,7 @@ bool MyH323Connection::SwitchFaxMediaStreams(bool enableFax)
   OpalMediaFormatList mediaFormats = GetMediaFormats();
   AdjustMediaFormats(true, NULL, mediaFormats);
 
-  PTRACE(3, "MyH323Connection::SwitchFaxMediaStreams:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  myPTRACE(3, "T38Modem\tMyH323Connection::SwitchFaxMediaStreams:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
   const OpalMediaType &mediaType = enableFax ? OpalMediaType::Fax() : OpalMediaType::Audio();
 
@@ -585,21 +570,21 @@ bool MyH323Connection::SwitchFaxMediaStreams(bool enableFax)
     }
   }
 
-  PTRACE(3, "MyH323Connection::SwitchFaxMediaStreams: " << mediaType << " is not supported");
+  myPTRACE(3, "T38Modem\tMyH323Connection::SwitchFaxMediaStreams: " << mediaType << " is not supported");
 
   return false;
 }
 
 void MyH323Connection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
 {
-  PTRACE(3, "MyH323Connection::OnSwitchedFaxMediaStreams: "
+  myPTRACE(3, "T38Modem\tMyH323Connection::OnSwitchedFaxMediaStreams: "
          << (success ? "succeeded" : "NOT ") << "switched to "
          << (toT38 ? "T.38" : "audio"));
 
   H323Connection::OnSwitchedFaxMediaStreams(toT38, success);
 
   if (toT38 && !success) {
-      PTRACE(3, "MyH323Connection::OnSwitchedFaxMediaStreams: fallback to audio");
+      myPTRACE(3, "T38Modem\tMyH323Connection::OnSwitchedFaxMediaStreams: fallback to audio");
       mediaFormatList -= OpalT38;
       SwitchFaxMediaStreams(false);
   }
@@ -607,12 +592,12 @@ void MyH323Connection::OnSwitchedFaxMediaStreams(bool toT38, bool success)
 
 PBoolean MyH323Connection::OnOpenMediaStream(OpalMediaStream & stream)
 {
-  PTRACE(4, "MyH323Connection::OnOpenMediaStream: " << stream);
+  myPTRACE(4, "T38Modem\tMyH323Connection::OnOpenMediaStream: " << stream);
 
-  RTP_Session *session = GetSession(stream.GetSessionID());
+  //OpalRTP_Session *session = GetSession(stream.GetSessionID());
 
-  if (session)
-    RTP_Session::EncodingLock(*session)->ApplyStringOptions(GetStringOptions());
+  //if (session)
+  //  OpalRTP_Session::EncodingLock(*session)->ApplyStringOptions(GetStringOptions());
 
   return H323Connection::OnOpenMediaStream(stream);
 }
@@ -621,7 +606,7 @@ OpalMediaFormatList MyH323Connection::GetMediaFormats() const
 {
   OpalMediaFormatList mediaFormats = H323Connection::GetMediaFormats();
 
-  PTRACE(4, "MyH323Connection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  myPTRACE(4, "T38Modem\tMyH323Connection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     PBoolean found = FALSE;
@@ -634,13 +619,13 @@ OpalMediaFormatList MyH323Connection::GetMediaFormats() const
     }
 
     if (!found) {
-      PTRACE(3, "MyH323Connection::GetMediaFormats Remove " << mediaFormats[i]);
+      myPTRACE(3, "T38Modem\tMyH323Connection::GetMediaFormats Remove " << mediaFormats[i]);
       mediaFormats -= mediaFormats[i];
       i--;
     }
   }
 
-  PTRACE(4, "MyH323Connection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  myPTRACE(4, "T38Modem\tMyH323Connection::GetMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
   return mediaFormats;
 }
@@ -649,7 +634,7 @@ OpalMediaFormatList MyH323Connection::GetLocalMediaFormats()
 {
   OpalMediaFormatList mediaFormats = H323Connection::GetLocalMediaFormats();
 
-  PTRACE(4, "MyH323Connection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  myPTRACE(4, "T38Modem\tMyH323Connection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
   for (PINDEX i = 0 ; i < mediaFormats.GetSize() ; i++) {
     PBoolean found = FALSE;
@@ -662,13 +647,13 @@ OpalMediaFormatList MyH323Connection::GetLocalMediaFormats()
     }
 
     if (!found) {
-      PTRACE(3, "MyH323Connection::GetLocalMediaFormats Remove " << mediaFormats[i]);
+      myPTRACE(3, "T38Modem\tMyH323Connection::GetLocalMediaFormats Remove " << mediaFormats[i]);
       mediaFormats -= mediaFormats[i];
       i--;
     }
   }
 
-  PTRACE(4, "MyH323Connection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  myPTRACE(4, "T38Modem\tMyH323Connection::GetLocalMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
   return mediaFormats;
 }
@@ -678,7 +663,7 @@ void MyH323Connection::AdjustMediaFormats(
     OpalConnection * otherConnection,
     OpalMediaFormatList & mediaFormats) const
 {
-  PTRACE(4, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  myPTRACE(4, "T38Modem\tMyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 
   H323Connection::AdjustMediaFormats(local, otherConnection, mediaFormats);
 
@@ -690,10 +675,10 @@ void MyH323Connection::AdjustMediaFormats(
 
     mediaFormats.Reorder(order);
 
-    PTRACE(4, "MyH323Connection::AdjustMediaFormats: reordered");
+    myPTRACE(4, "T38Modem\tMyH323Connection::AdjustMediaFormats: reordered");
   }
 
-  PTRACE(4, "MyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
+  myPTRACE(4, "T38Modem\tMyH323Connection::AdjustMediaFormats:\n" << setfill('\n') << mediaFormats << setfill(' '));
 }
 /////////////////////////////////////////////////////////////////////////////
 #endif // OPAL_H323

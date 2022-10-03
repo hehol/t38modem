@@ -143,7 +143,7 @@ InPty::InPty(PseudoModemPty &_parent, int _hPty)
 void InPty::Main()
 {
   RenameCurrentThread(Parent().ptyName() + "(i)");
-  myPTRACE(1, "--> Started");
+  myPTRACE(1, "T38Modem\t--> Started");
 
   for (;;) {
     pollfd pollfd;
@@ -167,7 +167,7 @@ void InPty::Main()
 
       if (len < 0) {
         int err = errno;
-        myPTRACE(1, "--> read ERROR " << len << " " << strerror(err));
+        myPTRACE(1, "T38Modem\t--> read ERROR " << len << " " << strerror(err));
         SignalStop();
         break;
       }
@@ -185,7 +185,7 @@ void InPty::Main()
     }
   }
 
-  myPTRACE(1, "--> Stopped" << GetThreadTimes(", CPU usage: "));
+  myPTRACE(1, "T38Modem\t--> Stopped" << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
 OutPty::OutPty(PseudoModemPty &_parent, int _hPty)
@@ -196,7 +196,7 @@ OutPty::OutPty(PseudoModemPty &_parent, int _hPty)
 void OutPty::Main()
 {
   RenameCurrentThread(Parent().ptyName() + "(o)");
-  myPTRACE(1, "<-- Started");
+  myPTRACE(1, "T38Modem\t<-- Started");
 
   PBYTEArray *buf = NULL;
   PINDEX done = 0;
@@ -233,7 +233,7 @@ void OutPty::Main()
 
       if (len < 0) {
         int err = errno;
-        myPTRACE(1, "<-- write ERROR " << len << " " << strerror(err));
+        myPTRACE(1, "T38Modem\t<-- write ERROR " << len << " " << strerror(err));
         SignalStop();
         break;
       }
@@ -241,7 +241,7 @@ void OutPty::Main()
       done += len;
       if (buf->GetSize() <= done) {
         if (buf->GetSize() < done) {
-          myPTRACE(1, "<-- " << buf->GetSize() << "(size) < (done)" << done << " " << len);
+          myPTRACE(1, "T38Modem\t<-- " << buf->GetSize() << "(size) < (done)" << done << " " << len);
         }
         delete buf;
         buf = NULL;
@@ -251,11 +251,11 @@ void OutPty::Main()
 
   if (buf) {
     if (buf->GetSize() != done)
-      myPTRACE(1, "<-- Not sent " << PRTHEX(PBYTEArray((const BYTE *)*buf + done, buf->GetSize() - done)));
+      myPTRACE(1, "T38Modem\t<-- Not sent " << PRTHEX(PBYTEArray((const BYTE *)*buf + done, buf->GetSize() - done)));
     delete buf;
   }
 
-  myPTRACE(1, "<-- Stopped" << GetThreadTimes(", CPU usage: "));
+  myPTRACE(1, "T38Modem\t<-- Stopped" << GetThreadTimes(", CPU usage: "));
 }
 ///////////////////////////////////////////////////////////////
 #ifdef USE_LEGACY_PTY
@@ -308,7 +308,7 @@ static void ttyUnlinkUnix98(const char *ttypath)
     memset(ptsName, 0, sizeof(ptsName));
 
     if (readlink(ttypath, ptsName, sizeof(ptsName) - 1) >= 0 && ::unlink(ttypath) == 0)
-      myPTRACE(1, "PseudoModemPty::OpenPty removed link " << ttypath << " -> " << ptsName);
+      myPTRACE(1, "T38Modem\tPseudoModemPty::OpenPty removed link " << ttypath << " -> " << ptsName);
 }
 #endif // USE_UNIX98_PTY
 ///////////////////////////////////////////////////////////////
@@ -365,15 +365,19 @@ PseudoModemPty::PseudoModemPty(
   else
 #endif // USE_UNIX98_PTY
   {
-    myPTRACE(1, "PseudoModemPty::PseudoModemPty bad on " << _tty);
+    myPTRACE(1, "T38Modem\tPseudoModemPty::PseudoModemPty bad on " << _tty);
     valid = FALSE;
   }
 }
 
 PseudoModemPty::~PseudoModemPty()
 {
+  cout << "Deleting " << ptyName() << "..." << endl;
+  myPTRACE(1, "T38Modem\tPseudoModemPty::~PseudoModemPty");
+  stop = true;
   StopAll();
   ClosePty();
+  cout << "" << ptyName() << " deleted" << endl;
 }
 
 PBoolean PseudoModemPty::CheckTty(const PString &_tty)
@@ -394,10 +398,19 @@ PBoolean PseudoModemPty::CheckTty(const PString &_tty)
 PString PseudoModemPty::ArgSpec()
 {
   return
+        "[Pseudoterminal Options:]"
 #ifdef USE_UNIX98_PTY
-        "-pts-dir:"
+        "-pts-dir:     Set a base directory for Unix98 ptys.\r"
+        "For Unix98 ptys the tty should match to the regexp\r"
+        "  '" + PString(ttyPatternUnix98()) + "'\r"
+        "(the first character '+' will be replaced by the base directory).\n"
 #endif
-        "";
+#ifdef USE_LEGACY_PTY
+        "-legacy.      Unused option\r"
+        "For legacy ptys the tty should match to the regexp\r"
+        "  '" + PString(ttyPatternLegacy()) + "'\n"
+#endif
+        ;
 }
 
 PStringArray PseudoModemPty::Description()
@@ -449,6 +462,7 @@ PBoolean PseudoModemPty::StartAll()
 
 void PseudoModemPty::StopAll()
 {
+  myPTRACE(4, "T38Modem\tPseudoModemPty::StopAll() inPty = " << inPty << " outPty = " << outPty);
   if (inPty) {
     inPty->SignalStop();
     inPty->WaitForTermination();
@@ -489,10 +503,10 @@ PBoolean PseudoModemPty::OpenPty()
         int err = errno;
         // close hPty ASAP
         ClosePty();
-        myPTRACE(1, "PseudoModemPty::OpenPty read ERROR " << len << " " << strerror(err));
+        myPTRACE(1, "T38Modem\tPseudoModemPty::OpenPty read ERROR " << len << " " << strerror(err));
       } else if (len > 0) {
         PBYTEArray *buf = new PBYTEArray((const BYTE *)cbuf, len);
-        myPTRACE(3, "PseudoModemPty::OpenPty read " << PRTHEX(*buf));
+        myPTRACE(3, "T38Modem\tPseudoModemPty::OpenPty read " << PRTHEX(*buf));
         ToInPtyQ(buf);
       }
     }
@@ -506,12 +520,12 @@ PBoolean PseudoModemPty::OpenPty()
 
   while ((hPty = ::open(ptypath, O_RDWR | O_NOCTTY)) < 0) {
     int err = errno;
-    myPTRACE(delay + 1, "PseudoModemPty::OpenPty open " << ptypath << " ERROR: " << strerror(err));
+    myPTRACE(delay + 1, "T38Modem\tPseudoModemPty::OpenPty open " << ptypath << " ERROR: " << strerror(err));
     if (err == ENOENT) {
       cout << "Could not open " << ptypath << ": " << strerror(err) << endl;
       return FALSE;
     }
-    myPTRACE(delay + 1, "PseudoModemPty::OpenPty will try again to open " << ptypath);
+    myPTRACE(delay + 1, "T38Modem\tPseudoModemPty::OpenPty will try again to open " << ptypath);
     if (delay > 0)
       PThread::Sleep(delay * 1000);
     if (++delay > 5)
@@ -521,7 +535,7 @@ PBoolean PseudoModemPty::OpenPty()
 #if defined FD_TRACE_LEVEL && defined PTRACING
   #ifdef FD_SETSIZE
   if (hPty > (FD_SETSIZE*3)/4)
-    myPTRACE(FD_TRACE_LEVEL, "PseudoModemPty::OpenPty WARNING: hPty=" << hPty << ", FD_SETSIZE=" << FD_SETSIZE);
+    myPTRACE(FD_TRACE_LEVEL, "T38Modem\tPseudoModemPty::OpenPty WARNING: hPty=" << hPty << ", FD_SETSIZE=" << FD_SETSIZE);
   #else
     #warning FD_SETSIZE not defined!
   #endif
@@ -532,7 +546,7 @@ PBoolean PseudoModemPty::OpenPty()
 
   if (::tcgetattr(hPty, &Termios) != 0) {
     int err = errno;
-    myPTRACE(1, "PseudoModemPty::OpenPty tcgetattr " << ptyname << " ERROR: " << strerror(err));
+    myPTRACE(1, "T38Modem\tPseudoModemPty::OpenPty tcgetattr " << ptyname << " ERROR: " << strerror(err));
     ClosePty();
     return FALSE;
   }
@@ -544,7 +558,7 @@ PBoolean PseudoModemPty::OpenPty()
   Termios.c_cc[VTIME] = 0;
   if (::tcsetattr(hPty, TCSANOW, &Termios) != 0) {
     int err = errno;
-    myPTRACE(1, "PseudoModemPty::OpenPty tcsetattr " << ptyname << " ERROR: " << strerror(err));
+    myPTRACE(1, "T38Modem\tPseudoModemPty::OpenPty tcsetattr " << ptyname << " ERROR: " << strerror(err));
     ClosePty();
     return FALSE;
   }
@@ -556,7 +570,7 @@ PBoolean PseudoModemPty::OpenPty()
 
     if (::unlockpt(hPty) != 0) {
       int err = errno;
-      myPTRACE(1, "PseudoModemPty::OpenPty unlockpt " << ptyname << " ERROR: " << strerror(err));
+      myPTRACE(1, "T38Modem\tPseudoModemPty::OpenPty unlockpt " << ptyname << " ERROR: " << strerror(err));
       ClosePty();
       return FALSE;
     }
@@ -565,19 +579,19 @@ PBoolean PseudoModemPty::OpenPty()
 
     if (::ptsname_r(hPty, ptsName, sizeof(ptsName)) != 0) {
       int err = errno;
-      myPTRACE(1, "PseudoModemPty::OpenPty ptsname_r " << ptyname << " ERROR: " << strerror(err));
+      myPTRACE(1, "T38Modem\tPseudoModemPty::OpenPty ptsname_r " << ptyname << " ERROR: " << strerror(err));
       ClosePty();
       return FALSE;
     }
 
     if (::symlink(ptsName, ttypath) != 0) {
       int err = errno;
-      myPTRACE(1, "PseudoModemPty::OpenPty symlink " << ttypath << " -> " << ptsName << " ERROR: " << strerror(err));
+      myPTRACE(1, "T38Modem\tPseudoModemPty::OpenPty symlink " << ttypath << " -> " << ptsName << " ERROR: " << strerror(err));
       ClosePty();
       return FALSE;
     }
 
-    myPTRACE(1, "PseudoModemPty::OpenPty added link " << ttypath << " -> " << ptsName);
+    myPTRACE(1, "T38Modem\tPseudoModemPty::OpenPty added link " << ttypath << " -> " << ptsName);
   }
 #endif // USE_UNIX98_PTY
 
@@ -595,7 +609,7 @@ void PseudoModemPty::ClosePty()
 
   if (::close(hPty) != 0) {
     int err = errno;
-    myPTRACE(1, "PseudoModemPty::ClosePty close " << ptyname << " ERROR: " << strerror(err));
+    myPTRACE(1, "T38Modem\tPseudoModemPty::ClosePty close " << ptyname << " ERROR: " << strerror(err));
   }
 
   hPty = -1;
@@ -608,10 +622,14 @@ void PseudoModemPty::MainLoop()
       while (!stop && !childstop) {
         WaitDataReady();
       }
-      StopAll();
+      myPTRACE(4, "T38Modem\tPseudoModemPty::MainLoop() Ending -- stop = " << stop << " childstop = " << childstop);
+      if (!stop)
+        StopAll();
     }
+    myPTRACE(2, "T38Modem\tPseudoModemPty::MainLoop() ClosePty()");
     ClosePty();
   }
+  myPTRACE(1, "T38Modem\tPseudoModemPty::MainLoop() Done");
 }
 ///////////////////////////////////////////////////////////////
 

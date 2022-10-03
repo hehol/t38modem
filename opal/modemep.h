@@ -59,36 +59,35 @@
 /////////////////////////////////////////////////////////////////////////////
 #define PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
 
-#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 10, 0))
-  #error *** Incompatible OPAL version (required >= 3.10.0) ***
+#if !(PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= PACK_VERSION(3, 16, 1))
+  #error *** Incompatible OPAL version (required >= 3.16.1) ***
 #endif
 
 #undef PACK_VERSION
 /////////////////////////////////////////////////////////////////////////////
-#include <opal/endpoint.h>
+#include <t38/t38proto.h>
+#include "manager.h"
 /////////////////////////////////////////////////////////////////////////////
 class PseudoModem;
 class PseudoModemQ;
 
-class ModemEndPoint : public OpalEndPoint
+class ModemEndPoint : public OpalFaxEndPoint, public MyManagerEndPoint
 {
-    PCLASSINFO(ModemEndPoint, OpalEndPoint);
+    PCLASSINFO(ModemEndPoint, OpalFaxEndPoint);
   public:
   /**@name Construction */
   //@{
     /**Create a new endpoint.
      */
     ModemEndPoint(
-      OpalManager & manager,        ///< Manager of all endpoints.
-      const char * prefix = "modem" ///< Prefix for URL style address strings
+      MyManager & manager,              ///< Manager of all endpoints.
+      const char * g711Prefix = "fax",  ///< Prefix for URL style address strings
+      const char * t38Prefix = "t38"    ///< Prefix for URL style address strings
     );
+    ~ModemEndPoint();
   //@}
-
-    static PString ArgSpec();
-    static PStringArray Descriptions();
-    static PStringArray Descriptions(const PConfigArgs & args);
-    static PBoolean Create(OpalManager & mgr, const PConfigArgs & args);
-    PBoolean Initialise(const PConfigArgs & args);
+    static PString GetArgumentSpec();
+    virtual bool Initialise(PArgList & args, bool verbose, const PString & defaultRoute);
 
     PseudoModem * PMAlloc(const PString &number) const;
     void PMFree(PseudoModem *pmodem) const;
@@ -106,9 +105,11 @@ class ModemEndPoint : public OpalEndPoint
     virtual OpalMediaFormatList GetMediaFormats() const;
   //@}
 
+    static PStringToString defaultStringOptions;
+
   protected:
-    PStringToString defaultStringOptions;
     PseudoModemQ *pmodem_pool;
+    PString m_prefix;
 
     PDECLARE_NOTIFIER(PObject, ModemEndPoint, OnMyCallback);
 };

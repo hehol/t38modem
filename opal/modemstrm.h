@@ -53,55 +53,6 @@
 
 #include <opal/mediastrm.h>
 
-#define OPAL_PACK_VERSION(major, minor, build) (((((major) << 8) + (minor)) << 8) + (build))
-
-/////////////////////////////////////////////////////////////////////////////
-class AudioEngine;
-
-class AudioModemMediaStream : public OpalMediaStream
-{
-    PCLASSINFO(AudioModemMediaStream, OpalMediaStream);
-  public:
-  /**@name Construction */
-  //@{
-    /**Construct a new media stream.
-      */
-    AudioModemMediaStream(
-      OpalConnection & conn,
-      unsigned sessionID,                  ///<  Session number for stream
-      PBoolean isSource,                   ///<  Is a source stream
-      AudioEngine *engine
-    );
-
-    ~AudioModemMediaStream();
-  //@}
-
-  /**@name Overrides of OpalRawMediaStream class */
-  //@{
-    virtual PBoolean Open();
-#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
-    virtual void InternalClose();
-#else
-    virtual PBoolean Close();
-#endif
-    virtual PBoolean ReadData(
-      BYTE * data,                         ///<  Data buffer to read to
-      PINDEX size,                         ///<  Size of buffer
-      PINDEX & length                      ///<  Length of data actually read
-    );
-
-    virtual PBoolean WriteData(
-      const BYTE * data,                   ///<  Data to write
-      PINDEX length,                       ///<  Length of data to read.
-      PINDEX & written                     ///<  Length of data actually written
-    );
-
-    virtual PBoolean IsSynchronous() const { return FALSE; }
-  //@}
-
-  protected:
-    AudioEngine *audioEngine;
-};
 /////////////////////////////////////////////////////////////////////////////
 class T38Engine;
 
@@ -126,11 +77,7 @@ class T38ModemMediaStream : public OpalMediaStream
   /**@name Overrides of OpalMediaStream class */
   //@{
     virtual PBoolean Open();
-#if (OPAL_PACK_VERSION(OPAL_MAJOR, OPAL_MINOR, OPAL_BUILD) >= OPAL_PACK_VERSION(3, 10, 5))
     virtual void InternalClose();
-#else
-    virtual PBoolean Close();
-#endif
     virtual void OnStartMediaPatch();
 
     virtual PBoolean ReadPacket(

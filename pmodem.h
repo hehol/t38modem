@@ -73,7 +73,6 @@
 
 ///////////////////////////////////////////////////////////////
 class T38Engine;
-class AudioEngine;
 class EngineBase;
 
 class PseudoModem : public ModemThread
@@ -91,7 +90,6 @@ class PseudoModem : public ModemThread
     virtual PBoolean CheckRoute(const PString &number) const = 0;
     virtual PBoolean Request(PStringToString &request) const = 0;
     virtual T38Engine *NewPtrT38Engine() const = 0;
-    virtual AudioEngine *NewPtrAudioEngine() const = 0;
     virtual EngineBase *NewPtrUserInputEngine() const = 0;
 
     const PString &ttyName() const { return ttyname; }
