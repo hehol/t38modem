@@ -489,7 +489,7 @@ PBoolean ModemConnection::SetUpConnection()
     srcName = other->GetRemotePartyName();
   }
 
-  PString dstNum = GetRemotePartyNumber();
+  PString dstNum = m_calledPartyNumber;
 
   myPTRACE(1, "T38Modem\tModemConnection::SetUpConnection"
            << " dstNum=" << dstNum
