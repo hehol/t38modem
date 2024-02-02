@@ -29,7 +29,7 @@
 #define MAJOR_VERSION 4
 #define MINOR_VERSION 6
 #define BUILD_TYPE    PProcess::ReleaseCode
-#define BUILD_NUMBER  0
+#define BUILD_NUMBER  2
 
 #endif  // _T38M_VERSION_H
 
