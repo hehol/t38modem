@@ -121,7 +121,7 @@ void ModemThreadChild::SignalStop()
 ///////////////////////////////////////////////////////////////
 int ChunkStream::write(const void *pBuf, PINDEX count)
 {
-  int len = sizeof(data) - last;
+  unsigned int len = sizeof(data) - last;
 
   if (!len)
     return -1;
@@ -140,7 +140,7 @@ int ChunkStream::read(void *pBuf, PINDEX count)
   if (sizeof(data) == first)
     return -1;
 
-  int len = last - first;
+  unsigned int len = last - first;
 
   if (len > count)
     len = count;

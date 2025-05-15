@@ -177,7 +177,7 @@ int DLEData::GetDleData(void *pBuf, PINDEX count)
       cGet = sizeof(tmp);
 
     switch( cGet = GetData(tmp, cGet) ) {
-      case -1:
+      case 1:
         *p++ = DLE;
         *p++ = ETX;
         recvEtx = TRUE;
