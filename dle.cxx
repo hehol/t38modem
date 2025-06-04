@@ -170,10 +170,10 @@ int DLEData::GetDleData(void *pBuf, PINDEX count)
   int done;
 
   for (done = 0 ; (count - done) >= 4 ; done = int(p - (BYTE *)pBuf)) {
-    PINDEX cGet = (count - done - 2) / 2;
+    int cGet = (count - done - 2) / 2;
     BYTE tmp[1024];
 
-    if (cGet > (PINDEX)sizeof(tmp))
+    if (cGet > sizeof(tmp))
       cGet = sizeof(tmp);
 
     switch( cGet = GetData(tmp, cGet) ) {
@@ -185,7 +185,7 @@ int DLEData::GetDleData(void *pBuf, PINDEX count)
       case 0:
         return int(p - (BYTE *)pBuf);
       default:
-        for( PINDEX i = 0 ; i < cGet ; i++ ) {
+        for( int i = 0 ; i < cGet ; i++ ) {
           BYTE b = bitRev ? BitRevTable[tmp[i]] : tmp[i];
           if( b == DLE )
             *p++ = DLE;
